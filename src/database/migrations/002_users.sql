@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+
+  username VARCHAR(100) NOT NULL,
+  email VARCHAR(150) UNIQUE,
+  phone VARCHAR(20) UNIQUE,
+  password VARCHAR(255) NOT NULL,
+
+  school_id INT NULL,
+
+  status ENUM('active','inactive') DEFAULT 'active',
+
+  token_version INT DEFAULT 0,
+  is_online TINYINT(1) DEFAULT 0,
+  last_seen TIMESTAMP NULL,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  last_login_at TIMESTAMP NULL
+);

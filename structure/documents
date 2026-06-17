@@ -1,0 +1,93 @@
+src/
+│
+├── config/
+│   └── db.js
+│
+├── database/
+│   ├── migrations/
+│   │   ├── 001_roles.sql
+│   │   ├── 002_users.sql
+│   │   ├── 003_user_roles.sql
+│   │   ├── 004_permissions.sql
+│   │   ├── 005_role_permissions.sql
+│   │   ├── 006_schools.sql
+│   │   ├── 007_students.sql
+│   │   ├── 008_teachers.sql
+│   │   ├── 009_classes.sql
+│   │   └── 010_assignments.sql
+│   │
+│   ├── seeds/
+│   │   ├── roles.seed.js
+│   │   ├── permissions.seed.js
+│   │   └── admin.seed.js
+│   │
+│   └── runMigrations.js
+│
+├── models/              ❗ optional but recommended
+│   ├── user.model.js
+│   ├── role.model.js
+│   └── student.model.js
+
+
+---------------------------------------------------------
+
+src/
+│
+├── config/
+│   └── db.js
+│
+├── modules/
+│   ├── auth/
+│   │   ├── auth.controller.js
+│   │   ├── auth.service.js
+│   │   ├── auth.routes.js
+│   │   └── auth.validation.js
+│   │
+│   ├── users/
+│   │   ├── user.controller.js
+│   │   ├── user.service.js
+│   │   ├── user.model.js
+│   │   ├── user.routes.js
+│   │   └── user.validation.js
+│   │
+│   ├── roles/
+│   │   ├── role.controller.js
+│   │   ├── role.service.js   🔥 (move logic here)
+│   │   ├── role.model.js
+│   │   ├── role.routes.js
+│   │   └── role.validation.js
+│   │
+│   ├── students/
+│   │   ├── student.controller.js
+│   │   ├── student.service.js
+│   │   ├── student.model.js
+│   │   ├── student.routes.js
+│   │   └── student.validation.js
+│
+├── database/
+│   ├── migrations/
+│   └── seeds/
+│
+├── middlewares/
+│   ├── auth.middleware.js
+│   └── rbac.middleware.js
+│
+├── utils/
+│   └── helpers.js
+│
+├── app.js
+└── server.js
+
+📦 MICROSERVICE FOLDER (EACH SERVICE)
+role-service/
+│
+├── src/
+│   ├── controller/
+│   ├── service/
+│   ├── model/
+│   ├── routes/
+│   ├── db/
+│   └── app.js
+│
+├── Dockerfile
+└── package.json

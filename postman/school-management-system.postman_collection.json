@@ -1,0 +1,622 @@
+{
+  "info": {
+    "_postman_id": "b554922b-7e8b-40ca-a7b7-6f703641200a",
+    "name": "school-management-system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51069067",
+    "_collection_link": "https://go.postman.co/collection/51069067-b554922b-7e8b-40ca-a7b7-6f703641200a?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "roles",
+      "item": [
+        {
+          "name": "createRole",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n//   \"name\": \"TEACHER\",\r\n  \"name\": \"TEACHER\",\r\n//   \"name\": \"ADMIN\",\r\n  \"description\": \"Handles classes\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/roles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "roles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getAllRoles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:6000/api/roles",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "roles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateRole",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"ACCOUNTANT\",\r\n  \"description\": \"Handles billing\",\r\n  \"status\": \"active\"\r\n//   \"status\": \"inactive\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/roles/5",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "roles",
+                "5"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateRoleStatus",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "// {\r\n//   \"status\": \"inactive\"\r\n// }\r\n\r\n{\r\n  \"status\": \"active\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/roles/status/5",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "roles",
+                "status",
+                "5"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "deleteRole",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"role_name\": \"ACCOUNTANT\",\r\n  \"role_description\": \"Handles billing\",\r\n//   \"status\": \"active\"\r\n  \"status\": \"inactive\"\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/roles/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "roles",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "item": [
+        {
+          "name": "createUser",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "// {\r\n//   \"username\": \"john1\",\r\n// //   \"email\": \"john@gmail.com\",\r\n//   \"phone\": \"9876543218\",\r\n//   \"password\": \"123456\",\r\n//   \"role_id\": 1\r\n// }\r\n\r\n// {\r\n//   \"username\": \"john\",\r\n//   \"email\": \"john@gmail.com\",\r\n//   \"phone\": \"9876543215\",\r\n//   \"password\": \"123456\",\r\n//   \"roles\": [2,3]\r\n// }\r\n\r\n{\r\n  \"username\": \"kural\",\r\n  \"email\": \"kural@gmail.com\",\r\n  \"phone\": \"6380564945\",\r\n  \"password\": \"123456\",\r\n  \"roles\": [2,3]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/users/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "loginUser",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-client-type",
+                "value": "mobile",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "// {\r\n//   \"username\": \"TESTUSER\",\r\n//   \"password\": \"123456\"\r\n// }\r\n\r\n// {\r\n//   \"username\": \"admin\",\r\n//   \"password\": \"admin\"\r\n// }\r\n\r\n// {\r\n//  \"login_id\": \"ADMIN@gmail.com\",\r\n//  \"password\": \"admin\"\r\n// }\r\n\r\n{\r\n \"login_id\": \"ADMIN\",\r\n \"password\": \"admin123\"\r\n}\r\n\r\n// {\r\n//  \"login_id\": \"6380564945\",\r\n//  \"password\": \"123456\"\r\n// }\r\n\r\n// {\r\n//  \"login_id\": \"kuralarasan\",\r\n//  \"password\": \"123456\"\r\n// }\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/users/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getAllUsers",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "// {\r\n//   \"username\": \"john1\",\r\n// //   \"email\": \"john@gmail.com\",\r\n//   \"phone\": \"9876543218\",\r\n//   \"password\": \"123456\",\r\n//   \"role_id\": 1\r\n// }\r\n\r\n{\r\n  \"username\": \"john12\",\r\n//   \"email\": \"john@gmail.com\",\r\n  \"phone\": \"9876543215\",\r\n  \"password\": \"123456\",\r\n  \"roles\": [2,3,5]\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/users",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getUserById",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:6000/api/users/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateUser",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "// {\r\n//   \"username\": \"john_updated1\",\r\n//   \"email\": \"john_updated1@gmail.com\",\r\n//   \"phone\": \"9998887776\"\r\n// }\r\n\r\n// {\r\n//   \"password\": \"newpassword123\"\r\n// }\r\n\r\n// {\r\n//   \"roles\": [2, 3]\r\n// }\r\n// // 🧪 4. ASSIGN ADMIN (ONLY IF NONE EXISTS)\r\n// {\r\n//   \"roles\": [1]\r\n// }\r\n\r\n// {\r\n//   \"status\": \"inactive\"\r\n// }\r\n\r\n{\r\n  \"username\": \"newname\",\r\n  \"email\": \"new@gmail.com\",\r\n  \"phone\": \"8887776665\",\r\n  \"password\":\"123456\",\r\n  \"roles\": [2, 3],\r\n  \"status\": \"active\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/users/update/13",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "update",
+                "13"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "deleteUser",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:6000/api/users/delete/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "delete",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "check-username",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:6000/api/users/check-username/admin",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "check-username",
+                "admin"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "admin",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "check-phone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:6000/api/users/check-phone/9876543210",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "check-phone",
+                "9876543210"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "check-email",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/users/check-email/admin@gmail.com",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "check-email",
+                "admin@gmail.com"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "admin@gmail.com",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateUserStatus",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "\r\n// {\r\n//     \"status\":\"inactive\"\r\n// }\r\n\r\n{\r\n    \"status\":\"active\"\r\n}\r\n"
+            },
+            "url": {
+              "raw": "http://localhost:6000/api/users/status/13",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "status",
+                "13"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getMyProfile",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:6000/api/users/me",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getMyProfile-admin",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:6000/api/users/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "logoutAllDevices",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:6000/api/users/logout-all",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "logout-all"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "refreshToken",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{refreshToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:6000/api/users/refresh-token",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "refresh-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "logoutUser",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:6000/api/users/logout",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "6000",
+              "path": [
+                "api",
+                "users",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
