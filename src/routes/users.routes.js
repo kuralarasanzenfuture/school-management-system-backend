@@ -14,9 +14,9 @@ import {
   updateUserStatus,
   deleteUser,
   createUser,
-} from "../../modules/users/user.controller.js";
+} from "../modules/users/user.controller.js";
 
-import { verifyToken } from "../../middlewares/auth.middleware.js";
+import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

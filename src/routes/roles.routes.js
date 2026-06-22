@@ -5,8 +5,8 @@ import {
   updateRole,
   deleteRole,
   updateRoleStatus
-} from "../../modules/roles/role.controller.js";
-import { verifyToken } from "../../middlewares/auth.middleware.js";
+} from "../modules/roles/role.controller.js";
+import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
