@@ -3,7 +3,6 @@ dotenv.config();
 
 import http from "http";
 
-
 import app from "./app.js";
 import { initDB } from "./config/db.js";
 import runMigrations from "./database/runMigrations.js";
