@@ -3,14 +3,14 @@ CREATE TABLE IF NOT EXISTS students (
 
     school_id INT NOT NULL,
 
-    admission_no VARCHAR(50) UNIQUE,
+    student_code VARCHAR(50) UNIQUE NOT NULL,
 
-    first_name VARCHAR(100),
+    first_name VARCHAR(100) NOT NULL,
     middle_name VARCHAR(100),
-    last_name VARCHAR(100),
+    last_name VARCHAR(100) NOT NULL,
 
     email VARCHAR(150),
-    mobile_no VARCHAR(20),
+    mobile_no VARCHAR(20) NOT NULL,
 
     date_of_birth DATE,
     gender ENUM('male','female','other'),
@@ -69,8 +69,8 @@ CREATE TABLE IF NOT EXISTS students (
     emergency_relationship VARCHAR(100),
 
     -- Medical
-    allergies TEXT,
-    chronic_conditions TEXT,
+    -- allergies TEXT,
+    -- chronic_conditions TEXT,
    -- family_doctor_name VARCHAR(150),
 
     status ENUM(
@@ -86,7 +86,9 @@ CREATE TABLE IF NOT EXISTS students (
 
     FOREIGN KEY (school_id) REFERENCES schools(id),
 
-    UNIQUE KEY uq_admission_no (admission_no),
+    UNIQUE KEY uq_student_code (student_code),
+    -- UNIQUE KEY uq_email (email),
+   -- UNIQUE KEY uq_mobile_no (mobile_no),
     UNIQUE KEY uq_aadhaar_no (aadhaar_no)
 
 );

@@ -3,6 +3,11 @@ import { getDB } from "../../config/db.js";
 export const seedStudents = async () => {
   const db = getDB();
 
+  const getYear = () => {
+    const date = new Date();
+    return date.getFullYear();
+  };
+
   const [schools] = await db.query("SELECT id FROM schools");
 
   if (!schools.length) {
@@ -55,7 +60,7 @@ export const seedStudents = async () => {
 
     const gender = Math.random() > 0.5 ? "male" : "female";
 
-    const admissionNo = `ADM-2026-${String(i).padStart(4, "0")}`;
+    const admissionNo = `STD-${getYear()}-${String(i).padStart(4, "0")}`;
 
     const aadhaar = `6${String(10000000000 + i).padStart(11, "0")}`;
 
@@ -67,7 +72,7 @@ export const seedStudents = async () => {
       `
       INSERT IGNORE INTO students (
         school_id,
-        admission_no,
+        student_code,
         first_name,
         middle_name,
         last_name,

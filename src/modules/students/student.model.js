@@ -84,7 +84,7 @@ export const StudentModel = {
   create: async (conn, data) => {
     const [result] = await conn.query(
       `INSERT INTO students (
-    school_id, admission_no, first_name, middle_name, last_name,
+    school_id, student_code, first_name, middle_name, last_name,
     email, mobile_no, date_of_birth, gender, blood_group,
     aadhaar_no, religion, nationality, mother_tongue, photo_url,
     current_area, current_city, current_district, current_state, current_postal_code,
@@ -96,17 +96,17 @@ export const StudentModel = {
     father_name, mother_name, father_occupation, mother_occupation,
     parent_mobile, alternate_mobile, parent_email,
     emergency_contact, emergency_relationship,
-    allergies, chronic_conditions, status
+    status
   ) VALUES (
   ?,?,?,?,?,?,?,?,?,?,
   ?,?,?,?,?,?,?,?,?,?,
   ?,?,?,?,?,?,?,?,?,?,
   ?,?,?,?,?,?,?,?,?,?,
-  ?,?,?,?,?
+  ?,?,?
 )`,
       [
         data.school_id,
-        data.admission_no,
+        data.student_code,
         data.first_name,
         data.middle_name,
         data.last_name,
@@ -152,8 +152,6 @@ export const StudentModel = {
         data.emergency_contact,
         data.emergency_relationship,
 
-        data.allergies,
-        data.chronic_conditions,
         data.status,
       ],
     );

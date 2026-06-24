@@ -1,7 +1,8 @@
 export const validateCreateStudent = (data) => {
   let {
     school_id,
-    admission_no,
+
+    student_code,
 
     first_name,
     middle_name,
@@ -47,9 +48,6 @@ export const validateCreateStudent = (data) => {
 
     emergency_contact,
     emergency_relationship,
-
-    allergies,
-    chronic_conditions,
 
     status,
   } = data;
@@ -107,8 +105,6 @@ export const validateCreateStudent = (data) => {
   emergency_contact = emergency_contact?.trim() || null;
   emergency_relationship = emergency_relationship?.trim().toUpperCase() || null;
 
-  allergies = allergies?.trim() || null;
-  chronic_conditions = chronic_conditions?.trim() || null;
 
   /* =====================================
      🔴 EMAIL VALIDATION
@@ -206,7 +202,7 @@ export const validateCreateStudent = (data) => {
   ===================================== */
   return {
     school_id,
-    admission_no: admission_no || null,
+    student_code: student_code || null,
 
     first_name,
     middle_name,
@@ -252,9 +248,6 @@ export const validateCreateStudent = (data) => {
 
     emergency_contact: emergency_contact || null,
     emergency_relationship: emergency_relationship || null,
-
-    allergies: allergies || null,
-    chronic_conditions: chronic_conditions || null,
 
     status,
   };
@@ -479,8 +472,6 @@ export const validateUpdateStudent = (data) => {
     parent_email,
     emergency_contact,
     emergency_relationship,
-    allergies,
-    chronic_conditions,
     status,
   } = data;
 
@@ -613,8 +604,7 @@ export const validateUpdateStudent = (data) => {
     "mother_occupation",
     "emergency_contact",
     "emergency_relationship",
-    "allergies",
-    "chronic_conditions",
+
   ].forEach((field) => {
     if (data[field] !== undefined) {
       cleaned[field] = data[field]?.trim() || null;

@@ -14,7 +14,7 @@ const FILE_FOLDERS = {
 /* =========================================
    🔥 Generate Admission Number
 ========================================= */
-const generateAdmissionNo = async (conn, school_id) => {
+const generateStudentCode = async (conn, school_id) => {
   const [[last]] = await conn.query(
     `SELECT id FROM students WHERE school_id=? ORDER BY id DESC LIMIT 1`,
     [school_id],
@@ -24,7 +24,7 @@ const generateAdmissionNo = async (conn, school_id) => {
 
   const year = new Date().getFullYear();
 
-  return `ADM-${year}-${String(next).padStart(4, "0")}`;
+  return `STD-${year}-${String(next).padStart(4, "0")}`;
 };
 
 /* =========================================
@@ -39,6 +39,8 @@ export const createStudent = async (req) => {
       throw { status: 400, message: "Request body is empty" };
     }
     let data = validateCreateStudent(req.body);
+
+    // console.log("VALIDATION INPUT:", data);
 
     await conn.beginTransaction();
 
@@ -74,7 +76,7 @@ export const createStudent = async (req) => {
     }
 
     // 🔥 AUTO GENERATE ADMISSION NUMBER
-    data.admission_no = await generateAdmissionNo(conn, data.school_id);
+    data.student_code = await generateStudentCode(conn, data.school_id);
 
     // 🔥 FILE HANDLING
     // if (req.files) {
