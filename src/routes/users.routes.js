@@ -14,6 +14,7 @@ import {
   updateUserStatus,
   deleteUser,
   createUser,
+  getAllUsersByToken,
 } from "../modules/users/user.controller.js";
 
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -35,7 +36,7 @@ router.post("/refresh-token", refreshToken);
 router.get("/me", verifyToken, getMyProfile);
 
 // 🔐 Admin only (optional)
-router.get("/:id", verifyToken, getMyProfile);
+router.get("/me/:id", verifyToken, getMyProfile);
 
 /* =========================
    LOGOUT
@@ -56,6 +57,7 @@ router.get("/check-phone/:phone", checkPhone);
 
 // 🔴 ONLY ADMIN CAN SEE ALL USERS
 router.get("/", getAllUsers);
+router.get("/token", verifyToken, getAllUsersByToken);
 
 // // 🔴 ADMIN + SELF ACCESS
 router.get("/:id", getUserById);

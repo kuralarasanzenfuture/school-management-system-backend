@@ -9,6 +9,9 @@ import sectionRoutes from "./section.routes.js";
 import studentRoutes from "./student.routes.js";
 import studentAdmissionRoutes from "./studentAdmission.routes.js";
 
+import employeeDesignationRoutes from "./employee_designations.routes.js";
+import employeeRoutes from "./employee.routes.js";
+
 const router = express.Router();
 
 
@@ -21,5 +24,8 @@ router.use("/classes", classRoutes);
 router.use("/sections", sectionRoutes);
 router.use("/students", studentRoutes);
 router.use("/student-admissions", studentAdmissionRoutes);
+
+router.use("/employees-designations", employeeDesignationRoutes);
+router.use("/employees", employeeRoutes);
 
 export default router;

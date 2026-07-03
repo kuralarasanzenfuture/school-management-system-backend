@@ -7,6 +7,7 @@ import {
   deleteSection,
   getAllSectionsClassId,
   getSchoolTree,
+  getAllSectionsByToken,
 } from "../modules/sections/section.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
@@ -16,6 +17,7 @@ const router = express.Router();
 
 router.post("/", createSection);
 router.get("/", getAllSections);
+router.get("/token", verifyToken, getAllSectionsByToken);
 router.get("/tree", getSchoolTree);
 router.get("/class", getAllSectionsClassId); // query
 router.get("/class/:class_id", getAllSectionsClassId); // params

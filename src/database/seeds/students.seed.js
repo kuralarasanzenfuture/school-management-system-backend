@@ -17,27 +17,97 @@ export const seedStudents = async () => {
 
   const schoolId = schools[0].id;
 
-  const firstNames = [
-    "Arun",
-    "Karthik",
-    "Praveen",
-    "Dinesh",
-    "Sathish",
-    "Vignesh",
+  const maleNames = [
+    "Aadhavan",
+    "Aakash",
+    "Abhinav",
+    "Ajay",
+    "Akash",
+    "Akilan",
+    "Aravind",
+    "Arjun",
+    "Ashwin",
+    "Bharath",
+    "Charan",
+    "Darshan",
+    "Dhanush",
+    "Dharan",
+    "Dheeran",
+    "Gokul",
+    "Hari",
     "Harish",
+    "Jeevan",
+    "Kavin",
+    "Kishore",
     "Lokesh",
+    "Madhan",
+    "Manikandan",
+    "Mithun",
+    "Mohan",
+    "Nandhakumar",
+    "Naren",
     "Naveen",
+    "Pranav",
+    "Praveen",
+    "Rahul",
+    "Rakesh",
+    "Ranjith",
+    "Rithvik",
+    "Sanjay",
+    "Saravanan",
+    "Sathish",
+    "Sharan",
+    "Sivakumar",
     "Surya",
-    "Priya",
-    "Divya",
-    "Nivetha",
-    "Keerthana",
+    "Tamilselvan",
+    "Tharun",
+    "Vignesh",
+    "Vikram",
+    "Vinoth",
+    "Vishal",
+    "Yogesh",
+    "Yuvan",
+    "Yuvaraj",
+  ];
+  const femaleNames = [
+    "Aarthi",
+    "Abinaya",
+    "Ananya",
     "Anitha",
-    "Kavya",
-    "Swathi",
-    "Aishwarya",
-    "Madhumitha",
+    "Anjali",
+    "Aradhana",
+    "Bhavani",
+    "Darshini",
+    "Deepika",
+    "Divya",
+    "Gayathri",
     "Harini",
+    "Janani",
+    "Keerthana",
+    "Kirthika",
+    "Kavya",
+    "Lavanya",
+    "Madhumitha",
+    "Meena",
+    "Monisha",
+    "Nandhini",
+    "Nivetha",
+    "Pavithra",
+    "Priya",
+    "Rajalakshmi",
+    "Ramya",
+    "Ranjani",
+    "Revathi",
+    "Sangeetha",
+    "Shalini",
+    "Sneha",
+    "Sowmya",
+    "Subhashini",
+    "Swathi",
+    "Vaishnavi",
+    "Varshini",
+    "Vidhya",
+    "Yazhini",
   ];
 
   const lastNames = [
@@ -54,11 +124,13 @@ export const seedStudents = async () => {
   ];
 
   for (let i = 1; i <= 50; i++) {
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-
     const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
 
     const gender = Math.random() > 0.5 ? "male" : "female";
+    const firstName =
+      gender === "male"
+        ? maleNames[Math.floor(Math.random() * maleNames.length)]
+        : femaleNames[Math.floor(Math.random() * femaleNames.length)];
 
     const admissionNo = `STD-${getYear()}-${String(i).padStart(4, "0")}`;
 
@@ -67,6 +139,72 @@ export const seedStudents = async () => {
     const mobile = `9${String(800000000 + i).padStart(9, "0")}`;
 
     const parentMobile = `8${String(700000000 + i).padStart(9, "0")}`;
+
+    const statuses = [
+      "active",
+      "active",
+      "active",
+      "active",
+      "active",
+      "active",
+      "active",
+      "graduated",
+      "transferred",
+      "dropped",
+    ];
+
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+    const fatherOccupations = [
+      "Farmer",
+      "Government Employee",
+      "Businessman",
+      "Teacher",
+      "Police Officer",
+      "Electrician",
+      "Engineer",
+      "Driver",
+      "Contractor",
+      "Bank Employee",
+      "Private Employee",
+      "Textile Merchant",
+    ];
+
+    const motherOccupations = [
+      "Homemaker",
+      "Teacher",
+      "Nurse",
+      "Government Employee",
+      "Tailor",
+      "Businesswoman",
+      "Private Employee",
+      "Self Employed",
+    ];
+
+    const fatherOccupation =
+      fatherOccupations[Math.floor(Math.random() * fatherOccupations.length)];
+    const motherOccupation =
+      motherOccupations[Math.floor(Math.random() * motherOccupations.length)];
+
+    const areas = [
+      "Nallampalli",
+      "Pennagaram",
+      "Palacode",
+      "Harur",
+      "Papparapatti",
+      "Karimangalam",
+      "Morappur",
+      "Bommidi",
+      "Kadathur",
+      "Dharmapuri Town",
+    ];
+
+    const area = areas[Math.floor(Math.random() * areas.length)];
+
+    const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+    const bloodGroup =
+      bloodGroups[Math.floor(Math.random() * bloodGroups.length)];
 
     await db.query(
       `
@@ -110,16 +248,13 @@ export const seedStudents = async () => {
         parent_email,
         emergency_contact,
         emergency_relationship,
-
-        allergies,
-        chronic_conditions,
         status
       )
       VALUES (
         ?,?,?,?,?,?,?,?,?,?,
         ?,?,?,?,?,?,?,?,?,?,
         ?,?,?,?,?,?,?,?,?,?,
-        ?,?,?,?,?,?,?,?,?
+        ?,?,?,?,?,?,?
       )
       `,
       [
@@ -139,7 +274,7 @@ export const seedStudents = async () => {
 
         gender,
 
-        ["A+", "B+", "O+", "AB+"][i % 4],
+        bloodGroup,
 
         aadhaar,
 
@@ -149,7 +284,7 @@ export const seedStudents = async () => {
 
         "Tamil",
 
-        "Nallampalli",
+        area,
 
         "Dharmapuri",
 
@@ -159,7 +294,7 @@ export const seedStudents = async () => {
 
         "636701",
 
-        "Nallampalli, Dharmapuri",
+        `${area}, Dharmapuri`,
 
         true,
 
@@ -179,9 +314,9 @@ export const seedStudents = async () => {
 
         `Mrs. ${lastName}`,
 
-        "Farmer",
+        fatherOccupation,
 
-        "Homemaker",
+        motherOccupation,
 
         parentMobile,
 
@@ -193,11 +328,7 @@ export const seedStudents = async () => {
 
         "Father",
 
-        "",
-
-        "",
-
-        "active",
+        status,
       ],
     );
   }

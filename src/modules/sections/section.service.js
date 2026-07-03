@@ -110,6 +110,80 @@ export const getAllSections = async (filters) => {
   return await SectionModel.getAll(filters);
 };
 
+export const getAllSectionsByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 Get fresh user + roles
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id]
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  // 🔥 Normalize roles
+  const roles = dbUser.roles
+    ? dbUser.roles.split(",").filter(Boolean)
+    : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT 
+      s.id,
+      s.name AS section_name,
+      s.capacity,
+      s.status,
+
+      c.id AS class_id,
+      c.name AS class_name,
+
+      sc.id AS school_id,
+      sc.name AS school_name,
+
+      CONCAT(c.name, '-', s.name) AS class_section
+
+    FROM sections s
+    JOIN classes c ON s.class_id = c.id
+    JOIN schools sc ON c.school_id = sc.id
+    WHERE 1=1
+  `;
+
+  const values = [];
+
+  // 🔥 NON-ADMIN → filter by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` AND c.school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += ` ORDER BY s.id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 export const getSchoolTree = async () => {
   const rows = await SectionModel.getAllTreeData();
 

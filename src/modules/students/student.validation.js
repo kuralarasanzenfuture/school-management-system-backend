@@ -1,3 +1,5 @@
+import { parseBoolean } from "../../utils/toBoolean.js";
+
 export const validateCreateStudent = (data) => {
   let {
     school_id,
@@ -188,8 +190,7 @@ export const validateCreateStudent = (data) => {
      🔴 BOOLEAN NORMALIZATION
   ===================================== */
   current_address_same_as_permanent =
-    current_address_same_as_permanent === true ||
-    current_address_same_as_permanent === "true";
+  parseBoolean(current_address_same_as_permanent);
 
   /* =====================================
      🔴 DEFAULTS
@@ -616,8 +617,7 @@ export const validateUpdateStudent = (data) => {
   ===================================== */
   if (current_address_same_as_permanent !== undefined) {
     cleaned.current_address_same_as_permanent =
-      current_address_same_as_permanent === true ||
-      current_address_same_as_permanent === "true";
+      parseBoolean(current_address_same_as_permanent);
   }
 
   if (religion !== undefined) {

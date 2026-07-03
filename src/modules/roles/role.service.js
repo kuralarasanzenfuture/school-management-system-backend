@@ -87,6 +87,11 @@ export const updateRole = async (id, data) => {
   const role = await RoleModel.findById(id);
   if (!role) throw { status: 404, message: "Role not found" };
 
+  // ✅ Protect ADMIN by ID
+  if (Number(id) === 1) {
+    throw { status: 403, message: "ADMIN role cannot be modified" };
+  }
+
   if (role.role_name === "ADMIN") {
     throw { status: 403, message: "ADMIN cannot be modified" };
   }

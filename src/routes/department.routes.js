@@ -4,11 +4,20 @@ import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
+// router.use(verifyToken);
+
 // CREATE
 router.post("/", DepartmentController.createDepartment);
 
 // GET
 router.get("/", DepartmentController.getAllDepartments);
+
+router.get(
+  "/token",
+  verifyToken,
+  DepartmentController.getAllDepartmentsByToken,
+);
+
 router.get("/school/:school_id", DepartmentController.getDepartmentsBySchool);
 
 // UPDATE

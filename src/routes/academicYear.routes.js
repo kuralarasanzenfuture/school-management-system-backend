@@ -1,6 +1,13 @@
 import express from "express";
 import { verifyToken } from "../middlewares/auth.middleware.js";
-import { createAcademicYear, deleteAcademicYear, getAcademicYearById, getAllAcademicYears, updateAcademicYear } from "../modules/academicYear/academicYear.controller.js";
+import {
+  createAcademicYear,
+  deleteAcademicYear,
+  getAcademicYearById,
+  getAllAcademicYears,
+  getAllAcademicYearsByToken,
+  updateAcademicYear,
+} from "../modules/academicYear/academicYear.controller.js";
 
 const router = express.Router();
 
@@ -8,6 +15,7 @@ const router = express.Router();
 
 router.post("/", createAcademicYear);
 router.get("/", getAllAcademicYears);
+router.get("/token", verifyToken, getAllAcademicYearsByToken);
 router.get("/:id", getAcademicYearById);
 router.put("/:id", updateAcademicYear);
 router.delete("/:id", deleteAcademicYear);

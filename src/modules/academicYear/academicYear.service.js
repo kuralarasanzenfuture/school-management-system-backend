@@ -15,12 +15,8 @@ const generateAcademicYearName = (startDate, endDate) => {
 const isCurrentDateRange = (start, end) => {
   const today = new Date();
 
-  return (
-    today >= new Date(start) &&
-    today <= new Date(end)
-  );
+  return today >= new Date(start) && today <= new Date(end);
 };
-
 
 // export const createAcademicYear = async (data) => {
 //   const db = getDB();
@@ -81,7 +77,7 @@ const isCurrentDateRange = (start, end) => {
 
 //     // ❌ Prevent duplicate year
 //     const [[exists]] = await connection.query(
-//       `SELECT id FROM academic_years 
+//       `SELECT id FROM academic_years
 //        WHERE school_id=? AND name=?`,
 //       [validated.school_id, name]
 //     );
@@ -111,8 +107,8 @@ const isCurrentDateRange = (start, end) => {
 //     // ✅ Ensure only one current year
 //     if (validated.is_current) {
 //       await connection.query(
-//         `UPDATE academic_years 
-//          SET is_current = 0 
+//         `UPDATE academic_years
+//          SET is_current = 0
 //          WHERE school_id=?`,
 //         [validated.school_id]
 //       );
@@ -162,13 +158,13 @@ export const createAcademicYear = async (data) => {
 
     const name = generateAcademicYearName(
       validated.start_date,
-      validated.end_date
+      validated.end_date,
     );
 
     // 🔥 AUTO DETERMINE CURRENT
     const isCurrent = isCurrentDateRange(
       validated.start_date,
-      validated.end_date
+      validated.end_date,
     );
 
     await connection.beginTransaction();
@@ -177,7 +173,7 @@ export const createAcademicYear = async (data) => {
     const [[exists]] = await connection.query(
       `SELECT id FROM academic_years 
        WHERE school_id=? AND name=?`,
-      [validated.school_id, name]
+      [validated.school_id, name],
     );
 
     if (exists) {
@@ -195,7 +191,7 @@ export const createAcademicYear = async (data) => {
         (? BETWEEN start_date AND end_date)
       )
       `,
-      [validated.school_id, validated.start_date, validated.end_date]
+      [validated.school_id, validated.start_date, validated.end_date],
     );
 
     if (overlap.length) {
@@ -208,7 +204,7 @@ export const createAcademicYear = async (data) => {
         `UPDATE academic_years 
          SET is_current = 0 
          WHERE school_id=?`,
-        [validated.school_id]
+        [validated.school_id],
       );
     }
 
@@ -226,7 +222,7 @@ export const createAcademicYear = async (data) => {
         validated.end_date,
         isCurrent ? 1 : 0,
         validated.status,
-      ]
+      ],
     );
 
     await connection.commit();
@@ -237,7 +233,6 @@ export const createAcademicYear = async (data) => {
       name,
       is_current: isCurrent,
     };
-
   } catch (err) {
     await connection.rollback();
     throw err;
@@ -245,7 +240,6 @@ export const createAcademicYear = async (data) => {
     connection.release();
   }
 };
-
 
 // export const updateAcademicYear = async (id, data) => {
 //   const db = getDB();
@@ -309,7 +303,6 @@ export const createAcademicYear = async (data) => {
 //   }
 // };
 
-
 /* -------------------name auto generate ------------------------------------------------------- */
 
 // export const updateAcademicYear = async (id, data) => {
@@ -345,7 +338,7 @@ export const createAcademicYear = async (data) => {
 
 //       // ❌ prevent duplicate
 //       const [[dup]] = await conn.query(
-//         `SELECT id FROM academic_years 
+//         `SELECT id FROM academic_years
 //          WHERE school_id=? AND name=? AND id!=?`,
 //         [existing.school_id, newName, id]
 //       );
@@ -485,7 +478,7 @@ export const updateAcademicYear = async (id, data) => {
       const [[dup]] = await conn.query(
         `SELECT id FROM academic_years 
          WHERE school_id=? AND name=? AND id!=?`,
-        [existing.school_id, newName, id]
+        [existing.school_id, newName, id],
       );
 
       if (dup) {
@@ -502,7 +495,7 @@ export const updateAcademicYear = async (id, data) => {
           start_date <= ? AND end_date >= ?
         )
         `,
-        [existing.school_id, id, newEnd, newStart]
+        [existing.school_id, id, newEnd, newStart],
       );
 
       if (overlap.length) {
@@ -531,10 +524,7 @@ export const updateAcademicYear = async (id, data) => {
 
     if (validated.is_current !== undefined) {
       if (validated.is_current) {
-        await AcademicYearModel.setAllNotCurrent(
-          conn,
-          existing.school_id
-        );
+        await AcademicYearModel.setAllNotCurrent(conn, existing.school_id);
       }
 
       fields.push("is_current=?");
@@ -554,7 +544,6 @@ export const updateAcademicYear = async (id, data) => {
     await conn.commit();
 
     return { message: "Academic year updated" };
-
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -585,13 +574,68 @@ export const getAllAcademicYears = async (school_id) => {
   return rows;
 };
 
+export const getAllAcademicYearsByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 Always get fresh user data from DB (DON'T trust token blindly)
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  // 🔥 Normalize roles
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT *
+    FROM academic_years
+  `;
+
+  const values = [];
+
+  // 🔥 NON-ADMIN → restrict by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` WHERE school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += ` ORDER BY id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 export const getAcademicYearById = async (id) => {
   const db = getDB();
 
-  const [[row]] = await db.query(
-    `SELECT * FROM academic_years WHERE id = ?`,
-    [id]
-  );
+  const [[row]] = await db.query(`SELECT * FROM academic_years WHERE id = ?`, [
+    id,
+  ]);
 
   if (!row) {
     throw { status: 404, message: "Academic year not found" };
@@ -609,7 +653,7 @@ export const deleteAcademicYear = async (id) => {
 
     const [[existing]] = await conn.query(
       `SELECT * FROM academic_years WHERE id = ?`,
-      [id]
+      [id],
     );
 
     if (!existing) {
@@ -635,15 +679,11 @@ export const deleteAcademicYear = async (id) => {
     //   throw { status: 400, message: "Year already in use" };
     // }
 
-    await conn.query(
-      `DELETE FROM academic_years WHERE id = ?`,
-      [id]
-    );
+    await conn.query(`DELETE FROM academic_years WHERE id = ?`, [id]);
 
     await conn.commit();
 
     return { message: "Academic year deleted" };
-
   } catch (err) {
     await conn.rollback();
     throw err;

@@ -13,7 +13,7 @@ export const updateAcademicYear = async (req, res) => {
   try {
     const result = await AcademicYearService.updateAcademicYear(
       req.params.id,
-      req.body
+      req.body,
     );
     res.json(result);
   } catch (err) {
@@ -33,11 +33,19 @@ export const getAllAcademicYears = async (req, res) => {
   }
 };
 
+export const getAllAcademicYearsByToken = async (req, res) => {
+  try {
+    const data = await AcademicYearService.getAllAcademicYearsByToken(req.user);
+
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
 export const getAcademicYearById = async (req, res) => {
   try {
-    const data = await AcademicYearService.getAcademicYearById(
-      req.params.id
-    );
+    const data = await AcademicYearService.getAcademicYearById(req.params.id);
 
     res.json(data);
   } catch (err) {
@@ -49,9 +57,7 @@ export const getAcademicYearById = async (req, res) => {
 
 export const deleteAcademicYear = async (req, res) => {
   try {
-    const result = await AcademicYearService.deleteAcademicYear(
-      req.params.id
-    );
+    const result = await AcademicYearService.deleteAcademicYear(req.params.id);
 
     res.json(result);
   } catch (err) {

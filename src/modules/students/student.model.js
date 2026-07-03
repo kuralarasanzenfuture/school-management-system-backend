@@ -172,8 +172,19 @@ export const StudentModel = {
   },
 
   update: async (conn, id, data) => {
-    await conn.query(`UPDATE students SET ? WHERE id=?`, [data, id]);
-  },
+  const keys = Object.keys(data);
+
+  if (keys.length === 0) {
+    throw { status: 400, message: "No fields to update" };
+  }
+
+  const fields = keys.map((key) => `${key} = ?`).join(", ");
+  const values = keys.map((key) => data[key]);
+
+  const query = `UPDATE students SET ${fields} WHERE id = ?`;
+
+  await conn.query(query, [...values, id]);
+},
 
   delete: async (conn, id) => {
     await conn.query(`DELETE FROM students WHERE id=?`, [id]);

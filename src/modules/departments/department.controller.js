@@ -13,7 +13,7 @@ export const updateDepartment = async (req, res) => {
   try {
     const result = await DepartmentService.updateDepartment(
       req.params.id,
-      req.body
+      req.body,
     );
     res.json(result);
   } catch (err) {
@@ -30,10 +30,19 @@ export const getAllDepartments = async (req, res) => {
   }
 };
 
+export const getAllDepartmentsByToken = async (req, res) => {
+  try {
+    const data = await DepartmentService.getAllDepartmentsByToken(req.user);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
 export const getDepartmentsBySchool = async (req, res) => {
   try {
     const data = await DepartmentService.getDepartmentsBySchool(
-      req.params.school_id
+      req.params.school_id,
     );
     res.json(data);
   } catch (err) {

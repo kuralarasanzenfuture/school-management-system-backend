@@ -109,6 +109,62 @@ export const getAllClasses = async () => {
   return await ClassModel.getAll();
 };
 
+export const getAllClassesByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 Fetch fresh user + roles from DB
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  // 🔥 Normalize roles
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT *
+    FROM classes
+  `;
+
+  const values = [];
+
+  // 🔥 NON-ADMIN → filter by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` WHERE school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += ` ORDER BY id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 export const getClassById = async (id) => {
   const cls = await ClassModel.findById(id);
 

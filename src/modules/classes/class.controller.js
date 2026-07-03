@@ -11,10 +11,7 @@ export const createClass = async (req, res) => {
 
 export const updateClass = async (req, res) => {
   try {
-    const result = await ClassService.updateClass(
-      req.params.id,
-      req.body
-    );
+    const result = await ClassService.updateClass(req.params.id, req.body);
     res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -24,6 +21,15 @@ export const updateClass = async (req, res) => {
 export const getAllClasses = async (req, res) => {
   try {
     const data = await ClassService.getAllClasses();
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getAllClassesByToken = async (req, res) => {
+  try {
+    const data = await ClassService.getAllClassesByToken(req.user);
     res.json(data);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

@@ -23,6 +23,15 @@ export const getAllStudents = async (req, res) => {
   }
 };
 
+export const getAllStudentsByToken = async (req, res) => {
+  try {
+    const data = await StudentService.getAllStudentsByToken(req.user);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
 export const getStudentById = async (req, res) => {
   try {
     const data = await StudentService.getStudentById(req.params.id);

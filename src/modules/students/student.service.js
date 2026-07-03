@@ -1,7 +1,10 @@
 import { getDB } from "../../config/db.js";
 import getFilePath from "../../utils/getFilePath.js";
 import { StudentModel } from "./student.model.js";
-import { validateCreateStudent, validateUpdateStudent } from "./student.validation.js";
+import {
+  validateCreateStudent,
+  validateUpdateStudent,
+} from "./student.validation.js";
 import fs from "fs";
 
 const FILE_FOLDERS = {
@@ -294,6 +297,62 @@ export const getAllStudents = async () => {
   return await StudentModel.getAll();
 };
 
+export const getAllStudentsByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 Get fresh user + roles from DB
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  // 🔥 Normalize roles
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT *
+    FROM students
+  `;
+
+  const values = [];
+
+  // 🔥 NON-ADMIN → restrict by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` WHERE school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += ` ORDER BY id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 /* =========================================
    🔥 GET BY ID
 ========================================= */
@@ -323,9 +382,9 @@ export const updateStudent = async (id, req) => {
 
     let data = { ...req.body };
 
-    if (!data || (Object.keys(data).length === 0 && !req.files)) {
-      throw { status: 400, message: "Nothing to update" };
-    }
+    // if (!data || (Object.keys(data).length === 0 && !req.files)) {
+    //   throw { status: 400, message: "Nothing to update" };
+    // }
 
     // 🔴 NORMALIZE
     if (data.school_id) data.school_id = Number(data.school_id);
@@ -353,9 +412,9 @@ export const updateStudent = async (id, req) => {
         [data.mobile_no, id, existing.school_id],
       );
 
-    //   if (mobileExists) {
-    //     throw { status: 409, message: "Mobile already exists" };
-    //   }
+      //   if (mobileExists) {
+      //     throw { status: 409, message: "Mobile already exists" };
+      //   }
     }
 
     // 🔴 DUPLICATE CHECK (aadhaar)
@@ -409,7 +468,7 @@ export const updateStudent = async (id, req) => {
           "students/certificates",
         );
       }
-      if(req.files.transfer_certificate){
+      if (req.files.transfer_certificate) {
         data.transfer_certificate_url = getFilePath(
           req.files.transfer_certificate[0],
           "students/certificates",

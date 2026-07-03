@@ -29,6 +29,7 @@ import { initDB } from "../config/db.js";
 import { seedAcademicYears } from "./seeds/academicYear.seed.js";
 import { seedClasses } from "./seeds/class.seed.js";
 import { seedDepartments } from "./seeds/department.seed.js";
+import { seedEmployeeDesignations } from "./seeds/employee_designation.seed.js";
 import { seedRoles } from "./seeds/roles.seed.js";
 import { seedSchools } from "./seeds/school.seed.js";
 import { seedSections } from "./seeds/section.seed.js";
@@ -40,15 +41,17 @@ const runSeeds = async () => {
     await initDB();
 
     console.log("🌱 Running seeds...");
-
+    await seedSchools();
     await seedRoles();
     await seedUsers();
-    await seedSchools();
+
     await seedDepartments();
     await seedClasses();
     await seedSections();
     await seedAcademicYears();
     await seedStudents();
+
+    await seedEmployeeDesignations();
 
     console.log("✅ Seeding completed");
   } catch (err) {

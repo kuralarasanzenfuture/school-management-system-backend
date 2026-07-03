@@ -3,6 +3,7 @@ import {
   createStudent,
   deleteStudent,
   getAllStudents,
+  getAllStudentsByToken,
   getStudentById,
   updateStudent,
 } from "../modules/students/student.controller.js";
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.post("/", studentDocsUpload, createStudent);
 router.get("/", getAllStudents);
+router.get("/token", verifyToken, getAllStudentsByToken);
 router.get("/:id", getStudentById);
 router.put("/:id", studentDocsUpload, updateStudent);
 router.delete("/:id", deleteStudent);

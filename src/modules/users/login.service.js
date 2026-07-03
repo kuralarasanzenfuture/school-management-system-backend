@@ -50,6 +50,7 @@ export const loginService = async (req) => {
         roles: roleNames,
         token_version: user.token_version,
         session_id: sessionId,
+        school_id: user.school_id,
       },
       process.env.JWT_ACCESS_SECRET,
       { expiresIn: process.env.ACCESS_TOKEN_EXPIRES || "15m" },
@@ -60,6 +61,7 @@ export const loginService = async (req) => {
         id: user.id,
         session_id: sessionId,
         token_version: user.token_version,
+        school_id: user.school_id,
       },
       process.env.JWT_REFRESH_SECRET,
       { expiresIn: process.env.REFRESH_TOKEN_EXPIRES || "7d" },
@@ -102,6 +104,7 @@ export const loginService = async (req) => {
         email: user.email,
         phone: user.phone,
         roles: roleNames,
+        school_id: user.school_id,
       },
     };
   } catch (err) {

@@ -128,51 +128,426 @@ export const createUser = async (data) => {
   }
 };
 
+// export const getAllUsers = async () => {
+//   const db = getDB();
+
+//   const [rows] = await db.query(`
+//     SELECT
+//       u.id,
+//       u.username,
+//       u.email,
+//       u.phone,
+//       u.status,
+//       u.school_id,
+//       s.name AS school_name,
+
+//       u.is_online,
+//       u.last_seen,
+//       u.last_login_at,
+
+//       u.created_at,
+//       u.updated_at,
+
+//       GROUP_CONCAT(r.name) AS roles
+
+//     FROM users u
+
+//     LEFT JOIN schools s
+//       ON u.school_id = s.id
+
+//     LEFT JOIN user_roles ur
+//       ON u.id = ur.user_id
+
+//     LEFT JOIN roles r
+//       ON ur.role_id = r.id
+
+//     GROUP BY u.id
+
+//     ORDER BY u.id DESC
+//   `);
+
+//   // const [rows] = await db.query(`
+//   //   SELECT
+//   //     u.id,
+//   //     u.username,
+//   //     u.email,
+//   //     u.phone,
+//   //     u.status,
+//   //     u.school_id,
+//   //     s.name AS school_name,
+
+//   //     u.is_online,
+//   //     u.last_seen,
+//   //     u.last_login_at,
+
+//   //     u.created_at,
+//   //     u.updated_at,
+
+//   //    -- JSON_ARRAYAGG(ur.role_id) AS role_ids,
+
+//   //     JSON_ARRAYAGG(r.name) AS roles
+
+//   //   FROM users u
+
+//   //   LEFT JOIN schools s
+//   //     ON u.school_id = s.id
+
+//   //   LEFT JOIN user_roles ur
+//   //     ON u.id = ur.user_id
+
+//   //   LEFT JOIN roles r
+//   //     ON ur.role_id = r.id
+
+//   //   GROUP BY u.id
+
+//   //   ORDER BY u.id DESC
+//   // `);
+
+//   return rows;
+// };
+
+// export const getUserById = async (id) => {
+//   const db = getDB();
+
+//   if (!id) {
+//     throw { status: 400, message: "User ID is required" };
+//   }
+
+//   const [rows] = await db.query(
+//     `
+//     SELECT
+//       u.id,
+//       u.username,
+//       u.email,
+//       u.phone,
+//       u.status,
+//       u.school_id,
+//       s.name AS school_name,
+
+//       u.is_online,
+//       u.last_seen,
+//       u.last_login_at,
+
+//       u.created_at,
+//       u.updated_at,
+
+//       GROUP_CONCAT(r.name) AS roles
+
+//     FROM users u
+
+//     LEFT JOIN schools s
+//       ON u.school_id = s.id
+
+//     LEFT JOIN user_roles ur
+//       ON u.id = ur.user_id
+
+//     LEFT JOIN roles r
+//       ON ur.role_id = r.id
+
+//     WHERE u.id = ?
+
+//     GROUP BY u.id
+//   `,
+//     [id],
+//   );
+
+//   if (rows.length === 0) {
+//     throw { status: 404, message: "User not found" };
+//   }
+
+//   const user = rows[0];
+
+//   // ✅ Clean roles → always array
+//   user.roles = user.roles ? user.roles.split(",").filter(Boolean) : [];
+
+//   return user;
+// };
+
 export const getAllUsers = async () => {
   const db = getDB();
 
   const [rows] = await db.query(`
-    SELECT id, username, email, phone, status
-    FROM users
-    ORDER BY id DESC
+    SELECT
+      u.id,
+      u.username,
+      u.email,
+      u.phone,
+      u.status,
+      u.school_id,
+      s.name AS school_name,
+
+      u.is_online,
+      u.last_seen,
+      u.last_login_at,
+
+      u.created_at,
+      u.updated_at,
+
+      GROUP_CONCAT(
+        CONCAT(r.id, ':', r.name)
+      ) AS roles
+
+    FROM users u
+
+    LEFT JOIN schools s
+      ON u.school_id = s.id
+
+    LEFT JOIN user_roles ur
+      ON u.id = ur.user_id
+
+    LEFT JOIN roles r
+      ON ur.role_id = r.id
+
+    GROUP BY u.id
+
+    ORDER BY u.id DESC
   `);
 
-  return rows;
+  // ✅ Transform roles for ALL users
+  const result = rows.map((user) => ({
+    ...user,
+    roles: user.roles
+      ? user.roles.split(",").map((r) => {
+          const [id, name] = r.split(":");
+          return {
+            id: Number(id),
+            name,
+          };
+        })
+      : [],
+  }));
+
+  return result;
+};
+
+export const getAllUsersByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 Get fresh user + roles from DB
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  // 🔥 Normalize roles
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT
+      u.id,
+      u.username,
+      u.email,
+      u.phone,
+      u.status,
+      u.school_id,
+      s.name AS school_name,
+
+      u.is_online,
+      u.last_seen,
+      u.last_login_at,
+
+      u.created_at,
+      u.updated_at,
+
+      GROUP_CONCAT(
+        CONCAT(r.id, ':', r.name)
+      ) AS roles
+
+    FROM users u
+
+    LEFT JOIN schools s
+      ON u.school_id = s.id
+
+    LEFT JOIN user_roles ur
+      ON u.id = ur.user_id
+
+    LEFT JOIN roles r
+      ON ur.role_id = r.id
+  `;
+
+  const values = [];
+
+  // 🔥 NON-ADMIN → restrict by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` WHERE u.school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += `
+    GROUP BY u.id
+    ORDER BY u.id DESC
+  `;
+
+  const [rows] = await db.query(query, values);
+
+  // 🔥 Transform roles → array of objects
+  const result = rows.map((user) => ({
+    ...user,
+    roles: user.roles
+      ? user.roles.split(",").map((r) => {
+          const [id, name] = r.split(":");
+          return {
+            id: Number(id),
+            name,
+          };
+        })
+      : [],
+  }));
+
+  return result;
+};
+
+export const getUserById = async (id) => {
+  const db = getDB();
+
+  if (!id) {
+    throw { status: 400, message: "User ID is required" };
+  }
+
+  const [rows] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.username,
+      u.email,
+      u.phone,
+      u.status,
+      u.school_id,
+      s.name AS school_name,
+
+      u.is_online,
+      u.last_seen,
+      u.last_login_at,
+
+      u.created_at,
+      u.updated_at,
+
+      GROUP_CONCAT(
+        CONCAT(r.id, ':', r.name)
+      ) AS roles
+
+    FROM users u
+
+    LEFT JOIN schools s 
+      ON u.school_id = s.id
+
+    LEFT JOIN user_roles ur 
+      ON u.id = ur.user_id
+
+    LEFT JOIN roles r 
+      ON ur.role_id = r.id
+
+    WHERE u.id = ?
+
+    GROUP BY u.id
+  `,
+    [id],
+  );
+
+  if (rows.length === 0) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const user = rows[0];
+
+  // ✅ Convert to structured array
+  user.roles = user.roles
+    ? user.roles.split(",").map((r) => {
+        const [id, name] = r.split(":");
+        return {
+          id: Number(id),
+          name,
+        };
+      })
+    : [];
+
+  return user;
 };
 
 export const checkUsername = async (username) => {
   const db = getDB();
 
-  const [[user]] = await db.query(`SELECT id FROM users WHERE username = ?`, [
-    username,
-  ]);
+  if (!username) {
+    throw { status: 400, message: "username is required" };
+  }
+
+  const [[user]] = await db.query(
+    `SELECT id, username FROM users WHERE username = ?`,
+    [username],
+  );
+
+  const exists = !!user;
 
   return {
-    available: !user,
+    available: !exists,
+    exists,
+    user: exists ? user : null,
   };
 };
 
 export const checkEmail = async (email) => {
   const db = getDB();
 
-  const [[user]] = await db.query(`SELECT id FROM users WHERE email = ?`, [
-    email,
-  ]);
+  if (!email) {
+    throw { status: 400, message: "email is required" };
+  }
+
+  const [[user]] = await db.query(
+    `SELECT id , username FROM users WHERE email = ?`,
+    [email],
+  );
+
+  const exists = !!user;
 
   return {
-    available: !user,
+    available: !exists,
+    exists,
+    user: exists ? user : null,
   };
 };
 
 export const checkPhone = async (phone) => {
   const db = getDB();
 
-  const [[user]] = await db.query(`SELECT id FROM users WHERE phone = ?`, [
-    phone,
-  ]);
+  if (!phone) {
+    throw { status: 400, message: "phone is required" };
+  }
+
+  const [[user]] = await db.query(
+    `SELECT id, username FROM users WHERE phone = ?`,
+    [phone],
+  );
+
+  const exists = !!user;
 
   return {
-    available: !user,
+    available: !exists,
+    exists,
+    user: exists ? user : null,
   };
 };
 

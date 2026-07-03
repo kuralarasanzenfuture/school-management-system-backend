@@ -49,6 +49,15 @@ export const getAllSections = async (req, res) => {
   }
 };
 
+export const getAllSectionsByToken = async (req, res) => {
+  try {
+    const data = await SectionService.getAllSectionsByToken(req.user);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
 export const getSchoolTree = async (req, res) => {
   try {
     const data = await SectionService.getSchoolTree();

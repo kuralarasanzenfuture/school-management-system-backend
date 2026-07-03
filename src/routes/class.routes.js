@@ -6,6 +6,7 @@ import {
   updateClass,
   deleteClass,
   getAllClassesSchoolId,
+  getAllClassesByToken,
 } from "../modules/classes/class.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.post("/", createClass);
 router.get("/", getAllClasses);
+router.get("/token", verifyToken, getAllClassesByToken);
 router.get("/school/:school_id", getAllClassesSchoolId);
 router.get("/:id", getClassById);
 router.put("/:id", updateClass);

@@ -1,5 +1,9 @@
 import * as UserService from "./user.service.js";
-import { loginService, logoutAllService, logoutService } from "./login.service.js";
+import {
+  loginService,
+  logoutAllService,
+  logoutService,
+} from "./login.service.js";
 import { setAuthCookies } from "../../utils/cookies.js";
 import { refreshTokenService } from "./refreshToken.service.js";
 import { clearAuthCookies } from "../../utils/clearCookies.js";
@@ -76,7 +80,6 @@ export const getMyProfile = async (req, res) => {
       success: true,
       data: profile,
     });
-
   } catch (err) {
     return res.status(err.status || 500).json({
       success: false,
@@ -90,13 +93,22 @@ export const getAllUsers = async (req, res) => {
     const data = await UserService.getAllUsers();
     res.json(data);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getAllUsersByToken = async (req, res) => {
+  try {
+    const data = await UserService.getAllUsersByToken(req.user);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 
 export const getUserById = async (req, res) => {
   try {
-    const data = await UserService.getUserById(req.params.id, req.user.id);
+    const data = await UserService.getUserById(req.params.id);
     res.json(data);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -136,8 +148,8 @@ export const deleteUser = async (req, res) => {
 export const checkUsername = async (req, res) => {
   try {
     // const result = await UserService.checkUsername(req.body.username);
-    // const result = await UserService.checkUsername(req.params.username);
-    const result = await UserService.checkUsername(req.query.username);
+    const result = await UserService.checkUsername(req.params.username);
+    // const result = await UserService.checkUsername(req.query.username);
     res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

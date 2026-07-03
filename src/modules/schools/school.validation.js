@@ -95,6 +95,72 @@
 // };
 
 /* ----------- code auto generated ---------------------------*/
+// export const validateCreateSchool = (data) => {
+//   let {
+//     name,
+//     email,
+//     phone,
+//     address_line1,
+//     address_line2,
+//     city,
+//     district,
+//     state,
+//     country,
+//     postal_code,
+//     logo_url,
+//     website,
+//     status
+//   } = data;
+
+//   if (!name) throw { status: 400, message: "name is required" };
+
+//   // ❌ BLOCK manual code
+//   if (data.code) {
+//     throw {
+//       status: 400,
+//       message: "code is auto-generated. Do not send it"
+//     };
+//   }
+
+//   if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+//     throw { status: 400, message: "Invalid email" };
+//   }
+
+//   if (website && !website.startsWith("http")) {
+//     throw { status: 400, message: "Invalid website URL" };
+//   }
+
+//   if (status && !["active", "inactive"].includes(status)) {
+//     throw { status: 400, message: "Invalid status" };
+//   }
+
+//   return {
+//     name: name.trim(),
+//     email: email || null,
+//     phone: phone || null,
+//     address_line1: address_line1 || null,
+//     address_line2: address_line2 || null,
+//     city: city || null,
+//     district: district || null,
+//     state: state || null,
+//     country: country || "India",
+//     postal_code: postal_code || null,
+//     logo_url: logo_url || null,
+//     website: website || null,
+//     status: status || "active",
+//   };
+// };
+
+// export const validateUpdateSchool = (data) => {
+//   if (!data || Object.keys(data).length === 0) {
+//     throw { status: 400, message: "No data provided" };
+//   }
+
+//   return data;
+// };
+
+
+/* =============== logo file upload ==========================*/
 export const validateCreateSchool = (data) => {
   let {
     name,
@@ -107,26 +173,25 @@ export const validateCreateSchool = (data) => {
     state,
     country,
     postal_code,
-    logo_url,
     website,
     status
   } = data;
 
   if (!name) throw { status: 400, message: "name is required" };
 
-  // ❌ BLOCK manual code
   if (data.code) {
-    throw {
-      status: 400,
-      message: "code is auto-generated. Do not send it"
-    };
+    throw { status: 400, message: "code is auto-generated" };
   }
+
+  // if (data.logo_url) {
+  //   throw { status: 400, message: "logo_url must not be sent manually" };
+  // }
 
   if (email && !/^\S+@\S+\.\S+$/.test(email)) {
     throw { status: 400, message: "Invalid email" };
   }
 
-  if (website && !website.startsWith("http")) {
+  if (website && !/^https?:\/\//.test(website)) {
     throw { status: 400, message: "Invalid website URL" };
   }
 
@@ -145,19 +210,10 @@ export const validateCreateSchool = (data) => {
     state: state || null,
     country: country || "India",
     postal_code: postal_code || null,
-    logo_url: logo_url || null,
     website: website || null,
     status: status || "active",
   };
 };
-
-// export const validateUpdateSchool = (data) => {
-//   if (!data || Object.keys(data).length === 0) {
-//     throw { status: 400, message: "No data provided" };
-//   }
-
-//   return data;
-// };
 
 export const validateUpdateSchool = (data) => {
   const allowedFields = [

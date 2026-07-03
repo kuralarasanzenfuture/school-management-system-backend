@@ -44,7 +44,17 @@ app.use(
     credentials: true,
   }),
 );
-app.use(helmet());
+// app.use(helmet());
+app.use(
+  // helmet({
+  //   crossOriginResourcePolicy: false,
+  // })
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+  }),
+);
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -74,6 +84,15 @@ app.get("/", (req, res) => {
 // ------------------------------------------------------------------
 // Error Handler (ALWAYS LAST)
 // ------------------------------------------------------------------
+app.use((err, req, res, next) => {
+  console.log(err);
+
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
+    console.log("Unexpected field:", err.field);
+  }
+
+  next(err);
+});
 app.use(errorHandler);
 app.use(globalErrorHandler);
 
