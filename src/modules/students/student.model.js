@@ -82,6 +82,56 @@ export const StudentModel = {
   //   },
 
   create: async (conn, data) => {
+    console.log("Insert Values:", [
+      data.school_id,
+      data.student_code,
+      data.first_name,
+      data.middle_name,
+      data.last_name,
+      data.email,
+      data.mobile_no,
+      data.date_of_birth,
+      data.gender,
+      data.blood_group,
+      data.aadhaar_no,
+      data.religion,
+      data.nationality,
+      data.mother_tongue,
+      data.photo_url,
+
+      data.current_area,
+      data.current_city,
+      data.current_district,
+      data.current_state,
+      data.current_postal_code,
+      data.current_address,
+      data.current_address_same_as_permanent,
+
+      data.permanent_address,
+      data.permanent_area,
+      data.permanent_city,
+      data.permanent_district,
+      data.permanent_state,
+      data.permanent_postal_code,
+
+      data.birth_certificate_url,
+      data.aadhaar_front_url,
+      data.aadhaar_back_url,
+      data.transfer_certificate_url,
+      data.previous_marksheets_url,
+
+      data.father_name,
+      data.mother_name,
+      data.father_occupation,
+      data.mother_occupation,
+      data.parent_mobile,
+      data.alternate_mobile,
+      data.parent_email,
+      data.emergency_contact,
+      data.emergency_relationship,
+
+      data.status,
+    ]);
     const [result] = await conn.query(
       `INSERT INTO students (
     school_id, student_code, first_name, middle_name, last_name,
@@ -172,19 +222,19 @@ export const StudentModel = {
   },
 
   update: async (conn, id, data) => {
-  const keys = Object.keys(data);
+    const keys = Object.keys(data);
 
-  if (keys.length === 0) {
-    throw { status: 400, message: "No fields to update" };
-  }
+    if (keys.length === 0) {
+      throw { status: 400, message: "No fields to update" };
+    }
 
-  const fields = keys.map((key) => `${key} = ?`).join(", ");
-  const values = keys.map((key) => data[key]);
+    const fields = keys.map((key) => `${key} = ?`).join(", ");
+    const values = keys.map((key) => data[key]);
 
-  const query = `UPDATE students SET ${fields} WHERE id = ?`;
+    const query = `UPDATE students SET ${fields} WHERE id = ?`;
 
-  await conn.query(query, [...values, id]);
-},
+    await conn.query(query, [...values, id]);
+  },
 
   delete: async (conn, id) => {
     await conn.query(`DELETE FROM students WHERE id=?`, [id]);

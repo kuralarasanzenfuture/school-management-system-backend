@@ -67,6 +67,7 @@ export const updateDepartment = async (id, data) => {
       throw { status: 404, message: "Department not found" };
     }
 
+    // 🔴 duplicate check
     if (validated.name) {
       const duplicate = await DepartmentModel.findDuplicate(
         dept.school_id,
@@ -85,7 +86,7 @@ export const updateDepartment = async (id, data) => {
     const fields = [];
     const values = [];
 
-    if (validated.name) {
+    if (validated.name !== undefined) {
       fields.push("name=?");
       values.push(validated.name);
     }
@@ -93,6 +94,11 @@ export const updateDepartment = async (id, data) => {
     if (validated.description !== undefined) {
       fields.push("description=?");
       values.push(validated.description);
+    }
+
+    if (validated.status !== undefined) {
+      fields.push("status=?");
+      values.push(validated.status);
     }
 
     if (fields.length) {
@@ -197,4 +203,42 @@ export const deleteDepartment = async (id) => {
   } finally {
     connection.release();
   }
+};
+
+export const checkExistingDepartment = async (data) => {
+  const db = getDB();
+
+  let { school_id, name } = data;
+
+  if (!school_id) {
+    throw { status: 400, message: "school_id is required" };
+  }
+
+  if (!name?.trim()) {
+    throw { status: 400, message: "name is required" };
+  }
+
+  school_id = Number(school_id);
+  name = name.trim();
+
+  const [[existing]] = await db.query(
+    `
+    SELECT
+      d.id,
+      d.school_id,
+      d.name,
+      d.description
+    FROM departments d
+    WHERE d.school_id = ?
+      AND UPPER(d.name) = UPPER(?)
+    LIMIT 1
+    `,
+    [school_id, name],
+  );
+
+  return {
+    available: !existing,
+    exists: !!existing,
+    department: existing || null,
+  };
 };

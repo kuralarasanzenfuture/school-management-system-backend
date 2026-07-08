@@ -6,6 +6,7 @@ import departmentRoutes from "./department.routes.js";
 import academicYearRoutes from "./academicYear.routes.js";
 import classRoutes from "./class.routes.js";
 import sectionRoutes from "./section.routes.js";
+import classSectionRoutes from "./class_section.routes.js";
 import studentRoutes from "./student.routes.js";
 import studentAdmissionRoutes from "./studentAdmission.routes.js";
 
@@ -22,6 +23,7 @@ router.use("/departments", departmentRoutes);
 router.use("/academic-years", academicYearRoutes);
 router.use("/classes", classRoutes);
 router.use("/sections", sectionRoutes);
+router.use("/class-sections", classSectionRoutes);
 router.use("/students", studentRoutes);
 router.use("/student-admissions", studentAdmissionRoutes);
 

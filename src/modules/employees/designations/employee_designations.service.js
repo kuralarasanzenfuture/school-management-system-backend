@@ -15,9 +15,19 @@ export const createDesignation = async (data) => {
     await conn.beginTransaction();
 
     // 🔴 DUPLICATE CHECK (GLOBAL OR PER SCHOOL)
+    // const [[exists]] = await conn.query(
+    //   `SELECT id FROM employee_designations WHERE name=?`,
+    //   [validated.name],
+    // );
+
     const [[exists]] = await conn.query(
-      `SELECT id FROM employee_designations WHERE name=?`,
-      [validated.name]
+      `
+  SELECT id 
+  FROM employee_designations 
+  WHERE name = ? 
+    AND school_id = ?
+  `,
+      [validated.name, validated.school_id],
     );
 
     if (exists) {
@@ -60,8 +70,14 @@ export const updateDesignation = async (id, data) => {
     // 🔴 DUPLICATE CHECK (if name updating)
     if (validated.name) {
       const [[exists]] = await conn.query(
-        `SELECT id FROM employee_designations WHERE name=? AND id!=?`,
-        [validated.name, id]
+        `
+    SELECT id 
+    FROM employee_designations 
+    WHERE name = ? 
+      AND school_id = ? 
+      AND id != ?
+    `,
+        [validated.name, existing.school_id, id],
       );
 
       if (exists) {
@@ -119,11 +135,67 @@ export const getAllDesignations = async (school_id) => {
   }
 };
 
+export const getAllDesignationsByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 Fetch fresh user + roles
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  // 🔥 Normalize roles
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT *
+    FROM employee_designations
+  `;
+
+  const values = [];
+
+  // 🔥 NON-ADMIN → filter by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` WHERE school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += ` ORDER BY id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 export const getDesignationById = async (id) => {
   try {
     const designation = await EmployeeDesignationModel.findById(id);
     return { designation };
   } catch (err) {
     throw err;
-  } 
+  }
 };

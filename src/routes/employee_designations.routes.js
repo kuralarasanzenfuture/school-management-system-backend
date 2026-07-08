@@ -5,6 +5,7 @@ import {
     getEmployeeDesignationById,
     updateEmployeeDesignation,
     deleteEmployeeDesignation,
+    getAllEmployeeDesignationsByToken,
 } from "../modules/employees/designations/employee_designations.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
@@ -14,6 +15,7 @@ const router = express.Router();
 
 router.post("/", createEmployeeDesignation);
 router.get("/", getAllEmployeeDesignations);
+router.get("/token", verifyToken, getAllEmployeeDesignationsByToken);
 router.get("/:id", getEmployeeDesignationById);
 router.put("/:id", updateEmployeeDesignation);
 router.delete("/:id", deleteEmployeeDesignation);

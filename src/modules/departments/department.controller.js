@@ -58,3 +58,13 @@ export const deleteDepartment = async (req, res) => {
     res.status(err.status || 500).json({ message: err.message });
   }
 };
+
+export const checkExistingDepartment = async (req, res) => {
+  try {
+    const result = await DepartmentService.checkExistingDepartment(req.query);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+

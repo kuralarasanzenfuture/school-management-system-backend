@@ -11,10 +11,7 @@ export const createEmployeeDesignation = async (req, res) => {
 
 export const updateEmployeeDesignation = async (req, res) => {
   try {
-    const result = await Service.updateDesignation(
-      req.params.id,
-      req.body
-    );
+    const result = await Service.updateDesignation(req.params.id, req.body);
     res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
@@ -36,6 +33,15 @@ export const getAllEmployeeDesignations = async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+export const getAllEmployeeDesignationsByToken = async (req, res) => {
+  try {
+    const result = await Service.getAllDesignationsByToken(req.user);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
   }
 };
 

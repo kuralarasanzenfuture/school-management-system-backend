@@ -17,15 +17,25 @@ const FILE_FOLDERS = {
 /* =========================================
    🔥 Generate Admission Number
 ========================================= */
-const generateStudentCode = async (conn, school_id) => {
+const generateStudentCode = async (conn) => {
+  const year = new Date().getFullYear();
+
   const [[last]] = await conn.query(
-    `SELECT id FROM students WHERE school_id=? ORDER BY id DESC LIMIT 1`,
-    [school_id],
+    `
+    SELECT student_code
+    FROM students
+    WHERE student_code LIKE ?
+    ORDER BY id DESC
+    LIMIT 1
+    `,
+    [`STD-${year}-%`],
   );
 
-  const next = (last?.id || 0) + 1;
+  let next = 1;
 
-  const year = new Date().getFullYear();
+  if (last?.student_code) {
+    next = parseInt(last.student_code.split("-").pop(), 10) + 1;
+  }
 
   return `STD-${year}-${String(next).padStart(4, "0")}`;
 };
@@ -33,120 +43,120 @@ const generateStudentCode = async (conn, school_id) => {
 /* =========================================
    🔥 CREATE STUDENT
 ========================================= */
-export const createStudent = async (req) => {
-  const db = getDB();
-  const conn = await db.getConnection();
+// export const createStudent = async (req) => {
+//   const db = getDB();
+//   const conn = await db.getConnection();
 
-  try {
-    if (!req.body || Object.keys(req.body).length === 0) {
-      throw { status: 400, message: "Request body is empty" };
-    }
-    let data = validateCreateStudent(req.body);
+//   try {
+//     if (!req.body || Object.keys(req.body).length === 0) {
+//       throw { status: 400, message: "Request body is empty" };
+//     }
+//     let data = validateCreateStudent(req.body);
 
-    // console.log("VALIDATION INPUT:", data);
+//     // console.log("VALIDATION INPUT:", data);
 
-    await conn.beginTransaction();
+//     await conn.beginTransaction();
 
-    // school exists
-    const [[school]] = await conn.query(
-      `SELECT id FROM schools WHERE id=? AND status='active'`,
-      [data.school_id],
-    );
+//     // school exists
+//     const [[school]] = await conn.query(
+//       `SELECT id FROM schools WHERE id=? AND status='active'`,
+//       [data.school_id],
+//     );
 
-    if (!school) {
-      throw { status: 404, message: "School not found or inactive" };
-    }
+//     if (!school) {
+//       throw { status: 404, message: "School not found or inactive" };
+//     }
 
-    // 🔴 DUPLICATE CHECKS
-    const [[mobileExists]] = await conn.query(
-      `SELECT id FROM students WHERE mobile_no=?`,
-      [data.mobile_no],
-    );
+//     // 🔴 DUPLICATE CHECKS
+//     const [[mobileExists]] = await conn.query(
+//       `SELECT id FROM students WHERE mobile_no=?`,
+//       [data.mobile_no],
+//     );
 
-    // if (mobileExists) {
-    //   throw { status: 409, message: "Mobile already exists" };
-    // }
+//     // if (mobileExists) {
+//     //   throw { status: 409, message: "Mobile already exists" };
+//     // }
 
-    if (data.aadhaar_no) {
-      const [[aadhaarExists]] = await conn.query(
-        `SELECT id FROM students WHERE aadhaar_no=?`,
-        [data.aadhaar_no],
-      );
+//     if (data.aadhaar_no) {
+//       const [[aadhaarExists]] = await conn.query(
+//         `SELECT id FROM students WHERE aadhaar_no=?`,
+//         [data.aadhaar_no],
+//       );
 
-      if (aadhaarExists) {
-        throw { status: 409, message: "Aadhaar already exists" };
-      }
-    }
+//       if (aadhaarExists) {
+//         throw { status: 409, message: "Aadhaar already exists" };
+//       }
+//     }
 
-    // 🔥 AUTO GENERATE ADMISSION NUMBER
-    data.student_code = await generateStudentCode(conn, data.school_id);
+//     // 🔥 AUTO GENERATE ADMISSION NUMBER
+//     data.student_code = await generateStudentCode(conn, data.school_id);
 
-    // 🔥 FILE HANDLING
-    // if (req.files) {
-    //   data.photo_url = req.files.photo?.[0]?.path || null;
-    //   data.aadhaar_front_url = req.files.aadhaar_front?.[0]?.path || null;
-    //   data.aadhaar_back_url = req.files.aadhaar_back?.[0]?.path || null;
-    //   data.birth_certificate_url =
-    //     req.files.birth_certificate?.[0]?.path || null;
-    //   data.transfer_certificate_url =
-    //     req.files.transfer_certificate?.[0]?.path || null;
-    //   data.previous_marksheets_url = req.files.marksheets?.[0]?.path || null;
-    // }
-    if (req.files) {
-      data.photo_url = getFilePath(req.files.photo?.[0], "students/photos");
-      data.aadhaar_front_url = getFilePath(
-        req.files.aadhaar_front?.[0],
-        // "students/aadhaar",
-        FILE_FOLDERS.aadhaar_front,
-      );
+//     // 🔥 FILE HANDLING
+//     // if (req.files) {
+//     //   data.photo_url = req.files.photo?.[0]?.path || null;
+//     //   data.aadhaar_front_url = req.files.aadhaar_front?.[0]?.path || null;
+//     //   data.aadhaar_back_url = req.files.aadhaar_back?.[0]?.path || null;
+//     //   data.birth_certificate_url =
+//     //     req.files.birth_certificate?.[0]?.path || null;
+//     //   data.transfer_certificate_url =
+//     //     req.files.transfer_certificate?.[0]?.path || null;
+//     //   data.previous_marksheets_url = req.files.marksheets?.[0]?.path || null;
+//     // }
+//     if (req.files) {
+//       data.photo_url = getFilePath(req.files.photo?.[0], "students/photos");
+//       data.aadhaar_front_url = getFilePath(
+//         req.files.aadhaar_front?.[0],
+//         // "students/aadhaar",
+//         FILE_FOLDERS.aadhaar_front,
+//       );
 
-      data.aadhaar_back_url = getFilePath(
-        req.files.aadhaar_back?.[0],
-        "students/aadhaar",
-      );
-      data.birth_certificate_url = getFilePath(
-        req.files.birth_certificate?.[0],
-        "students/certificates",
-      );
+//       data.aadhaar_back_url = getFilePath(
+//         req.files.aadhaar_back?.[0],
+//         "students/aadhaar",
+//       );
+//       data.birth_certificate_url = getFilePath(
+//         req.files.birth_certificate?.[0],
+//         "students/certificates",
+//       );
 
-      data.transfer_certificate_url = getFilePath(
-        req.files.transfer_certificate?.[0],
-        "students/certificates",
-      );
-      data.previous_marksheets_url = getFilePath(
-        req.files.previous_marksheets?.[0],
-        "students/marksheets",
-      );
-    }
+//       data.transfer_certificate_url = getFilePath(
+//         req.files.transfer_certificate?.[0],
+//         "students/certificates",
+//       );
+//       data.previous_marksheets_url = getFilePath(
+//         req.files.previous_marksheets?.[0],
+//         "students/marksheets",
+//       );
+//     }
 
-    // 🔥 ADDRESS COPY
-    if (data.current_address_same_as_permanent) {
-      data.permanent_address = data.current_address;
-      data.permanent_city = data.current_city;
-      data.permanent_state = data.current_state;
-      data.permanent_district = data.current_district;
-      data.permanent_postal_code = data.current_postal_code;
-      data.permanent_area = data.current_area;
-    }
+//     // 🔥 ADDRESS COPY
+//     if (data.current_address_same_as_permanent) {
+//       data.permanent_address = data.current_address;
+//       data.permanent_city = data.current_city;
+//       data.permanent_state = data.current_state;
+//       data.permanent_district = data.current_district;
+//       data.permanent_postal_code = data.current_postal_code;
+//       data.permanent_area = data.current_area;
+//     }
 
-    // console.log("student create DATA:", data);
+//     // console.log("student create DATA:", data);
 
-    const id = await StudentModel.create(conn, data);
+//     const id = await StudentModel.create(conn, data);
 
-    await conn.commit();
+//     await conn.commit();
 
-    return {
-      message: "Student created successfully",
-      id,
-      admission_no: data.admission_no,
-    };
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
-};
+//     return {
+//       message: "Student created successfully",
+//       id,
+//       admission_no: data.admission_no,
+//     };
+//   } catch (err) {
+//     await conn.rollback();
+//     throw err;
+//   } finally {
+//     conn.release();
+//   }
+// };
 
 // export const createStudent = async (req) => {
 //   const db = getDB();
@@ -289,6 +299,121 @@ export const createStudent = async (req) => {
 //     conn.release();
 //   }
 // };
+
+export const createStudent = async (req) => {
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    if (!req.body || Object.keys(req.body).length === 0) {
+      throw { status: 400, message: "Request body is empty" };
+    }
+
+    const data = validateCreateStudent(req.body);
+
+    await conn.beginTransaction();
+
+    // Check school
+    const [[school]] = await conn.query(
+      `SELECT id FROM schools WHERE id = ? AND status = 'active'`,
+      [data.school_id],
+    );
+
+    if (!school) {
+      throw { status: 404, message: "School not found or inactive" };
+    }
+
+    // Mobile duplicate
+    const [[mobileExists]] = await conn.query(
+      `SELECT id FROM students WHERE mobile_no = ?`,
+      [data.mobile_no],
+    );
+
+    if (mobileExists) {
+      throw { status: 409, message: "Mobile number already exists" };
+    }
+
+    // Aadhaar duplicate
+    if (data.aadhaar_no) {
+      const [[aadhaarExists]] = await conn.query(
+        `SELECT id FROM students WHERE aadhaar_no = ?`,
+        [data.aadhaar_no],
+      );
+
+      if (aadhaarExists) {
+        throw { status: 409, message: "Aadhaar number already exists" };
+      }
+    }
+
+    // Generate Student Code
+    // data.student_code = await generateStudentCode(conn, data.school_id);
+    data.student_code = await generateStudentCode(conn);
+
+    // Uploads
+    if (req.files) {
+      data.photo_url = getFilePath(req.files.photo?.[0], FILE_FOLDERS.photo);
+
+      data.aadhaar_front_url = getFilePath(
+        req.files.aadhaar_front?.[0],
+        FILE_FOLDERS.aadhaar_front,
+      );
+
+      data.aadhaar_back_url = getFilePath(
+        req.files.aadhaar_back?.[0],
+        FILE_FOLDERS.aadhaar_back,
+      );
+
+      data.birth_certificate_url = getFilePath(
+        req.files.birth_certificate?.[0],
+        FILE_FOLDERS.birth_certificate,
+      );
+
+      data.transfer_certificate_url = getFilePath(
+        req.files.transfer_certificate?.[0],
+        "students/certificates",
+      );
+
+      data.previous_marksheets_url = getFilePath(
+        req.files.previous_marksheets?.[0],
+        "students/marksheets",
+      );
+    }
+
+    // Copy Address
+    if (data.current_address_same_as_permanent) {
+      data.permanent_address = data.current_address;
+      data.permanent_city = data.current_city;
+      data.permanent_state = data.current_state;
+      data.permanent_district = data.current_district;
+      data.permanent_postal_code = data.current_postal_code;
+      data.permanent_area = data.current_area;
+    }
+
+    console.log("Student Data:", data);
+
+    const id = await StudentModel.create(conn, data);
+
+    await conn.commit();
+
+    return {
+      success: true,
+      message: "Student created successfully",
+      id,
+      student_code: data.student_code,
+    };
+  } catch (err) {
+    await conn.rollback();
+
+    console.error("CREATE STUDENT ERROR:", err);
+
+    throw {
+      status: err.status || 500,
+      message: err.message || "Failed to create student",
+    };
+  } finally {
+    conn.release();
+  }
+};
 
 /* =========================================
    🔥 GET ALL STUDENTS
@@ -503,7 +628,7 @@ export const updateStudent = async (id, req) => {
       if (data[key] === undefined) delete data[key];
     });
 
-    console.log("updated student DATA:", data);
+    // console.log("updated student DATA:", data);
 
     await StudentModel.update(conn, id, data);
 

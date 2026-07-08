@@ -15,7 +15,7 @@ export const createSection = async (data) => {
     // ❌ duplicate check
     const exists = await SectionModel.findDuplicate(
       validated.class_id,
-      validated.name
+      validated.name,
     );
 
     if (exists) {
@@ -57,7 +57,7 @@ export const updateSection = async (id, data) => {
       const dup = await SectionModel.findDuplicate(
         existing.class_id,
         validated.name,
-        id
+        id,
       );
 
       if (dup) {
@@ -130,7 +130,7 @@ export const getAllSectionsByToken = async (user) => {
     WHERE u.id = ?
     GROUP BY u.id
     `,
-    [user.id]
+    [user.id],
   );
 
   if (!dbUser) {
@@ -138,9 +138,7 @@ export const getAllSectionsByToken = async (user) => {
   }
 
   // 🔥 Normalize roles
-  const roles = dbUser.roles
-    ? dbUser.roles.split(",").filter(Boolean)
-    : [];
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
 
   const isAdmin = roles.includes("ADMIN");
 
@@ -195,7 +193,7 @@ export const getSchoolTree = async () => {
       schoolsMap[row.school_id] = {
         id: row.school_id,
         name: row.school_name,
-        classes: {}
+        classes: {},
       };
     }
 
@@ -207,7 +205,7 @@ export const getSchoolTree = async () => {
         school.classes[row.class_id] = {
           id: row.class_id,
           name: row.class_name,
-          sections: []
+          sections: [],
         };
       }
 
@@ -217,7 +215,7 @@ export const getSchoolTree = async () => {
       if (row.section_id) {
         cls.sections.push({
           id: row.section_id,
-          name: row.section_name
+          name: row.section_name,
         });
       }
     }
@@ -227,7 +225,7 @@ export const getSchoolTree = async () => {
   const result = Object.values(schoolsMap).map((school) => ({
     id: school.id,
     name: school.name,
-    classes: Object.values(school.classes)
+    classes: Object.values(school.classes),
   }));
 
   return result;
@@ -274,4 +272,43 @@ export const deleteSection = async (id) => {
   } finally {
     conn.release();
   }
+};
+
+export const checkExistingSection = async (data) => {
+  const db = getDB();
+
+  const { class_id, name } = data;
+
+  if (!class_id) {
+    throw { status: 400, message: "class_id is required" };
+  }
+
+  if (!name?.trim()) {
+    throw { status: 400, message: "name is required" };
+  }
+
+  const [[existing]] = await db.query(
+    `
+    SELECT
+      s.id,
+      s.class_id,
+      c.name AS class_name,
+      s.name AS section_name,
+      s.capacity,
+      s.status
+    FROM sections s
+    JOIN classes c
+      ON c.id = s.class_id
+    WHERE s.class_id = ?
+      AND UPPER(s.name) = UPPER(?)
+    LIMIT 1
+    `,
+    [Number(class_id), name.trim()],
+  );
+
+  return {
+    available: !existing,
+    exists: !!existing,
+    section: existing || null,
+  };
 };

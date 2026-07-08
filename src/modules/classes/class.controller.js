@@ -62,3 +62,27 @@ export const deleteClass = async (req, res) => {
     res.status(err.status || 500).json({ message: err.message });
   }
 };
+
+export const checkExistingClass = async (req, res) => {
+  try {
+    const result = await ClassService.checkExistingClass(req.query);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const checkExistingClassByToken = async (req, res) => {
+  try {
+    const result = await ClassService.checkExistingClassByToken(
+      req.user,
+      req.query.name,
+    );
+
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({
+      message: err.message,
+    });
+  }
+};

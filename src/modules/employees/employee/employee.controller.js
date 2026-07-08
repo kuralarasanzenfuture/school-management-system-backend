@@ -2,6 +2,8 @@ import * as EmployeeService from "./employee.service.js";
 
 export const createEmployee = async (req, res) => {
   try {
+    // console.log("createEmployee req.body:", req.body);
+    // console.log("createEmployee req.files:", req.files);
     const result = await EmployeeService.createEmployee(req);
     res.status(201).json(result);
   } catch (err) {
@@ -11,6 +13,8 @@ export const createEmployee = async (req, res) => {
 
 export const updateEmployee = async (req, res) => {
   try {
+    // console.log("updateEmployee req.body:", req.body);
+    // console.log("updateEmployee req.files:", req.files);
     const result = await EmployeeService.updateEmployee(
       req.params.id,
       req

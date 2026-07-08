@@ -18,6 +18,8 @@ router.get(
   DepartmentController.getAllDepartmentsByToken,
 );
 
+router.get("/check-department", DepartmentController.checkExistingDepartment);
+
 router.get("/school/:school_id", DepartmentController.getDepartmentsBySchool);
 
 // UPDATE

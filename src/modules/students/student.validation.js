@@ -72,7 +72,7 @@ export const validateCreateStudent = (data) => {
   mobile_no = mobile_no?.trim() || null;
 
   date_of_birth = date_of_birth?.trim() || null;
-  gender = gender?.trim() || null;
+  gender = gender?.trim().toLowerCase() || null;
 
   blood_group = blood_group?.trim().toUpperCase() || null;
   aadhaar_no = aadhaar_no?.trim() || null;
@@ -106,7 +106,6 @@ export const validateCreateStudent = (data) => {
 
   emergency_contact = emergency_contact?.trim() || null;
   emergency_relationship = emergency_relationship?.trim().toUpperCase() || null;
-
 
   /* =====================================
      🔴 EMAIL VALIDATION
@@ -189,8 +188,9 @@ export const validateCreateStudent = (data) => {
   /* =====================================
      🔴 BOOLEAN NORMALIZATION
   ===================================== */
-  current_address_same_as_permanent =
-  parseBoolean(current_address_same_as_permanent);
+  current_address_same_as_permanent = parseBoolean(
+    current_address_same_as_permanent,
+  );
 
   /* =====================================
      🔴 DEFAULTS
@@ -437,6 +437,10 @@ export const validateCreateStudent = (data) => {
 // };
 
 export const validateUpdateStudent = (data) => {
+  // console.log(data);
+  // console.log(Array.isArray(data));
+  // console.log(typeof data);
+  // console.log(Object.getPrototypeOf(data));
   let {
     school_id,
     first_name,
@@ -605,7 +609,6 @@ export const validateUpdateStudent = (data) => {
     "mother_occupation",
     "emergency_contact",
     "emergency_relationship",
-
   ].forEach((field) => {
     if (data[field] !== undefined) {
       cleaned[field] = data[field]?.trim() || null;
@@ -616,8 +619,9 @@ export const validateUpdateStudent = (data) => {
      🔴 BOOLEAN
   ===================================== */
   if (current_address_same_as_permanent !== undefined) {
-    cleaned.current_address_same_as_permanent =
-      parseBoolean(current_address_same_as_permanent);
+    cleaned.current_address_same_as_permanent = parseBoolean(
+      current_address_same_as_permanent,
+    );
   }
 
   if (religion !== undefined) {
@@ -632,10 +636,10 @@ export const validateUpdateStudent = (data) => {
     cleaned.mother_tongue = mother_tongue?.trim().toUpperCase() || null;
   }
 
-  if(emergency_relationship !== undefined){
-    cleaned.emergency_relationship = emergency_relationship?.trim().toUpperCase() || null;
+  if (emergency_relationship !== undefined) {
+    cleaned.emergency_relationship =
+      emergency_relationship?.trim().toUpperCase() || null;
   }
-
 
   return cleaned;
 };

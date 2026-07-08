@@ -7,8 +7,6 @@ import { validateLoginUser } from "./user.validation.js";
 import { UserModel } from "../users/user.model.js";
 import { SessionModel } from "./session.model.js";
 
-
-
 export const loginService = async (req) => {
   const db = getDB();
   const connection = await db.getConnection();
@@ -118,19 +116,15 @@ export const loginService = async (req) => {
 // 🔥 1️⃣ LOGOUT (SINGLE DEVICE)
 export const logoutService = async (req) => {
   const db = getDB();
-
-  const token =
-    req.cookies?.refreshToken || req.body?.refreshToken;
+  // console.log("logout BODY:", req.body);
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!token) {
     throw { status: 400, message: "Refresh token required" };
   }
 
   // 🔐 hash token
-  const tokenHash = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
   const [result] = await db.query(
     `
@@ -141,7 +135,7 @@ export const logoutService = async (req) => {
       revoked_reason = 'logout'
     WHERE refresh_token_hash = ?
     `,
-    [tokenHash]
+    [tokenHash],
   );
 
   if (result.affectedRows === 0) {
@@ -166,7 +160,7 @@ export const logoutAllService = async (req) => {
     WHERE user_id = ?
       AND is_active = 1
     `,
-    [userId]
+    [userId],
   );
 
   // 🔥 OPTIONAL (STRONG SECURITY)
@@ -176,11 +170,11 @@ export const logoutAllService = async (req) => {
     SET token_version = token_version + 1
     WHERE id = ?
     `,
-    [userId]
+    [userId],
   );
 
   return {
     message: "Logged out from all devices",
-    sessions_revoked: result.affectedRows
+    sessions_revoked: result.affectedRows,
   };
 };

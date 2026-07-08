@@ -199,3 +199,104 @@ export const deleteClass = async (id) => {
     conn.release();
   }
 };
+
+export const checkExistingClass = async ({ school_id, name }) => {
+  const db = getDB();
+
+  if (!school_id) {
+    throw { status: 400, message: "school_id is required" };
+  }
+
+  if (!name) {
+    throw { status: 400, message: "name is required" };
+  }
+
+  const [[existing]] = await db.query(
+    `
+    SELECT
+      id,
+      school_id,
+      name,
+      status
+    FROM classes
+    WHERE school_id = ?
+      AND UPPER(name) = UPPER(?)
+    LIMIT 1
+    `,
+    [Number(school_id), name.trim()],
+  );
+
+  return {
+    available: !existing,
+    exists: !!existing,
+    class: existing || null,
+  };
+};
+
+export const checkExistingClassByToken = async (user, name) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  if (!name?.trim()) {
+    throw { status: 400, message: "Class name is required" };
+  }
+
+  // Get latest user + roles
+  const [[dbUser]] = await db.query(
+    `
+    SELECT
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON ur.user_id = u.id
+    LEFT JOIN roles r ON r.id = ur.role_id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let schoolId = dbUser.school_id;
+
+  // Optional: allow admin to specify school_id
+  if (isAdmin && user.school_id) {
+    schoolId = user.school_id;
+  }
+
+  if (!schoolId) {
+    throw { status: 400, message: "School not assigned" };
+  }
+
+  const [[existing]] = await db.query(
+    `
+    SELECT
+      id,
+      school_id,
+      name,
+      status
+    FROM classes
+    WHERE school_id = ?
+      AND UPPER(name) = UPPER(?)
+    LIMIT 1
+    `,
+    [schoolId, name.trim()],
+  );
+
+  return {
+    available: !existing,
+    exists: !!existing,
+    class: existing || null,
+  };
+};

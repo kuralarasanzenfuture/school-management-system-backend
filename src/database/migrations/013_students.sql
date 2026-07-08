@@ -2,7 +2,7 @@ CREATE TABLE
     IF NOT EXISTS students (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         school_id INT NOT NULL,
-        student_code VARCHAR(50) UNIQUE NOT NULL,
+        student_code VARCHAR(50) NOT NULL,
         first_name VARCHAR(100) NOT NULL,
         middle_name VARCHAR(100),
         last_name VARCHAR(100) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (school_id) REFERENCES schools (id),
-        UNIQUE KEY uq_student_code (student_code),
+        UNIQUE KEY uq_school_student_code (school_id, student_code),
         -- UNIQUE KEY uq_email (email),
         -- UNIQUE KEY uq_mobile_no (mobile_no),
         UNIQUE KEY uq_aadhaar_no (aadhaar_no)

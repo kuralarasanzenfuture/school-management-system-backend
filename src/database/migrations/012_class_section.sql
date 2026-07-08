@@ -15,7 +15,7 @@ CREATE TABLE class_sections (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE KEY uq_class_section_year 
-    (class_id, section_id, academic_year_id),
+    (school_id, class_id, section_id, academic_year_id),
 
     FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
     FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,

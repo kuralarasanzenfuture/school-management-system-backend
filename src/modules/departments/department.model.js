@@ -1,14 +1,13 @@
 import { getDB } from "../../config/db.js";
 
 export const DepartmentModel = {
-
   async create(connection, data) {
     const [result] = await connection.query(
       `
-      INSERT INTO departments (school_id, name, description)
-      VALUES (?, ?, ?)
+      INSERT INTO departments (school_id, name, description, status)
+      VALUES (?, ?, ?, ?)
       `,
-      [data.school_id, data.name, data.description]
+      [data.school_id, data.name, data.description, data.status],
     );
 
     return result.insertId;
@@ -16,10 +15,9 @@ export const DepartmentModel = {
 
   async findById(id) {
     const db = getDB();
-    const [[row]] = await db.query(
-      `SELECT * FROM departments WHERE id=?`,
-      [id]
-    );
+    const [[row]] = await db.query(`SELECT * FROM departments WHERE id=?`, [
+      id,
+    ]);
     return row;
   },
 
@@ -44,9 +42,7 @@ export const DepartmentModel = {
 
   async getAll() {
     const db = getDB();
-    const [rows] = await db.query(
-      `SELECT * FROM departments ORDER BY id DESC`
-    );
+    const [rows] = await db.query(`SELECT * FROM departments ORDER BY id DESC`);
     return rows;
   },
 
@@ -54,7 +50,7 @@ export const DepartmentModel = {
     const db = getDB();
     const [rows] = await db.query(
       `SELECT * FROM departments WHERE school_id=?`,
-      [school_id]
+      [school_id],
     );
     return rows;
   },
@@ -62,14 +58,11 @@ export const DepartmentModel = {
   async update(connection, id, fields, values) {
     await connection.query(
       `UPDATE departments SET ${fields.join(", ")} WHERE id=?`,
-      [...values, id]
+      [...values, id],
     );
   },
 
   async delete(connection, id) {
-    await connection.query(
-      `DELETE FROM departments WHERE id=?`,
-      [id]
-    );
-  }
+    await connection.query(`DELETE FROM departments WHERE id=?`, [id]);
+  },
 };

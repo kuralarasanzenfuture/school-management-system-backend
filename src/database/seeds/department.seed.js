@@ -80,7 +80,7 @@ export const seedDepartments = async () => {
         ON DUPLICATE KEY UPDATE
           description = VALUES(description)
         `,
-        [school.id, dept.name, dept.description]
+        [school.id, dept.name.trim().toUpperCase(), dept.description]
       );
     }
   }

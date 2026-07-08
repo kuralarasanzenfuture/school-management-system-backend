@@ -102,3 +102,15 @@ export const deleteSection = async (req, res) => {
     res.status(err.status || 500).json({ message: err.message });
   }
 };
+
+export const checkExistingSection = async (req, res) => {
+  try {
+    const result = await SectionService.checkExistingSection(req.query);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({
+      message: err.message,
+    });
+  }
+};
+
