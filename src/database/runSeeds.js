@@ -36,6 +36,7 @@ import { seedSchools } from "./seeds/school.seed.js";
 import { seedSections } from "./seeds/section.seed.js";
 import { seedStudents } from "./seeds/students.seed.js";
 import { seedSubjects } from "./seeds/subject.seed.js";
+import { seedSubjectGroups } from "./seeds/subjectGroup.seed.js";
 import { seedUsers } from "./seeds/users.seed.js";
 
 const runSeeds = async () => {
@@ -55,6 +56,7 @@ const runSeeds = async () => {
 
     await seedClassSections();
     await seedSubjects();
+    await seedSubjectGroups();
 
     await seedEmployeeDesignations();
 

@@ -13,6 +13,7 @@ import studentAdmissionRoutes from "./studentAdmission.routes.js";
 import employeeDesignationRoutes from "./employee_designations.routes.js";
 import employeeRoutes from "./employee.routes.js";
 import subjectRoutes from "./subject.routes.js";
+import subjectGroupRoutes from "./subjectGroup.routes.js";
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.use("/classes", classRoutes);
 router.use("/sections", sectionRoutes);
 router.use("/class-sections", classSectionRoutes);
 router.use("/subjects", subjectRoutes);
+router.use("/subject-groups", subjectGroupRoutes);
 router.use("/students", studentRoutes);
 router.use("/student-admissions", studentAdmissionRoutes);
 
