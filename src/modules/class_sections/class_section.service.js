@@ -82,6 +82,95 @@ export const getAllClassSections = async () => {
   return rows;
 };
 
+export const getAllClassSectionsByToken = async (user) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  // 🔥 ALWAYS get fresh data from DB (don't trust token blindly)
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id]
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const roles = dbUser.roles
+    ? dbUser.roles.split(",").filter(Boolean)
+    : [];
+
+  const isAdmin = roles.includes("ADMIN");
+
+  let query = `
+    SELECT 
+      cs.id,
+      cs.school_id,
+      sc.name AS school_name,
+
+      cs.class_id,
+      c.name AS class_name,
+
+      cs.section_id,
+      s.name AS section_name,
+
+      cs.academic_year_id,
+      ay.name AS academic_year,
+
+      cs.class_teacher_id,
+      cs.capacity,
+      cs.status,
+      cs.created_at,
+
+      CONCAT(c.name, '-', s.name) AS class_section
+
+    FROM class_sections cs
+
+    JOIN schools sc 
+      ON cs.school_id = sc.id
+
+    JOIN classes c 
+      ON cs.class_id = c.id
+
+    JOIN sections s 
+      ON cs.section_id = s.id
+
+    JOIN academic_years ay 
+      ON cs.academic_year_id = ay.id
+  `;
+
+  const values = [];
+
+  // 🔴 NON-ADMIN → restrict by school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+
+    query += ` WHERE cs.school_id = ?`;
+    values.push(dbUser.school_id);
+  }
+
+  query += ` ORDER BY cs.id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 export const getClassSectionById = async (id) => {
   const db = getDB();
 

@@ -18,6 +18,17 @@ export const getAllClassSections = async (req, res) => {
   }
 };
 
+export const getAllClassSectionsByToken = async (req, res) => {
+  try {
+    const data = await ClassSectionService.getAllClassSectionsByToken(req.user);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({
+      message: err.message,
+    });
+  }
+};
+
 export const getClassSectionById = async (req, res) => {
   try {
     const data = await ClassSectionService.getClassSectionById(req.params.id);
