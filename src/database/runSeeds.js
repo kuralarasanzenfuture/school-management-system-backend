@@ -29,7 +29,9 @@ import { initDB } from "../config/db.js";
 import { seedAcademicYears } from "./seeds/academicYear.seed.js";
 import { seedClasses } from "./seeds/class.seed.js";
 import { seedClassSections } from "./seeds/ClassSections.seed.js";
+import { seedClassSubjects } from "./seeds/classSubject.seed.js";
 import { seedDepartments } from "./seeds/department.seed.js";
+import { seedEmployees } from "./seeds/employee.seed.js";
 import { seedEmployeeDesignations } from "./seeds/employee_designation.seed.js";
 import { seedRoles } from "./seeds/roles.seed.js";
 import { seedSchools } from "./seeds/school.seed.js";
@@ -57,6 +59,8 @@ const runSeeds = async () => {
     await seedClassSections();
     await seedSubjects();
     await seedSubjectGroups();
+    await seedEmployees();
+    await seedClassSubjects();
 
     await seedEmployeeDesignations();
 
