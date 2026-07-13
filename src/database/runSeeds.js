@@ -33,6 +33,7 @@ import { seedClassSubjects } from "./seeds/classSubject.seed.js";
 import { seedDepartments } from "./seeds/department.seed.js";
 import { seedEmployees } from "./seeds/employee.seed.js";
 import { seedEmployeeDesignations } from "./seeds/employee_designation.seed.js";
+import { seedEmployeeShifts } from "./seeds/employeeShift.seed.js";
 import { seedRoles } from "./seeds/roles.seed.js";
 import { seedSchools } from "./seeds/school.seed.js";
 import { seedSections } from "./seeds/section.seed.js";
@@ -61,6 +62,8 @@ const runSeeds = async () => {
     await seedSubjectGroups();
     await seedEmployees();
     await seedClassSubjects();
+
+    await seedEmployeeShifts();
 
     await seedEmployeeDesignations();
 
