@@ -7,6 +7,7 @@ import {
 import { setAuthCookies } from "../../utils/cookies.js";
 import { refreshTokenService } from "./refreshToken.service.js";
 import { clearAuthCookies } from "../../utils/clearCookies.js";
+import { validateChangePassword } from "./user.validation.js";
 
 export const createUser = async (req, res) => {
   try {
@@ -20,7 +21,7 @@ export const createUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
-    console.log("login BODY:", req.body);
+    // console.log("login BODY:", req.body);
     const result = await loginService(req);
 
     // 🍪 SET COOKIES
@@ -207,6 +208,35 @@ export const logoutAllDevices = async (req, res) => {
     });
   } catch (err) {
     return res.status(err.status || 500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  // console.log("req.user =>", req.user);
+  try {
+    const errors = validateChangePassword(req.body);
+
+    if (errors.length) {
+      return res.status(400).json({
+        success: false,
+        errors,
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await UserService.changePasswordService(
+      req.user.id,
+      currentPassword,
+      newPassword,
+    );
+
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({
       success: false,
       message: err.message,
     });

@@ -230,3 +230,33 @@ export const validateLoginUser = (data) => {
 
   return { login_id, password };
 };
+
+export const validateChangePassword = (body) => {
+  const errors = [];
+
+  if (!body.currentPassword) {
+    errors.push("Current password is required");
+  }
+
+  if (!body.newPassword) {
+    errors.push("New password is required");
+  }
+
+  if (body.newPassword && body.newPassword.length < 6) {
+    errors.push("New password must be at least 6 characters");
+  }
+
+  if (!body.confirmPassword) {
+    errors.push("Confirm password is required");
+  }
+
+  if (
+    body.newPassword &&
+    body.confirmPassword &&
+    body.newPassword !== body.confirmPassword
+  ) {
+    errors.push("Password confirmation does not match");
+  }
+
+  return errors;
+};

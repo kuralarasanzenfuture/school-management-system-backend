@@ -1,6 +1,10 @@
 import bcrypt from "bcrypt";
 import { getDB } from "../../config/db.js";
-import { UserModel } from "./user.model.js";
+import {
+  getUserPasswordById,
+  updatePassword,
+  UserModel,
+} from "./user.model.js";
 import { RoleModel } from "../roles/role.model.js";
 import { validateCreateUser, validateUpdateUser } from "./user.validation.js";
 import { SchoolModel } from "../schools/school.model.js";
@@ -1410,4 +1414,37 @@ export const getMyProfileService = async (userId) => {
   user.roles = roles.map((r) => r.name);
 
   return user;
+};
+
+export const changePasswordService = async (
+  userId,
+  currentPassword,
+  newPassword,
+) => {
+  const user = await getUserPasswordById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+  if (!isMatch) {
+    throw new Error("Current password is incorrect");
+  }
+
+  const samePassword = await bcrypt.compare(newPassword, user.password);
+
+  if (samePassword) {
+    throw new Error("New password cannot be the same as the current password");
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  await updatePassword(userId, hashedPassword, user.token_version + 1);
+
+  return {
+    success: true,
+    message: "Password changed successfully",
+  };
 };

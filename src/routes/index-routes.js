@@ -16,6 +16,7 @@ import subjectRoutes from "./subject.routes.js";
 import subjectGroupRoutes from "./subjectGroup.routes.js";
 import classSubjectRoutes from "./classSubject.routes.js";
 import employeeShiftRoutes from "./employeeShift.routes.js";
+import employeeAttendanceRoutes from "./employeeAttendance.routes.js";
 
 const router = express.Router();
 
@@ -37,5 +38,6 @@ router.use("/student-admissions", studentAdmissionRoutes);
 router.use("/employees-designations", employeeDesignationRoutes);
 router.use("/employees", employeeRoutes);
 router.use("/employee-shifts", employeeShiftRoutes);
+router.use("/employee-attendance", employeeAttendanceRoutes);
 
 export default router;

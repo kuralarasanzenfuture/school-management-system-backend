@@ -15,6 +15,7 @@ import {
   deleteUser,
   createUser,
   getAllUsersByToken,
+  changePassword,
 } from "../modules/users/user.controller.js";
 
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -64,6 +65,8 @@ router.get("/:id", getUserById);
 
 // 🔴 ADMIN ONLY
 router.put("/update/:id", updateUser);
+
+router.put("/change-password", verifyToken, changePassword);
 
 // 🔴 ADMIN ONLY
 router.patch("/status/:id", updateUserStatus);

@@ -16,21 +16,21 @@ export const UserModel = {
   },
 
   async findByLoginId(login_id) {
-  const db = getDB();
+    const db = getDB();
 
-  const [[user]] = await db.query(
-    `
+    const [[user]] = await db.query(
+      `
     SELECT * FROM users
     WHERE LOWER(username) = ?
        OR LOWER(email) = ?
        OR phone = ?
     LIMIT 1
     `,
-    [login_id, login_id, login_id]
-  );
+      [login_id, login_id, login_id],
+    );
 
-  return user;
-},
+    return user;
+  },
 
   async getUserRoles(user_id) {
     const db = getDB();
@@ -99,4 +99,36 @@ export const UserModel = {
 
     return "USER_EXISTS";
   },
+};
+
+export const getUserPasswordById = async (userId) => {
+  const db = getDB();
+  const [rows] = await db.query(
+    `
+    SELECT
+        id,
+        password,
+        token_version
+    FROM users
+    WHERE id = ?
+    `,
+    [userId],
+  );
+
+  return rows[0];
+};
+
+export const updatePassword = async (userId, hashedPassword, tokenVersion) => {
+  const db = getDB();
+  await db.query(
+    `
+    UPDATE users
+    SET
+        password = ?,
+        token_version = ?,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    `,
+    [hashedPassword, tokenVersion, userId],
+  );
 };
