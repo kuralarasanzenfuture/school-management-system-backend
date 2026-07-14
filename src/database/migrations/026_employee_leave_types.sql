@@ -32,5 +32,6 @@ CREATE TABLE
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_leave_type (school_id, code),
+        UNIQUE KEY uq_leave_type_name (school_id, name),
         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE
     );

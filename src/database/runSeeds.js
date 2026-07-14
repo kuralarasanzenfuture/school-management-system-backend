@@ -33,6 +33,7 @@ import { seedClassSubjects } from "./seeds/classSubject.seed.js";
 import { seedDepartments } from "./seeds/department.seed.js";
 import { seedEmployees } from "./seeds/employee.seed.js";
 import { seedEmployeeDesignations } from "./seeds/employee_designation.seed.js";
+import { seedEmployeeLeaveTypes } from "./seeds/employeeLeaveType.seed.js";
 import { seedEmployeeShifts } from "./seeds/employeeShift.seed.js";
 import { seedRoles } from "./seeds/roles.seed.js";
 import { seedSchools } from "./seeds/school.seed.js";
@@ -66,6 +67,8 @@ const runSeeds = async () => {
     await seedEmployeeShifts();
 
     await seedEmployeeDesignations();
+
+    await seedEmployeeLeaveTypes();
 
     console.log("✅ Seeding completed");
   } catch (err) {
