@@ -42,7 +42,17 @@ export const DepartmentModel = {
 
   async getAll() {
     const db = getDB();
-    const [rows] = await db.query(`SELECT * FROM departments ORDER BY id DESC`);
+
+    const [rows] = await db.query(`
+    SELECT
+      d.*,
+      s.name AS school_name
+    FROM departments d
+    LEFT JOIN schools s
+      ON d.school_id = s.id
+    ORDER BY d.id DESC
+  `);
+
     return rows;
   },
 

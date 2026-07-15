@@ -556,23 +556,83 @@ export const getAllAcademicYears = async (school_id) => {
   const db = getDB();
 
   let query = `
-    SELECT *
-    FROM academic_years
+    SELECT
+      ay.*,
+      s.name AS school_name
+    FROM academic_years ay
+    LEFT JOIN schools s
+      ON ay.school_id = s.id
   `;
 
   const values = [];
 
   if (school_id) {
-    query += ` WHERE school_id = ?`;
+    query += ` WHERE ay.school_id = ?`;
     values.push(school_id);
   }
 
-  query += ` ORDER BY start_date DESC`;
+  query += ` ORDER BY ay.start_date DESC`;
 
   const [rows] = await db.query(query, values);
 
   return rows;
 };
+
+// export const getAllAcademicYearsByToken = async (user) => {
+//   const db = getDB();
+
+//   if (!user?.id) {
+//     throw { status: 401, message: "Unauthorized" };
+//   }
+
+//   // 🔥 Always get fresh user data from DB (DON'T trust token blindly)
+//   const [[dbUser]] = await db.query(
+//     `
+//     SELECT
+//       u.id,
+//       u.school_id,
+//       GROUP_CONCAT(r.name) AS roles
+//     FROM users u
+//     LEFT JOIN user_roles ur ON u.id = ur.user_id
+//     LEFT JOIN roles r ON ur.role_id = r.id
+//     WHERE u.id = ?
+//     GROUP BY u.id
+//     `,
+//     [user.id],
+//   );
+
+//   if (!dbUser) {
+//     throw { status: 404, message: "User not found" };
+//   }
+
+//   // 🔥 Normalize roles
+//   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+
+//   const isAdmin = roles.includes("ADMIN");
+
+//   let query = `
+//     SELECT *
+//     FROM academic_years
+//   `;
+
+//   const values = [];
+
+//   // 🔥 NON-ADMIN → restrict by school
+//   if (!isAdmin) {
+//     if (!dbUser.school_id) {
+//       throw { status: 400, message: "User has no school assigned" };
+//     }
+
+//     query += ` WHERE school_id = ?`;
+//     values.push(dbUser.school_id);
+//   }
+
+//   query += ` ORDER BY id DESC`;
+
+//   const [rows] = await db.query(query, values);
+
+//   return rows;
+// };
 
 export const getAllAcademicYearsByToken = async (user) => {
   const db = getDB();
@@ -581,10 +641,10 @@ export const getAllAcademicYearsByToken = async (user) => {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Always get fresh user data from DB (DON'T trust token blindly)
+  // Get latest user info from DB
   const [[dbUser]] = await db.query(
     `
-    SELECT 
+    SELECT
       u.id,
       u.school_id,
       GROUP_CONCAT(r.name) AS roles
@@ -601,29 +661,31 @@ export const getAllAcademicYearsByToken = async (user) => {
     throw { status: 404, message: "User not found" };
   }
 
-  // 🔥 Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
-
   const isAdmin = roles.includes("ADMIN");
 
   let query = `
-    SELECT *
-    FROM academic_years
+    SELECT
+      ay.*,
+      s.name AS school_name
+    FROM academic_years ay
+    LEFT JOIN schools s
+      ON ay.school_id = s.id
   `;
 
   const values = [];
 
-  // 🔥 NON-ADMIN → restrict by school
+  // Non-admin users can only see their school's academic years
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
 
-    query += ` WHERE school_id = ?`;
+    query += ` WHERE ay.school_id = ?`;
     values.push(dbUser.school_id);
   }
 
-  query += ` ORDER BY id DESC`;
+  query += ` ORDER BY ay.id DESC`;
 
   const [rows] = await db.query(query, values);
 

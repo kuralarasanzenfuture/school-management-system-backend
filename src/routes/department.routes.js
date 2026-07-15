@@ -22,6 +22,8 @@ router.get("/check-department", DepartmentController.checkExistingDepartment);
 
 router.get("/school/:school_id", DepartmentController.getDepartmentsBySchool);
 
+router.get("/:id", DepartmentController.getDepartmentById);
+
 // UPDATE
 router.put("/:id", DepartmentController.updateDepartment);
 

@@ -116,10 +116,10 @@ export const getAllClassesByToken = async (user) => {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Fetch fresh user + roles from DB
+  // Fetch fresh user + roles
   const [[dbUser]] = await db.query(
     `
-    SELECT 
+    SELECT
       u.id,
       u.school_id,
       GROUP_CONCAT(r.name) AS roles
@@ -129,36 +129,39 @@ export const getAllClassesByToken = async (user) => {
     WHERE u.id = ?
     GROUP BY u.id
     `,
-    [user.id],
+    [user.id]
   );
 
   if (!dbUser) {
     throw { status: 404, message: "User not found" };
   }
 
-  // 🔥 Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
 
   const isAdmin = roles.includes("ADMIN");
 
   let query = `
-    SELECT *
-    FROM classes
+    SELECT
+      c.*,
+      s.name AS school_name
+    FROM classes c
+    LEFT JOIN schools s
+      ON c.school_id = s.id
   `;
 
   const values = [];
 
-  // 🔥 NON-ADMIN → filter by school
+  // Non-admin users only see their school's classes
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
 
-    query += ` WHERE school_id = ?`;
+    query += ` WHERE c.school_id = ?`;
     values.push(dbUser.school_id);
   }
 
-  query += ` ORDER BY id DESC`;
+  query += ` ORDER BY c.id DESC`;
 
   const [rows] = await db.query(query, values);
 

@@ -16,6 +16,7 @@
 --         status ENUM ('active', 'inactive') DEFAULT 'active',
 --         FOREIGN KEY (employee_id) REFERENCES employees (id)
 --     );
+-- It is suitable if your salary components are fixed.
 CREATE TABLE
     IF NOT EXISTS employee_salary_structures (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -47,3 +48,5 @@ CREATE TABLE
         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
         FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
     );
+
+

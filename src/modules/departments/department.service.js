@@ -127,7 +127,7 @@ export const getAllDepartmentsByToken = async (user) => {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Get fresh user + roles
+  // Get fresh user + roles
   const [[dbUser]] = await db.query(
     `
     SELECT 
@@ -147,33 +147,62 @@ export const getAllDepartmentsByToken = async (user) => {
     throw { status: 404, message: "User not found" };
   }
 
-  // 🔥 Normalize roles
+  // Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
-
   const isAdmin = roles.includes("ADMIN");
 
   let query = `
-    SELECT *
-    FROM departments
+    SELECT
+      d.*,
+      s.name AS school_name
+    FROM departments d
+    LEFT JOIN schools s
+      ON d.school_id = s.id
   `;
 
   const values = [];
 
-  // 🔥 NON-ADMIN → filter by school
+  // NON-ADMIN → filter by school
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
 
-    query += ` WHERE school_id = ?`;
+    query += ` WHERE d.school_id = ?`;
     values.push(dbUser.school_id);
   }
 
-  query += ` ORDER BY id DESC`;
+  query += ` ORDER BY d.id DESC`;
 
   const [rows] = await db.query(query, values);
 
   return rows;
+};
+
+export const getDepartmentById = async (id) => {
+  const db = getDB();
+
+  const [[department]] = await db.query(
+    `
+    SELECT
+      d.*,
+      s.name AS school_name
+    FROM departments d
+    LEFT JOIN schools s
+      ON d.school_id = s.id
+    WHERE d.id = ?
+    `,
+    [id],
+  );
+
+  if (!department) {
+    throw {
+      status: 404,
+      message: "Department not found",
+    };
+  }
+
+  return department;
 };
 
 export const getDepartmentsBySchool = async (school_id) => {

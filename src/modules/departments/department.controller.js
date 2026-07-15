@@ -50,6 +50,15 @@ export const getDepartmentsBySchool = async (req, res) => {
   }
 };
 
+export const getDepartmentById = async (req, res) => {
+  try {
+    const data = await DepartmentService.getDepartmentById(req.params.id);
+    res.json(data);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
 export const deleteDepartment = async (req, res) => {
   try {
     const result = await DepartmentService.deleteDepartment(req.params.id);
@@ -67,4 +76,3 @@ export const checkExistingDepartment = async (req, res) => {
     res.status(err.status || 500).json({ message: err.message });
   }
 };
-

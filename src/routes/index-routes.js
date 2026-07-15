@@ -18,6 +18,7 @@ import classSubjectRoutes from "./classSubject.routes.js";
 import employeeShiftRoutes from "./employeeShift.routes.js";
 import employeeAttendanceRoutes from "./employeeAttendance.routes.js";
 import employeeLeaveTypeRoutes from "./employeeLeaveType.routes.js";
+import employeeSalaryComponentRoutes from "./employeeSalaryComponent.routes.js";
 
 const router = express.Router();
 
@@ -41,5 +42,6 @@ router.use("/employees", employeeRoutes);
 router.use("/employee-shifts", employeeShiftRoutes);
 router.use("/employee-attendance", employeeAttendanceRoutes);
 router.use("/employees-leave-types", employeeLeaveTypeRoutes);
+router.use("/employee-salary-components", employeeSalaryComponentRoutes);
 
 export default router;
