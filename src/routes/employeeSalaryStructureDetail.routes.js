@@ -1,0 +1,31 @@
+import express from "express";
+import {
+  createSalaryStructureDetail,
+  getAllSalaryStructureDetails,
+  getSalaryStructureDetailById,
+  updateSalaryStructureDetail,
+  deleteSalaryStructureDetail,
+  bulkUpsertSalaryStructureDetails,
+  getAllSalaryStructureDetailsByToken,
+} from "../modules/employee_salary_structure_details/employeeSalaryStructureDetail.controller.js";
+
+import { verifyToken } from "../middlewares/auth.middleware.js";
+
+const router = express.Router();
+
+// router.use(verifyToken);
+
+router.post("/", createSalaryStructureDetail);
+
+// 🔥 bulk (real-world usage)
+router.post("/bulk", bulkUpsertSalaryStructureDetails);
+
+router.get("/token", verifyToken, getAllSalaryStructureDetailsByToken);
+
+router.get("/", getAllSalaryStructureDetails);
+router.get("/:id", getSalaryStructureDetailById);
+
+router.put("/:id", updateSalaryStructureDetail);
+router.delete("/:id", deleteSalaryStructureDetail);
+
+export default router;

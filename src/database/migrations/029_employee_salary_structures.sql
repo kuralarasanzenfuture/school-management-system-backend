@@ -17,36 +17,54 @@
 --         FOREIGN KEY (employee_id) REFERENCES employees (id)
 --     );
 -- It is suitable if your salary components are fixed.
+-- CREATE TABLE
+--     IF NOT EXISTS employee_salary_structures (
+--         id BIGINT AUTO_INCREMENT PRIMARY KEY,
+--         school_id INT NOT NULL,
+--         employee_id BIGINT NOT NULL,
+--         effective_from DATE NOT NULL,
+--         effective_to DATE NULL,
+--         basic_salary DECIMAL(12, 2) NOT NULL DEFAULT 0,
+--         hra DECIMAL(12, 2) DEFAULT 0,
+--         da DECIMAL(12, 2) DEFAULT 0,
+--         medical_allowance DECIMAL(12, 2) DEFAULT 0,
+--         transport_allowance DECIMAL(12, 2) DEFAULT 0,
+--         food_allowance DECIMAL(12, 2) DEFAULT 0,
+--         special_allowance DECIMAL(12, 2) DEFAULT 0,
+--         other_allowance DECIMAL(12, 2) DEFAULT 0,
+--         pf DECIMAL(12, 2) DEFAULT 0,
+--         esi DECIMAL(12, 2) DEFAULT 0,
+--         professional_tax DECIMAL(12, 2) DEFAULT 0,
+--         income_tax DECIMAL(12, 2) DEFAULT 0,
+--         loan_deduction DECIMAL(12, 2) DEFAULT 0,
+--         other_deduction DECIMAL(12, 2) DEFAULT 0,
+--         gross_salary DECIMAL(12, 2) NOT NULL,
+--         status ENUM ('active', 'inactive') DEFAULT 'active',
+--         remarks TEXT,
+--         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--         INDEX (employee_id),
+--         INDEX (status),
+--         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
+--         FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
+--     );
 CREATE TABLE
     IF NOT EXISTS employee_salary_structures (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         school_id INT NOT NULL,
         employee_id BIGINT NOT NULL,
+        structure_name VARCHAR(100) NOT NULL,
         effective_from DATE NOT NULL,
-        effective_to DATE NULL,
-        basic_salary DECIMAL(12, 2) NOT NULL DEFAULT 0,
-        hra DECIMAL(12, 2) DEFAULT 0,
-        da DECIMAL(12, 2) DEFAULT 0,
-        medical_allowance DECIMAL(12, 2) DEFAULT 0,
-        transport_allowance DECIMAL(12, 2) DEFAULT 0,
-        food_allowance DECIMAL(12, 2) DEFAULT 0,
-        special_allowance DECIMAL(12, 2) DEFAULT 0,
-        other_allowance DECIMAL(12, 2) DEFAULT 0,
-        pf DECIMAL(12, 2) DEFAULT 0,
-        esi DECIMAL(12, 2) DEFAULT 0,
-        professional_tax DECIMAL(12, 2) DEFAULT 0,
-        income_tax DECIMAL(12, 2) DEFAULT 0,
-        loan_deduction DECIMAL(12, 2) DEFAULT 0,
-        other_deduction DECIMAL(12, 2) DEFAULT 0,
-        gross_salary DECIMAL(12, 2) NOT NULL,
+        effective_to DATE DEFAULT NULL,
         status ENUM ('active', 'inactive') DEFAULT 'active',
         remarks TEXT,
+        created_by BIGINT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX (employee_id),
-        INDEX (status),
+        INDEX idx_employee (employee_id),
+        INDEX idx_status (status),
+        INDEX idx_effective_from (effective_from),
         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
-        FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
+        FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL
     );
-
-
