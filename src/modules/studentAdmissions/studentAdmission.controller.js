@@ -49,6 +49,35 @@ export const getAllStudentAdmissions = async (req, res) => {
 };
 
 /* =====================================
+   🔴 GET ALL ADMISSIONS BY TOKEN
+===================================== */
+
+export const getAllStudentAdmissionsByToken = async (req, res) => {
+  try {
+    const data = await AdmissionService.getAllAdmissionsByToken(req.user);
+    res.json(data);
+  } catch (err) {
+    console.error("GET ALL ERROR:", err);
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getClassStudentSummaryByToken = async (req, res) => {
+  try {
+    const result = await AdmissionService.getClassStudentSummaryByToken(
+      req.user,
+      req.query,
+    );
+
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({
+      message: err.message,
+    });
+  }
+};
+
+/* =====================================
    🔴 GET BY ID
 ===================================== */
 export const getStudentAdmissionById = async (req, res) => {

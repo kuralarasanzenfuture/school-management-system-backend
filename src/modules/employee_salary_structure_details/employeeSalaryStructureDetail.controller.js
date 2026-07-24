@@ -65,3 +65,28 @@ export const deleteSalaryStructureDetail = async (req, res) => {
     res.status(err.status || 500).json({ message: err.message });
   }
 };
+
+export const calculateSalaryByEmployeeId = async (req, res) => {
+  try {
+    const result = await Service.calculateSalary(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getFullSalaryByEmployeeId = async (req, res) => {
+  try {
+    const employee_id = req.params.employee_id;
+
+    if (!employee_id) {
+      return res.status(400).json({ message: "employee_id required" });
+    }
+
+    const result = await Service.getFullSalaryByEmployee(employee_id);
+
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};

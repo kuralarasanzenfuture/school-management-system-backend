@@ -1,4 +1,4 @@
-CREATE TABLE
+CREATE TABLE IF NOT EXISTS
     employee_salary_structure_details (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         salary_structure_id BIGINT NOT NULL,

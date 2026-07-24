@@ -33,12 +33,15 @@ import { seedClassSubjects } from "./seeds/classSubject.seed.js";
 import { seedDepartments } from "./seeds/department.seed.js";
 import { seedEmployees } from "./seeds/employee.seed.js";
 import { seedEmployeeSalaryComponents } from "./seeds/employee/employeeSalaryComponent.seed.js";
+import { seedEmployeeSalaryStructures } from "./seeds/employee/employeeSalaryStructure.seed.js";
+import { seedEmployeeSalaryStructureDetails } from "./seeds/employee/employeeSalaryStructureDetail.seed.js";
 import { seedEmployeeDesignations } from "./seeds/employee_designation.seed.js";
 import { seedEmployeeLeaveTypes } from "./seeds/employeeLeaveType.seed.js";
 import { seedEmployeeShifts } from "./seeds/employeeShift.seed.js";
 import { seedRoles } from "./seeds/roles.seed.js";
 import { seedSchools } from "./seeds/school.seed.js";
 import { seedSections } from "./seeds/section.seed.js";
+import { seedStudentAdmissions } from "./seeds/studentAdminssion.seed.js";
 import { seedStudents } from "./seeds/students.seed.js";
 import { seedSubjects } from "./seeds/subject.seed.js";
 import { seedSubjectGroups } from "./seeds/subjectGroup.seed.js";
@@ -72,6 +75,11 @@ const runSeeds = async () => {
     await seedEmployeeLeaveTypes();
 
     await seedEmployeeSalaryComponents();
+    await seedEmployeeSalaryStructures();
+
+    await seedEmployeeSalaryStructureDetails();
+
+    await seedStudentAdmissions();
 
     console.log("✅ Seeding completed");
   } catch (err) {

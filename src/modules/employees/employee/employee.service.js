@@ -1,9 +1,12 @@
 import { getDB } from "../../../config/db.js";
 import getFilePath from "../../../utils/getFilePath.js";
+import { UserModel } from "../../users/user.model.js";
 import { EmployeeModel } from "./employee.model.js";
 import { EmployeeDocumentModel } from "./employee.model.js";
 import {
+  validateAssignUser,
   validateCreateEmployee,
+  validateUnassignUser,
   validateUpdateEmployee,
 } from "./employee.validation.js";
 
@@ -120,7 +123,6 @@ export const createEmployee = async (req) => {
 
     const employee_id = await EmployeeModel.create(conn, data);
 
-
     await conn.commit();
 
     return {
@@ -141,108 +143,104 @@ export const updateEmployee = async (id, req) => {
   const conn = await db.getConnection();
 
   try {
-    if (!id) throw { status: 400, message: "ID required" };
+    if (!id) {
+      throw { status: 400, message: "Employee ID is required" };
+    }
 
     const data = validateUpdateEmployee(req.body);
 
     await conn.beginTransaction();
 
-    const existing = await EmployeeModel.findById(id);
+    // Existing employee
+    const existing = await EmployeeModel.findById(conn, id);
+
     if (!existing) {
       throw { status: 404, message: "Employee not found" };
     }
 
     /* ============================
-       🔥 FILE UPDATE (FIXED)
+       FILES
     ============================ */
-    if (req.files) {
-      const getFilePath = (file, folder) => {
-        if (!file) return null;
-        return `/uploads/${folder}/${file.filename}`;
-      };
 
-      if (req.files.photo) {
-        data.photo_url = getFilePath(req.files.photo[0], "employees/photo");
-      }
+    const getFilePath = (file, folder) =>
+      file ? `/uploads/${folder}/${file.filename}` : null;
 
-      if (req.files.aadhaar_card) {
-        data.aadhaar_card_url = getFilePath(
-          req.files.aadhaar_card[0],
-          "employees/aadhaar_card",
-        );
-      }
-
-      if (req.files.pan_card) {
-        data.pan_card_url = getFilePath(
-          req.files.pan_card[0],
-          "employees/pan_card",
-        );
-      }
-
-      if (req.files.passport_size_photo) {
-        data.passport_size_photo_url = getFilePath(
-          req.files.passport_size_photo[0],
-          "employees/passport_size_photo",
-        );
-      }
-
-      if (req.files.degree_certificate) {
-        data.degree_certificate_url = getFilePath(
-          req.files.degree_certificate[0],
-          "employees/degree_certificate",
-        );
-      }
-
-      if (req.files.experience_certificate) {
-        data.experience_certificate_url = getFilePath(
-          req.files.experience_certificate[0],
-          "employees/experience_certificate",
-        );
-      }
-
-      if (req.files.signature) {
-        data.signature_url = getFilePath(
-          req.files.signature[0],
-          "employees/signature",
-        );
-      }
+    if (req.files?.photo) {
+      data.photo_url = getFilePath(req.files.photo[0], "employees/photo");
     }
 
-    // 🔥 TRACK CHANGES
-    const changedFields = {};
+    if (req.files?.aadhaar_card) {
+      data.aadhaar_card_url = getFilePath(
+        req.files.aadhaar_card[0],
+        "employees/aadhaar_card",
+      );
+    }
 
-    Object.keys(data).forEach((key) => {
-      if (existing[key] !== data[key]) {
-        changedFields[key] = {
-          old: existing[key],
-          new: data[key],
-        };
-      }
-    });
+    if (req.files?.pan_card) {
+      data.pan_card_url = getFilePath(
+        req.files.pan_card[0],
+        "employees/pan_card",
+      );
+    }
 
-    /* ============================
-       🔥 UPDATE DB
-    ============================ */
+    if (req.files?.passport_size_photo) {
+      data.passport_size_photo_url = getFilePath(
+        req.files.passport_size_photo[0],
+        "employees/passport_size_photo",
+      );
+    }
+
+    if (req.files?.degree_certificate) {
+      data.degree_certificate_url = getFilePath(
+        req.files.degree_certificate[0],
+        "employees/degree_certificate",
+      );
+    }
+
+    if (req.files?.experience_certificate) {
+      data.experience_certificate_url = getFilePath(
+        req.files.experience_certificate[0],
+        "employees/experience_certificate",
+      );
+    }
+
+    if (req.files?.signature) {
+      data.signature_url = getFilePath(
+        req.files.signature[0],
+        "employees/signature",
+      );
+    }
+
     if (!Object.keys(data).length) {
       throw { status: 400, message: "Nothing to update" };
     }
 
+    // Track changes
+    const changes = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      if (existing[key] !== value) {
+        changes[key] = {
+          old: existing[key],
+          new: value,
+        };
+      }
+    }
+
+    // Update
     await EmployeeModel.update(conn, id, data);
 
-    // 🔥 GET UPDATED DATA
-    const updated = await EmployeeModel.findById(id);
+    // Updated employee
+    const updated = await EmployeeModel.findById(conn, id);
 
     await conn.commit();
 
     return {
       message: "Employee updated successfully",
       employee_id: id,
-      // updated_keys: Object.keys(data),
-      // updated_values: Object.values(data),
-      // updated_fields: Object.entries(data),
-      old_data: existing, // before update
-      new_data: updated, // after update
-      changes: changedFields, // only changed fields
+      old_data: existing,
+      new_data: updated,
+      changes,
     };
   } catch (err) {
     await conn.rollback();
@@ -261,7 +259,7 @@ export const deleteEmployee = async (id) => {
 
     await conn.beginTransaction();
 
-    const existing = await EmployeeModel.findById(id);
+    const existing = await EmployeeModel.findById(conn, id);
     if (!existing) {
       throw { status: 404, message: "Employee not found" };
     }
@@ -286,7 +284,7 @@ export const getEmployee = async (id) => {
   try {
     if (!id) throw { status: 400, message: "ID required" };
 
-    const employee = await EmployeeModel.findById(id);
+    const employee = await EmployeeModel.findById(db, id);
     if (!employee) {
       throw { status: 404, message: "Employee not found" };
     }
@@ -307,6 +305,104 @@ export const getEmployees = async () => {
     const employees = await EmployeeModel.findAll(conn);
     return employees;
   } catch (err) {
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+export const assignUserToEmployee = async (data) => {
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    const { employee_id, user_id } = validateAssignUser(data);
+
+    await conn.beginTransaction();
+
+    // 🔴 1. Check employee
+    const employee = await EmployeeModel.findById(conn, employee_id);
+    if (!employee) {
+      throw { status: 404, message: "Employee not found" };
+    }
+
+    // 🔴 2. Check user
+    const user = await UserModel.findById(conn, user_id);
+    console.log(user);
+    if (!user) {
+      throw { status: 404, message: "User not found" };
+    }
+
+    // 🔴 3. School mismatch
+    if (employee.school_id !== user.school_id) {
+      throw {
+        status: 400,
+        message: "User and employee must belong to same school",
+      };
+    }
+
+    // 🔴 4. Employee already linked
+    if (employee.user_id) {
+      throw {
+        status: 409,
+        message: "Employee already assigned to a user",
+      };
+    }
+
+    // 🔴 5. User already linked
+    const existing = await EmployeeModel.findByUserId(conn, user_id);
+    if (existing) {
+      throw {
+        status: 409,
+        message: "User already assigned to another employee",
+      };
+    }
+
+    // 🔥 6. Assign
+    await EmployeeModel.assignUser(conn, employee_id, user_id);
+
+    await conn.commit();
+
+    return {
+      message: "User assigned to employee successfully",
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+export const unassignUserFromEmployee = async (data) => {
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    const { employee_id } = validateUnassignUser(data);
+
+    await conn.beginTransaction();
+
+    const employee = await EmployeeModel.findById(conn, employee_id);
+
+    if (!employee) {
+      throw { status: 404, message: "Employee not found" };
+    }
+
+    if (!employee.user_id) {
+      throw {
+        status: 400,
+        message: "Employee is not assigned to any user",
+      };
+    }
+
+    await EmployeeModel.unassignUser(conn, employee_id);
+
+    await conn.commit();
+
+    return { message: "User unassigned successfully" };
+  } catch (err) {
+    await conn.rollback();
     throw err;
   } finally {
     conn.release();

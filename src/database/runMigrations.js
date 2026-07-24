@@ -47,9 +47,7 @@
 
 // runMigrations();
 
-
 // export default runMigrations;
-
 
 /*------------------------------------------------------------------*/
 
@@ -98,7 +96,6 @@
 
 // export default runMigrations;
 
-
 /* BULLETPROOF MIGRATION RUNNER */
 
 import fs from "fs";
@@ -129,9 +126,7 @@ const runMigrations = async () => {
 
   const files = fs.readdirSync(MIGRATIONS_DIR).sort();
 
-  const [executedRows] = await db.query(
-    `SELECT name, status FROM migrations`
-  );
+  const [executedRows] = await db.query(`SELECT name, status FROM migrations`);
 
   const executedMap = new Map();
   executedRows.forEach((m) => executedMap.set(m.name, m.status));
@@ -159,27 +154,25 @@ const runMigrations = async () => {
         `INSERT INTO migrations (name, status)
          VALUES (?, 'pending')
          ON DUPLICATE KEY UPDATE status='pending'`,
-        [file]
+        [file],
       );
 
       // 🔥 run SQL
       await conn.query(sql);
 
       // mark success
-      await conn.query(
-        `UPDATE migrations SET status='success' WHERE name=?`,
-        [file]
-      );
+      await conn.query(`UPDATE migrations SET status='success' WHERE name=?`, [
+        file,
+      ]);
 
       await conn.commit();
       log.success(`Completed: ${file}`);
     } catch (err) {
       await conn.rollback();
 
-      await conn.query(
-        `UPDATE migrations SET status='failed' WHERE name=?`,
-        [file]
-      );
+      await conn.query(`UPDATE migrations SET status='failed' WHERE name=?`, [
+        file,
+      ]);
 
       log.error(`Failed: ${file}`);
       log.error(err.message);
@@ -194,5 +187,14 @@ const runMigrations = async () => {
   log.success("All migrations are up to date");
 };
 
-export default runMigrations;
+// runMigrations()
+//   .then(() => {
+//     console.log("🎉 Migration completed.");
+//     process.exit(0);
+//   })
+//   .catch((err) => {
+//     console.error(err);
+//     process.exit(1);
+//   });
 
+export default runMigrations;

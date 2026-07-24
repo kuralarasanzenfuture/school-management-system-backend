@@ -1,7 +1,7 @@
 CREATE TABLE
     IF NOT EXISTS employees (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NULL,
+        user_id INT UNIQUE NULL,
         school_id INT NOT NULL,
         employee_code VARCHAR(30) UNIQUE NOT NULL,
         first_name VARCHAR(100) NOT NULL,
@@ -63,5 +63,6 @@ CREATE TABLE
         status ENUM ('active', 'inactive', 'resigned', 'terminated') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE
+        FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
     );

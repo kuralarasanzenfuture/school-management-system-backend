@@ -7,6 +7,8 @@ import {
   deleteSalaryStructureDetail,
   bulkUpsertSalaryStructureDetails,
   getAllSalaryStructureDetailsByToken,
+  calculateSalaryByEmployeeId,
+  getFullSalaryByEmployeeId,
 } from "../modules/employee_salary_structure_details/employeeSalaryStructureDetail.controller.js";
 
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -21,6 +23,13 @@ router.post("/", createSalaryStructureDetail);
 router.post("/bulk", bulkUpsertSalaryStructureDetails);
 
 router.get("/token", verifyToken, getAllSalaryStructureDetailsByToken);
+
+router.get(
+  "/salary-calculatebyemployee/:employee_id",
+  calculateSalaryByEmployeeId,
+);
+
+router.get("/full-salary-by-employee/:employee_id", getFullSalaryByEmployeeId);
 
 router.get("/", getAllSalaryStructureDetails);
 router.get("/:id", getSalaryStructureDetailById);

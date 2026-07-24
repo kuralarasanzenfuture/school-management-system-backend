@@ -56,6 +56,8 @@ export const initDB = async () => {
       dateStrings: true,
     });
 
+    // console.log("✅ DB Pool created");
+
   } catch (err) {
     console.error("❌ DB Init Failed:", err.message);
     process.exit(1);

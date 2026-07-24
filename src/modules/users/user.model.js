@@ -15,6 +15,11 @@ export const UserModel = {
     return result.insertId;
   },
 
+  async findById(conn, id) {
+    const [[user]] = await conn.query(`SELECT * FROM users WHERE id=?`, [id]);
+    return user;
+  },
+
   async findByLoginId(login_id) {
     const db = getDB();
 

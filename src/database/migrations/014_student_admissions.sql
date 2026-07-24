@@ -29,6 +29,7 @@
 CREATE TABLE
     IF NOT EXISTS student_admissions (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        school_id INT NOT NULL,
         student_id BIGINT NOT NULL,
         admission_number VARCHAR(20) NOT NULL,
         admission_date DATE NOT NULL,
@@ -44,9 +45,16 @@ CREATE TABLE
         hostel_required BOOLEAN DEFAULT FALSE,
         admission_type ENUM ('new', 'promoted', 'transfer') DEFAULT 'new',
         status ENUM ('active', 'completed', 'transferred', 'dropped') DEFAULT 'active',
-        FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
-        FOREIGN KEY (class_id) REFERENCES classes (id) ON DELETE CASCADE,
-        FOREIGN KEY (academic_year_id) REFERENCES academic_years (id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_student_admissions_school FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
+        CONSTRAINT fk_student_admissions_student FOREIGN KEY (student_id) REFERENCES students (id) ON DELETE CASCADE,
+        CONSTRAINT fk_student_admissions_class FOREIGN KEY (class_id) REFERENCES classes (id) ON DELETE CASCADE,
+        CONSTRAINT fk_student_admissions_academic_year FOREIGN KEY (academic_year_id) REFERENCES academic_years (id) ON DELETE CASCADE,
         UNIQUE KEY uq_admission_number (admission_number),
-        UNIQUE KEY student_year_class (student_id, academic_year_id, class_id)
+        UNIQUE KEY uq_student_year_class (student_id, academic_year_id, class_id),
+        INDEX idx_school (school_id),
+        INDEX idx_student (student_id),
+        INDEX idx_class (class_id),
+        INDEX idx_academic_year (academic_year_id)
     );

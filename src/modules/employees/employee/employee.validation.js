@@ -389,3 +389,30 @@ export const validateUpdateEmployee = (data) => {
 
 //   return cleaned;
 // };
+
+export const validateAssignUser = (data) => {
+  const { employee_id, user_id } = data;
+
+  if (!employee_id) {
+    throw { status: 400, message: "employee_id required" };
+  }
+
+  if (!user_id) {
+    throw { status: 400, message: "user_id required" };
+  }
+
+  return {
+    employee_id: Number(employee_id),
+    user_id: Number(user_id),
+  };
+};
+
+export const validateUnassignUser = (data) => {
+  if (!data.employee_id) {
+    throw { status: 400, message: "employee_id required" };
+  }
+
+  return {
+    employee_id: Number(data.employee_id),
+  };
+};

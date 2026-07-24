@@ -476,3 +476,326 @@ export const deleteSalaryStructureDetail = async (id) => {
     conn.release();
   }
 };
+
+export const calculateSalary = async (employee_id) => {
+  const db = getDB();
+
+  // 🔥 1. Get active salary structure
+  const [[structure]] = await db.query(
+    `
+    SELECT *
+    FROM employee_salary_structures
+    WHERE employee_id = ?
+      AND status = 'active'
+      AND (effective_to IS NULL OR effective_to >= CURDATE())
+    ORDER BY effective_from DESC
+    LIMIT 1
+    `,
+    [employee_id],
+  );
+
+  if (!structure) {
+    throw { status: 404, message: "No active salary structure" };
+  }
+
+  // 🔥 2. Get components
+  const [components] = await db.query(
+    `
+    SELECT 
+      d.*,
+      c.name,
+      c.type
+    FROM employee_salary_structure_details d
+    JOIN employee_salary_components c 
+      ON d.component_id = c.id
+    WHERE d.salary_structure_id = ?
+    `,
+    [structure.id],
+  );
+
+  if (!components.length) {
+    throw { status: 400, message: "No salary components found" };
+  }
+
+  // 🔥 3. Find BASIC
+  const basicComponent = components.find(
+    (c) => c.name.toLowerCase() === "basic",
+  );
+
+  if (!basicComponent) {
+    throw { status: 400, message: "Basic component required" };
+  }
+
+  if (basicComponent.calculation_type !== "fixed") {
+    throw { status: 400, message: "Basic must be fixed" };
+  }
+
+  let basic = Number(basicComponent.amount);
+
+  // 🔥 4. Calculate earnings
+  let earnings = [];
+  let gross = basic;
+
+  for (const comp of components) {
+    if (comp.type !== "earning") continue;
+    if (comp.name.toLowerCase() === "basic") continue;
+
+    let value = 0;
+
+    if (comp.calculation_type === "fixed") {
+      value = Number(comp.amount);
+    } else if (comp.calculation_type === "percentage") {
+      if (comp.based_on === "basic") {
+        value = (basic * comp.percentage) / 100;
+      } else if (comp.based_on === "gross") {
+        // ⚠️ skip now, calculate later
+        continue;
+      }
+    }
+
+    earnings.push({ name: comp.name, value });
+    gross += value;
+  }
+
+  // 🔥 5. Handle % based on gross (second pass)
+  for (const comp of components) {
+    if (comp.type !== "earning") continue;
+
+    if (comp.calculation_type === "percentage" && comp.based_on === "gross") {
+      const value = (gross * comp.percentage) / 100;
+      earnings.push({ name: comp.name, value });
+      gross += value;
+    }
+  }
+
+  // 🔥 6. Calculate deductions
+  let deductions = [];
+  let totalDeductions = 0;
+
+  for (const comp of components) {
+    if (comp.type !== "deduction") continue;
+
+    let value = 0;
+
+    if (comp.calculation_type === "fixed") {
+      value = Number(comp.amount);
+    } else if (comp.calculation_type === "percentage") {
+      if (comp.based_on === "basic") {
+        value = (basic * comp.percentage) / 100;
+      } else {
+        value = (gross * comp.percentage) / 100;
+      }
+    }
+
+    deductions.push({ name: comp.name, value });
+    totalDeductions += value;
+  }
+
+  // 🔥 7. Net salary
+  const net = gross - totalDeductions;
+
+  return {
+    employee_id,
+    structure_id: structure.id,
+
+    basic,
+
+    earnings,
+    gross,
+
+    deductions,
+    total_deductions: totalDeductions,
+
+    net_salary: net,
+  };
+};
+
+export const getFullSalaryByEmployee = async (employee_id) => {
+  const db = getDB();
+
+  if (!employee_id) {
+    throw { status: 400, message: "employee_id required" };
+  }
+
+  // 🔥 1. Get active structure
+  const [[structure]] = await db.query(
+    `
+    SELECT *
+    FROM employee_salary_structures
+    WHERE employee_id = ?
+      AND status = 'active'
+      AND effective_from <= CURDATE()
+      AND (effective_to IS NULL OR effective_to >= CURDATE())
+    ORDER BY effective_from DESC
+    LIMIT 1
+    `,
+    [employee_id],
+  );
+
+  if (!structure) {
+    throw { status: 404, message: "No active salary structure" };
+  }
+
+  // 🔥 2. Get components
+  const [components] = await db.query(
+    `
+    SELECT 
+      d.*,
+      c.name,
+      c.component_type
+    FROM employee_salary_structure_details d
+    JOIN employee_salary_components c 
+      ON d.component_id = c.id
+    WHERE d.salary_structure_id = ?
+    `,
+    [structure.id],
+  );
+
+  if (!components.length) {
+    throw { status: 400, message: "No components found" };
+  }
+
+  // 🔥 3. BASIC validation
+  const basicComp = components.find((c) =>
+    c.name.toLowerCase().includes("basic"),
+  );
+
+  if (!basicComp || basicComp.calculation_type !== "fixed") {
+    throw { status: 400, message: "Valid BASIC component required" };
+  }
+
+  if (!basicComp.amount || basicComp.amount <= 0) {
+    throw { status: 400, message: "Invalid BASIC amount" };
+  }
+
+  let basic = Number(basicComp.amount);
+  let earnings = [];
+  let deductions = [];
+  let gross = basic;
+
+  // 🔹 PASS 1: Earnings (except % on gross)
+  for (const comp of components) {
+    if (comp.component_type !== "earning") continue;
+    if (comp.name.toLowerCase().includes("basic")) continue;
+
+    let value = 0;
+
+    if (comp.calculation_type === "fixed") {
+      value = Number(comp.amount);
+    } else if (
+      comp.calculation_type === "percentage" &&
+      comp.based_on === "basic"
+    ) {
+      value = (basic * comp.percentage) / 100;
+    }
+
+    earnings.push({ name: comp.name, value });
+    gross += value;
+  }
+
+  // 🔹 PASS 2: % on gross
+  const grossBase = gross;
+
+  for (const comp of components) {
+    if (
+      comp.component_type === "earning" &&
+      comp.calculation_type === "percentage" &&
+      comp.based_on === "gross"
+    ) {
+      const value = (grossBase * comp.percentage) / 100;
+      earnings.push({ name: comp.name, value });
+      gross += value;
+    }
+  }
+
+  // 🔹 DEDUCTIONS
+  let totalDeductions = 0;
+
+  for (const comp of components) {
+    if (comp.component_type !== "deduction") continue;
+
+    let value = 0;
+
+    if (comp.calculation_type === "fixed") {
+      value = Number(comp.amount);
+    } else {
+      value =
+        comp.based_on === "basic"
+          ? (basic * comp.percentage) / 100
+          : (gross * comp.percentage) / 100;
+    }
+
+    deductions.push({ name: comp.name, value });
+    totalDeductions += value;
+  }
+
+  const net_salary = gross - totalDeductions;
+
+  const [[employee]] = await db.query(
+    `
+  SELECT 
+    e.id,
+    e.employee_code,
+    CONCAT(e.first_name, ' ', IFNULL(e.last_name, '')) AS full_name,
+    e.department,
+    e.designation,
+    e.status,
+    s.name AS school_name
+  FROM employees e
+  JOIN schools s ON e.school_id = s.id
+  WHERE e.id = ?
+  `,
+    [employee_id],
+  );
+
+  if (!employee) {
+    throw { status: 404, message: "Employee not found" };
+  }
+
+  const cleanComponents = components.map((c) => ({
+    name: c.name,
+    type: c.component_type,
+    calculation_type: c.calculation_type,
+    amount: c.amount,
+    percentage: c.percentage,
+    based_on: c.based_on,
+  }));
+
+  // =========================
+  // ✅ FINAL RESPONSE
+  // =========================
+
+  return {
+    employee: {
+      id: employee.id,
+      employee_code: employee.employee_code,
+      name: employee.full_name.trim(),
+      department: employee.department,
+      designation: employee.designation,
+      status: employee.status,
+      school: employee.school_name,
+    },
+
+    structure: {
+      id: structure.id,
+      name: structure.structure_name,
+      effective_from: structure.effective_from,
+      effective_to: structure.effective_to,
+      status: structure.status,
+    },
+
+    // components: cleanComponents,
+    components,
+
+    breakdown: {
+      basic,
+      earnings,
+      gross,
+      deductions,
+      total_deductions: totalDeductions,
+      net_salary,
+    },
+    monthly_ctc: gross,
+    annual_ctc: gross * 12,
+  };
+};

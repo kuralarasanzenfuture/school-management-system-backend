@@ -2,6 +2,83 @@ import { getDB } from "../../config/db.js";
 import { validateManualAttendance } from "./employeeAttendance.validation.js";
 import { EmployeeAttendanceModel as Model } from "./employeeAttendance.model.js";
 
+// export const markManualAttendance = async (data) => {
+//   const db = getDB();
+//   const conn = await db.getConnection();
+
+//   try {
+//     const validated = validateManualAttendance(data);
+
+//     await conn.beginTransaction();
+
+//     // 🔴 Check duplicate
+//     const exists = await Model.findExisting(
+//       conn,
+//       validated.employee_id,
+//       validated.attendance_date,
+//     );
+
+//     if (exists) {
+//       throw { status: 409, message: "Attendance already marked" };
+//     }
+
+//     let total_work_minutes = 0;
+//     let late_minutes = 0;
+//     let overtime_minutes = 0;
+
+//     // 🔥 Calculate only if times present
+//     if (validated.check_in && validated.check_out) {
+//       const inTime = new Date(validated.check_in);
+//       const outTime = new Date(validated.check_out);
+
+//       total_work_minutes = Math.floor((outTime - inTime) / 60000);
+
+//       // 🔥 Fetch shift (if exists)
+//       if (validated.shift_id) {
+//         const [[shift]] = await conn.query(
+//           `SELECT start_time, working_hours, grace_minutes
+//            FROM employee_shifts WHERE id=?`,
+//           [validated.shift_id],
+//         );
+
+//         if (shift) {
+//           const shiftStart = new Date(
+//             `${validated.attendance_date} ${shift.start_time}`,
+//           );
+
+//           const diffLate = Math.floor((inTime - shiftStart) / 60000);
+
+//           if (diffLate > shift.grace_minutes) {
+//             late_minutes = diffLate;
+//           }
+
+//           const expectedMinutes = shift.working_hours * 60;
+
+//           if (total_work_minutes > expectedMinutes) {
+//             overtime_minutes = total_work_minutes - expectedMinutes;
+//           }
+//         }
+//       }
+//     }
+
+//     const id = await Model.create(conn, {
+//       ...validated,
+//       total_work_minutes,
+//       overtime_minutes,
+//       late_minutes,
+//     });
+
+//     await conn.commit();
+
+//     return { message: "Attendance marked", id };
+//   } catch (err) {
+//     await conn.rollback();
+//     throw err;
+//   } finally {
+//     conn.release();
+//   }
+// };
+
 export const markManualAttendance = async (data) => {
   const db = getDB();
   const conn = await db.getConnection();
@@ -11,7 +88,19 @@ export const markManualAttendance = async (data) => {
 
     await conn.beginTransaction();
 
-    // 🔴 Check duplicate
+    // 🔥 1. Check employee + get school_id
+    const [[employee]] = await conn.query(
+      `SELECT id, school_id FROM employees WHERE id=?`,
+      [validated.employee_id],
+    );
+
+    if (!employee) {
+      throw { status: 404, message: "Employee not found" };
+    }
+
+    const school_id = employee.school_id;
+
+    // 🔥 2. Duplicate check
     const exists = await Model.findExisting(
       conn,
       validated.employee_id,
@@ -26,43 +115,78 @@ export const markManualAttendance = async (data) => {
     let late_minutes = 0;
     let overtime_minutes = 0;
 
-    // 🔥 Calculate only if times present
+    // 🔥 3. Validate time logic
     if (validated.check_in && validated.check_out) {
-      const inTime = new Date(validated.check_in);
-      const outTime = new Date(validated.check_out);
+      let inTime = new Date(validated.check_in);
+      let outTime = new Date(validated.check_out);
+
+      // 🔴 Handle cross-midnight
+      if (outTime < inTime) {
+        outTime.setDate(outTime.getDate() + 1);
+      }
 
       total_work_minutes = Math.floor((outTime - inTime) / 60000);
 
-      // 🔥 Fetch shift (if exists)
+      if (total_work_minutes <= 0) {
+        throw { status: 400, message: "Invalid working time" };
+      }
+
+      // 🔥 4. Shift logic
       if (validated.shift_id) {
         const [[shift]] = await conn.query(
-          `SELECT start_time, working_hours, grace_minutes 
+          `SELECT start_time, working_hours, grace_minutes, crosses_midnight, school_id 
            FROM employee_shifts WHERE id=?`,
           [validated.shift_id],
         );
 
-        if (shift) {
-          const shiftStart = new Date(
-            `${validated.attendance_date} ${shift.start_time}`,
-          );
+        if (!shift) {
+          throw { status: 404, message: "Shift not found" };
+        }
 
-          const diffLate = Math.floor((inTime - shiftStart) / 60000);
+        // 🔴 Ensure shift belongs to same school
+        if (shift.school_id !== school_id) {
+          throw {
+            status: 400,
+            message: "Shift does not belong to employee school",
+          };
+        }
 
-          if (diffLate > shift.grace_minutes) {
-            late_minutes = diffLate;
-          }
+        let shiftStart = new Date(
+          `${validated.attendance_date} ${shift.start_time}`,
+        );
 
-          const expectedMinutes = shift.working_hours * 60;
+        if (shift.crosses_midnight) {
+          // night shift start stays same
+        }
 
-          if (total_work_minutes > expectedMinutes) {
-            overtime_minutes = total_work_minutes - expectedMinutes;
-          }
+        const diffLate = Math.floor((inTime - shiftStart) / 60000);
+
+        if (diffLate > shift.grace_minutes) {
+          late_minutes = diffLate;
+        }
+
+        const expectedMinutes = Number(shift.working_hours) * 60;
+
+        if (total_work_minutes > expectedMinutes) {
+          overtime_minutes = total_work_minutes - expectedMinutes;
         }
       }
     }
 
+    // 🔥 5. Status validation with time
+    if (["absent", "holiday", "week_off", "leave"].includes(validated.status)) {
+      if (validated.check_in || validated.check_out) {
+        throw {
+          status: 400,
+          message: "Time not allowed for this status",
+        };
+      }
+    }
+
+    // 🔥 6. Insert
     const id = await Model.create(conn, {
       ...validated,
+      school_id,
       total_work_minutes,
       overtime_minutes,
       late_minutes,
@@ -70,7 +194,10 @@ export const markManualAttendance = async (data) => {
 
     await conn.commit();
 
-    return { message: "Attendance marked", id };
+    return {
+      message: "Attendance marked successfully",
+      id,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
