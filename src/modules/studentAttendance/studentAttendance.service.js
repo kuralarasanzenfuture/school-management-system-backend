@@ -2,6 +2,121 @@ import { getDB } from "../../config/db.js";
 import { validateAttendance } from "./studentAttendance.validation.js";
 import { StudentAttendanceModel as Model } from "./studentAttendance.model.js";
 
+// export const markAttendance = async (user, body) => {
+//   const db = getDB();
+//   const conn = await db.getConnection();
+
+//   try {
+//     const data = validateAttendance(body);
+
+//     await conn.beginTransaction();
+
+//     /* 🔴 1. Employee check */
+//     const [[employee]] = await conn.query(
+//       `SELECT id, school_id FROM employees WHERE user_id=?`,
+//       [user.id],
+//     );
+
+//     if (!employee) throw { status: 403, message: "Employee required" };
+
+//     /* 🔴 2. Class section check */
+//     const [[classInfo]] = await conn.query(
+//       `SELECT school_id, academic_year_id
+//        FROM class_sections WHERE id=?`,
+//       [data.class_section_id],
+//     );
+
+//     if (!classInfo) throw { status: 404, message: "Class section not found" };
+
+//     /* 🔴 3. Admission validation (VERY IMPORTANT) */
+//     const ids = data.students.map((s) => s.admission_id);
+
+//     if (!ids.length) {
+//       throw { status: 400, message: "No students provided" };
+//     }
+
+//     const placeholders = ids.map(() => "?").join(",");
+
+//     const [validAdmissions] = await conn.query(
+//       `
+//   SELECT id
+//   FROM student_admissions
+//   WHERE id IN (${placeholders})
+//     AND class_id = (
+//       SELECT class_id FROM class_sections WHERE id=?
+//     )
+//     AND academic_year_id = ?
+//     AND status = 'active'
+//   `,
+//       [...ids, data.class_section_id, classInfo.academic_year_id],
+//     );
+
+//     const validSet = new Set(validAdmissions.map((r) => r.id));
+
+//     const invalidIds = ids.filter((id) => !validSet.has(id));
+
+//     if (invalidIds.length) {
+//       throw {
+//         status: 400,
+//         message: `Invalid admission_ids: ${invalidIds.join(", ")}`,
+//       };
+//     }
+
+//     /* 🔴 4. Session */
+//     let session = await Model.findSession(
+//       conn,
+//       classInfo.school_id,
+//       classInfo.academic_year_id,
+//       data.class_section_id,
+//       data.attendance_date,
+//       data.period_no,
+//     );
+
+//     let sessionId;
+
+//     if (!session) {
+//       sessionId = await Model.createSession(conn, {
+//         school_id: classInfo.school_id,
+//         academic_year_id: classInfo.academic_year_id,
+//         class_section_id: data.class_section_id,
+//         attendance_date: data.attendance_date,
+//         attendance_type: data.attendance_type,
+//         period_no: data.period_no,
+//         remarks: data.remarks,
+//         taken_by: employee.id,
+//       });
+//     } else {
+//       if (session.is_locked) {
+//         throw { status: 400, message: "Session locked" };
+//       }
+//       sessionId = session.id;
+//     }
+
+//     /* 🔥 5. BULK UPSERT (FIXED) */
+//     const values = data.students.map((s) => [
+//       sessionId,
+//       s.admission_id,
+//       s.status,
+//       s.remarks,
+//       employee.id,
+//     ]);
+
+//     await Model.bulkUpsert(conn, values);
+
+//     await conn.commit();
+
+//     return {
+//       message: "Attendance saved",
+//       attendance_session_id: sessionId,
+//     };
+//   } catch (err) {
+//     await conn.rollback();
+//     throw err;
+//   } finally {
+//     conn.release();
+//   }
+// };
+
 export const markAttendance = async (user, body) => {
   const db = getDB();
   const conn = await db.getConnection();
@@ -11,53 +126,89 @@ export const markAttendance = async (user, body) => {
 
     await conn.beginTransaction();
 
-    /* 🔴 1. Employee check */
+    /* 🔴 1. EMPLOYEE CHECK */
+    if (!user || !user.id) {
+      throw { status: 401, message: "Invalid user token" };
+    }
+
     const [[employee]] = await conn.query(
       `SELECT id, school_id FROM employees WHERE user_id=?`,
       [user.id],
     );
 
-    if (!employee) throw { status: 403, message: "Employee required" };
+    if (!employee) {
+      throw { status: 403, message: "Employee required" };
+    }
 
-    /* 🔴 2. Class section check */
+    /* 🔴 2. CLASS SECTION CHECK */
     const [[classInfo]] = await conn.query(
-      `SELECT school_id, academic_year_id 
-       FROM class_sections WHERE id=?`,
+      `
+      SELECT school_id, academic_year_id, class_id
+      FROM class_sections
+      WHERE id=?
+      `,
       [data.class_section_id],
     );
 
-    if (!classInfo) throw { status: 404, message: "Class section not found" };
+    if (!classInfo) {
+      throw { status: 404, message: "Class section not found" };
+    }
 
-    /* 🔴 3. Admission validation (VERY IMPORTANT) */
+    /* 🔴 3. STRICT TYPE VALIDATION */
+    if (data.attendance_type === "daily" && data.period_no !== null) {
+      throw {
+        status: 400,
+        message: "Daily attendance must not have period_no",
+      };
+    }
+
+    if (data.attendance_type === "period" && !data.period_no) {
+      throw {
+        status: 400,
+        message: "period_no required for period attendance",
+      };
+    }
+
+    /* 🔴 4. VALIDATE ADMISSIONS */
+    const ids = data.students.map((s) => s.admission_id);
+
+    if (!ids.length) {
+      throw { status: 400, message: "No students provided" };
+    }
+
+    const placeholders = ids.map(() => "?").join(",");
+
     const [validAdmissions] = await conn.query(
       `
-      SELECT id FROM student_admissions
-      WHERE id IN (?)
-      AND class_id IN (
-        SELECT class_id FROM class_sections WHERE id=?
-      )
+      SELECT id 
+      FROM student_admissions
+      WHERE id IN (${placeholders})
+      AND class_id = ?
+      AND academic_year_id = ?
+      AND status = 'active'
       `,
-      [data.students.map((s) => s.admission_id), data.class_section_id],
+      [...ids, classInfo.class_id, classInfo.academic_year_id],
     );
 
-    const validIds = validAdmissions.map((r) => r.id);
+    const validSet = new Set(validAdmissions.map((r) => r.id));
 
-    data.students.forEach((s) => {
-      if (!validIds.includes(s.admission_id)) {
-        throw {
-          status: 400,
-          message: `Invalid admission_id ${s.admission_id}`,
-        };
-      }
-    });
+    const invalidIds = ids.filter((id) => !validSet.has(id));
 
-    /* 🔴 4. Session */
+    if (invalidIds.length) {
+      throw {
+        status: 400,
+        message: `Invalid admission_ids: ${invalidIds.join(", ")}`,
+      };
+    }
+
+    /* 🔴 5. SESSION FIND / CREATE */
     let session = await Model.findSession(
       conn,
       classInfo.school_id,
       classInfo.academic_year_id,
       data.class_section_id,
       data.attendance_date,
+      data.attendance_type,
       data.period_no,
     );
 
@@ -76,12 +227,12 @@ export const markAttendance = async (user, body) => {
       });
     } else {
       if (session.is_locked) {
-        throw { status: 400, message: "Session locked" };
+        throw { status: 400, message: "Attendance session is locked" };
       }
       sessionId = session.id;
     }
 
-    /* 🔥 5. BULK UPSERT (FIXED) */
+    /* 🔴 6. BULK UPSERT */
     const values = data.students.map((s) => [
       sessionId,
       s.admission_id,
@@ -95,8 +246,11 @@ export const markAttendance = async (user, body) => {
     await conn.commit();
 
     return {
-      message: "Attendance saved",
+      message: "Attendance saved successfully",
       attendance_session_id: sessionId,
+      attendance_type: data.attendance_type,
+      period_no: data.period_no,
+      total_students: data.students.length,
     };
   } catch (err) {
     await conn.rollback();
@@ -482,6 +636,552 @@ export const getAttendanceById = async (id) => {
   return row;
 };
 
+// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
+//   const db = getDB();
+
+//   if (!admission_id) {
+//     throw { status: 400, message: "admission_id required" };
+//   }
+
+//   let query = `
+//     SELECT
+//       sa.id,
+//       sa.attendance_status,
+//       sa.remarks,
+
+//       sas.attendance_date,
+//       sas.period_no,
+//       sas.attendance_type,
+
+//       cs.id AS class_section_id,
+//       c.name AS class_name,
+//       s.name AS section_name,
+
+//       emp.first_name AS marked_by_name
+
+//     FROM student_attendance sa
+
+//     JOIN student_attendance_sessions sas
+//       ON sa.attendance_session_id = sas.id
+
+//     JOIN class_sections cs
+//       ON sas.class_section_id = cs.id
+
+//     JOIN classes c
+//       ON cs.class_id = c.id
+
+//     JOIN sections s
+//       ON cs.section_id = s.id
+
+//     JOIN employees emp
+//       ON sa.marked_by = emp.id
+
+//     WHERE sa.admission_id = ?
+//   `;
+
+//   const values = [admission_id];
+
+//   // 🔍 filters
+//   if (filters.from_date) {
+//     query += ` AND sas.attendance_date >= ?`;
+//     values.push(filters.from_date);
+//   }
+
+//   if (filters.to_date) {
+//     query += ` AND sas.attendance_date <= ?`;
+//     values.push(filters.to_date);
+//   }
+
+//   query += ` ORDER BY sas.attendance_date DESC`;
+
+//   const [rows] = await db.query(query, values);
+
+//   return rows;
+// };
+
+// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
+//   const db = getDB();
+
+//   if (!admission_id) {
+//     throw { status: 400, message: "admission_id required" };
+//   }
+
+//   let query = `
+//     SELECT
+//       sa.attendance_status,
+//       sa.remarks,
+
+//       sas.attendance_date,
+//       sas.period_no,
+//       sas.attendance_type,
+
+//       cs.id AS class_section_id,
+//       c.name AS class_name,
+//       s.name AS section_name,
+
+//       emp.first_name AS marked_by_name
+
+//     FROM student_attendance sa
+
+//     JOIN student_attendance_sessions sas
+//       ON sa.attendance_session_id = sas.id
+
+//     JOIN class_sections cs
+//       ON sas.class_section_id = cs.id
+
+//     JOIN classes c
+//       ON cs.class_id = c.id
+
+//     JOIN sections s
+//       ON cs.section_id = s.id
+
+//     JOIN employees emp
+//       ON sa.marked_by = emp.id
+
+//     WHERE sa.admission_id = ?
+//   `;
+
+//   const values = [admission_id];
+
+//   if (filters.from_date) {
+//     query += ` AND sas.attendance_date >= ?`;
+//     values.push(filters.from_date);
+//   }
+
+//   if (filters.to_date) {
+//     query += ` AND sas.attendance_date <= ?`;
+//     values.push(filters.to_date);
+//   }
+
+//   query += ` ORDER BY sas.attendance_date DESC, sas.period_no ASC`;
+
+//   const [rows] = await db.query(query, values);
+
+//   if (!rows.length) return {};
+
+//   // 🔥 GROUPING LOGIC
+//   const result = {
+//     class_section_id: rows[0].class_section_id,
+//     class_name: rows[0].class_name,
+//     section_name: rows[0].section_name,
+//     daily: [],
+//     period: [],
+//   };
+
+//   const periodMap = {}; // date => periods[]
+
+//   for (const row of rows) {
+//     if (row.attendance_type === "daily") {
+//       result.daily.push({
+//         date: row.attendance_date,
+//         status: row.attendance_status,
+//         marked_by: row.marked_by_name,
+//         remarks: row.remarks,
+//       });
+//     } else {
+//       // PERIOD TYPE
+//       if (!periodMap[row.attendance_date]) {
+//         periodMap[row.attendance_date] = [];
+//       }
+
+//       periodMap[row.attendance_date].push({
+//         period_no: row.period_no,
+//         status: row.attendance_status,
+//         remarks: row.remarks,
+//       });
+//     }
+//   }
+
+//   // convert map → array
+//   result.period = Object.keys(periodMap).map((date) => ({
+//     date,
+//     periods: periodMap[date],
+//   }));
+
+//   return result;
+// };
+
+/* fix filter by academic year */
+
+// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
+//   const db = getDB();
+
+//   if (!admission_id) {
+//     throw { status: 400, message: "admission_id required" };
+//   }
+
+//   /* 🔥 STEP 1: Resolve academic year */
+
+//   let academicYear;
+
+//   if (filters.academic_year_id) {
+//     const [[year]] = await db.query(`SELECT * FROM academic_years WHERE id=?`, [
+//       filters.academic_year_id,
+//     ]);
+
+//     if (!year) {
+//       throw { status: 404, message: "Academic year not found" };
+//     }
+
+//     academicYear = year;
+//   } else {
+//     // ✅ AUTO current year by date
+//     const [[year]] = await db.query(
+//       `
+//       SELECT *
+//       FROM academic_years
+//       WHERE CURDATE() BETWEEN start_date AND end_date
+//       LIMIT 1
+//       `,
+//     );
+
+//     if (!year) {
+//       throw { status: 400, message: "No current academic year found" };
+//     }
+
+//     academicYear = year;
+//   }
+
+//   /* 🔥 STEP 2: Base query */
+
+//   let query = `
+//     SELECT
+//       sa.attendance_status,
+//       sa.remarks,
+
+//       sas.attendance_date,
+//       sas.period_no,
+//       sas.attendance_type,
+
+//       cs.id AS class_section_id,
+//       c.name AS class_name,
+//       s.name AS section_name,
+
+//       emp.first_name AS marked_by_name
+
+//     FROM student_attendance sa
+
+//     JOIN student_attendance_sessions sas
+//       ON sa.attendance_session_id = sas.id
+
+//     JOIN class_sections cs
+//       ON sas.class_section_id = cs.id
+
+//     JOIN classes c
+//       ON cs.class_id = c.id
+
+//     JOIN sections s
+//       ON cs.section_id = s.id
+
+//     JOIN employees emp
+//       ON sa.marked_by = emp.id
+
+//     WHERE sa.admission_id = ?
+//       AND sas.attendance_date BETWEEN ? AND ?
+//   `;
+
+//   const values = [admission_id, academicYear.start_date, academicYear.end_date];
+
+//   /* 🔍 EXTRA FILTERS */
+
+//   if (filters.from_date) {
+//     query += ` AND sas.attendance_date >= ?`;
+//     values.push(filters.from_date);
+//   }
+
+//   if (filters.to_date) {
+//     query += ` AND sas.attendance_date <= ?`;
+//     values.push(filters.to_date);
+//   }
+
+//   query += ` ORDER BY sas.attendance_date DESC, sas.period_no ASC`;
+
+//   const [rows] = await db.query(query, values);
+
+//   if (!rows.length) {
+//     return {
+//       academic_year: academicYear.name,
+//       daily: [],
+//       period: [],
+//     };
+//   }
+
+//   /* 🔥 STEP 3: GROUPING */
+
+//   const result = {
+//     academic_year: academicYear.name,
+//     class_section_id: rows[0].class_section_id,
+//     class_name: rows[0].class_name,
+//     section_name: rows[0].section_name,
+//     daily: [],
+//     period: [],
+//   };
+
+//   const periodMap = {};
+
+//   for (const row of rows) {
+//     if (row.attendance_type === "daily") {
+//       result.daily.push({
+//         date: row.attendance_date,
+//         status: row.attendance_status,
+//         marked_by: row.marked_by_name,
+//         remarks: row.remarks,
+//       });
+//     } else {
+//       if (!periodMap[row.attendance_date]) {
+//         periodMap[row.attendance_date] = [];
+//       }
+
+//       periodMap[row.attendance_date].push({
+//         period_no: row.period_no,
+//         status: row.attendance_status,
+//         remarks: row.remarks,
+//       });
+//     }
+//   }
+
+//   result.period = Object.keys(periodMap).map((date) => ({
+//     date,
+//     periods: periodMap[date],
+//   }));
+
+//   return result;
+// };
+
+/* ===========================*/
+
+// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
+//   const db = getDB();
+
+//   if (!admission_id) {
+//     throw { status: 400, message: "admission_id required" };
+//   }
+
+//   /* =========================
+//      1. GET ADMISSION
+//   ========================= */
+
+//   const [[admission]] = await db.query(
+//     `
+//     SELECT
+//       id,
+//       academic_year_id,
+//       class_id
+//     FROM student_admissions
+//     WHERE id = ?
+//     `,
+//     [admission_id],
+//   );
+
+//   if (!admission) {
+//     throw { status: 404, message: "Admission not found" };
+//   }
+
+//   /* =========================
+//      2. BASE QUERY (STRICT YEAR MATCH)
+//   ========================= */
+
+//   let query = `
+//     SELECT
+//       sa.attendance_status,
+//       sa.remarks,
+
+//       sas.attendance_date,
+//       sas.period_no,
+//       sas.attendance_type,
+
+//       cs.id AS class_section_id,
+//       c.name AS class_name,
+//       s.name AS section_name
+
+//     FROM student_attendance sa
+
+//     JOIN student_attendance_sessions sas
+//       ON sa.attendance_session_id = sas.id
+
+//     JOIN class_sections cs
+//       ON sas.class_section_id = cs.id
+
+//     JOIN classes c
+//       ON cs.class_id = c.id
+
+//     JOIN sections s
+//       ON cs.section_id = s.id
+
+//     WHERE
+//       sa.admission_id = ?
+//       AND sas.academic_year_id = ?
+//   `;
+
+//   const values = [admission_id, admission.academic_year_id];
+
+//   /* =========================
+//      3. OPTIONAL FILTERS
+//   ========================= */
+
+//   if (filters.from_date) {
+//     query += ` AND sas.attendance_date >= ?`;
+//     values.push(filters.from_date);
+//   }
+
+//   if (filters.to_date) {
+//     query += ` AND sas.attendance_date <= ?`;
+//     values.push(filters.to_date);
+//   }
+
+//   if (filters.attendance_type) {
+//     query += ` AND sas.attendance_type = ?`;
+//     values.push(filters.attendance_type); // 'daily' or 'period'
+//   }
+
+//   query += `
+//     ORDER BY
+//       sas.attendance_date DESC,
+//       sas.period_no ASC
+//   `;
+
+//   const [rows] = await db.query(query, values);
+
+//   /* =========================
+//      4. EMPTY RESPONSE
+//   ========================= */
+
+//   if (!rows.length) {
+//     return {
+//       academic_year_id: admission.academic_year_id,
+//       daily: [],
+//       period: [],
+//     };
+//   }
+
+//   /* =========================
+//      5. SPLIT DAILY / PERIOD
+//   ========================= */
+
+//   const result = {
+//     academic_year_id: admission.academic_year_id,
+//     class_section_id: rows[0].class_section_id,
+//     class_name: rows[0].class_name,
+//     section_name: rows[0].section_name,
+//     daily: [],
+//     period: [],
+//   };
+
+//   const periodMap = {};
+
+//   for (const row of rows) {
+//     if (row.attendance_type === "daily") {
+//       result.daily.push({
+//         date: row.attendance_date,
+//         status: row.attendance_status,
+//         remarks: row.remarks,
+//       });
+//     } else {
+//       if (!periodMap[row.attendance_date]) {
+//         periodMap[row.attendance_date] = [];
+//       }
+
+//       periodMap[row.attendance_date].push({
+//         period_no: row.period_no,
+//         status: row.attendance_status,
+//         remarks: row.remarks,
+//       });
+//     }
+//   }
+
+//   result.period = Object.keys(periodMap).map((date) => ({
+//     date,
+//     periods: periodMap[date],
+//   }));
+
+//   return result;
+// };
+
+/* ========= fix filter daily and period ===================*/
+
+// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
+//   const db = getDB();
+
+//   if (!admission_id) {
+//     throw { status: 400, message: "admission_id required" };
+//   }
+
+//   let query = `
+//     SELECT
+//       sa.id,
+//       sa.attendance_status,
+//       sa.remarks,
+
+//       sas.attendance_date,
+//       sas.period_no,
+//       sas.attendance_type,
+
+//       cs.id AS class_section_id,
+//       c.name AS class_name,
+//       s.name AS section_name,
+
+//       emp.first_name AS marked_by_name
+
+//     FROM student_attendance sa
+
+//     JOIN student_attendance_sessions sas
+//       ON sa.attendance_session_id = sas.id
+
+//     JOIN class_sections cs
+//       ON sas.class_section_id = cs.id
+
+//     JOIN classes c
+//       ON cs.class_id = c.id
+
+//     JOIN sections s
+//       ON cs.section_id = s.id
+
+//     JOIN employees emp
+//       ON sa.marked_by = emp.id
+
+//     WHERE sa.admission_id = ?
+//   `;
+
+//   const values = [admission_id];
+
+//   /* 🔍 DATE FILTER */
+//   if (filters.from_date) {
+//     query += ` AND sas.attendance_date >= ?`;
+//     values.push(filters.from_date);
+//   }
+
+//   if (filters.to_date) {
+//     query += ` AND sas.attendance_date <= ?`;
+//     values.push(filters.to_date);
+//   }
+
+//   /* 🔥 TYPE FILTER (FIXED) */
+//   if (filters.attendance_type) {
+//     const types = filters.attendance_type.split(",");
+//     query += ` AND sas.attendance_type IN (?)`;
+//     values.push(types);
+//   }
+
+//   query += `
+//     ORDER BY
+//       sas.attendance_date DESC,
+//       sas.period_no ASC
+//   `;
+
+//   const [rows] = await db.query(query, values);
+
+//   /* 🔥 SPLIT RESPONSE (IMPORTANT) */
+//   const daily = rows.filter((r) => r.attendance_type === "daily");
+//   const period = rows.filter((r) => r.attendance_type === "period");
+
+//   return {
+//     admission_id,
+//     total_records: rows.length,
+//     daily,
+//     period,
+//   };
+// };
+
 export const getAttendanceByStudent = async (admission_id, filters = {}) => {
   const db = getDB();
 
@@ -527,7 +1227,7 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
 
   const values = [admission_id];
 
-  // 🔍 filters
+  // 🔥 DATE FILTER
   if (filters.from_date) {
     query += ` AND sas.attendance_date >= ?`;
     values.push(filters.from_date);
@@ -538,11 +1238,89 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
     values.push(filters.to_date);
   }
 
-  query += ` ORDER BY sas.attendance_date DESC`;
+  // 🔥 TYPE FILTER (daily / period / both)
+  if (filters.attendance_type) {
+    const types = filters.attendance_type.split(",");
+    query += ` AND sas.attendance_type IN (?)`;
+    values.push(types);
+  }
+
+  query += ` ORDER BY sas.attendance_date DESC, sas.period_no ASC`;
 
   const [rows] = await db.query(query, values);
 
-  return rows;
+  /* =============================
+     🔥 GROUPING LOGIC
+  ============================== */
+
+  const dailyMap = {};
+  const periodMap = {};
+
+  rows.forEach((r) => {
+    const record = {
+      attendance_id: r.id,
+      status: r.attendance_status,
+      remarks: r.remarks,
+      class_section_id: r.class_section_id,
+      class_name: r.class_name,
+      section_name: r.section_name,
+      marked_by: r.marked_by_name,
+    };
+
+    const date = r.attendance_date;
+
+    if (r.attendance_type === "daily") {
+      if (!dailyMap[date]) {
+        dailyMap[date] = {
+          date,
+          records: [],
+        };
+      }
+      dailyMap[date].records.push(record);
+    }
+
+    if (r.attendance_type === "period") {
+      if (!periodMap[date]) {
+        periodMap[date] = {
+          date,
+          periods: {},
+        };
+      }
+
+      if (!periodMap[date].periods[r.period_no]) {
+        periodMap[date].periods[r.period_no] = {
+          period_no: r.period_no,
+          records: [],
+        };
+      }
+
+      periodMap[date].periods[r.period_no].records.push(record);
+    }
+  });
+
+  /* =============================
+     🔥 FINAL FORMAT
+  ============================== */
+
+  const daily = Object.values(dailyMap);
+
+  const period = Object.values(periodMap).map((d) => ({
+    date: d.date,
+    periods: Object.values(d.periods),
+  }));
+
+  return {
+    admission_id,
+    summary: {
+      total_records: rows.length,
+      daily_count: daily.length,
+      period_count: period.length,
+    },
+    data: {
+      daily,
+      period,
+    },
+  };
 };
 
 export const getAttendanceByDate = async (filters = {}) => {

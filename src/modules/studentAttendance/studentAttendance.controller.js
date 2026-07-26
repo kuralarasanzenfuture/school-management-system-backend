@@ -5,9 +5,11 @@ import * as Service from "./studentAttendance.service.js";
 =========================== */
 export const markAttendance = async (req, res) => {
   try {
+    // console.log(req.body);
     const result = await Service.markAttendance(req.user, req.body);
     res.status(201).json(result);
   } catch (err) {
+    console.log(err);
     res.status(err.status || 500).json({
       message: err.message,
     });
@@ -194,3 +196,5 @@ export const getAttendanceSummary = async (req, res) => {
     });
   }
 };
+
+

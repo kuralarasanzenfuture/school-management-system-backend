@@ -132,8 +132,6 @@ export const adminOnly = (req, res, next) => {
 //     //   });
 //     // }
 
-    
-
 //     req.user = decoded;
 //     next();
 //   } catch (err) {
@@ -145,12 +143,24 @@ export const adminOnly = (req, res, next) => {
 //   }
 // };
 
-
 export const verifyToken = async (req, res, next) => {
   try {
     const db = getDB();
 
     const authHeader = req.headers.authorization;
+
+    // console.log("authHeader:", authHeader);
+
+    // console.log("========== REQUEST ==========");
+    // console.log(req.method, req.originalUrl);
+    // console.log(req.headers);
+    // console.log("=============================");
+
+    // if (!authHeader) {
+    //   return res.status(401).json({
+    //     message: "Authorization header missing",
+    //   });
+    // }
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
@@ -165,7 +175,7 @@ export const verifyToken = async (req, res, next) => {
     // ✅ 1. Check user
     const [[user]] = await db.query(
       `SELECT status, token_version FROM users WHERE id=?`,
-      [decoded.id]
+      [decoded.id],
     );
 
     if (!user) {
@@ -192,7 +202,7 @@ export const verifyToken = async (req, res, next) => {
         AND is_active = 1
         AND expires_at > NOW()
       `,
-      [decoded.id, decoded.session_id]
+      [decoded.id, decoded.session_id],
     );
 
     if (!session) {
@@ -203,7 +213,6 @@ export const verifyToken = async (req, res, next) => {
 
     req.user = decoded;
     next();
-
   } catch (err) {
     console.error("VERIFY ERROR:", err.message);
 
@@ -212,4 +221,3 @@ export const verifyToken = async (req, res, next) => {
     });
   }
 };
-

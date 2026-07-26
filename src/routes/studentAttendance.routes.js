@@ -18,14 +18,14 @@ import {
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 /* ===========================================================
    ATTENDANCE
 =========================================================== */
 
 // Create Attendance Session + Student Attendance
-router.post("/mark", markAttendance);
+router.post("/mark", verifyToken, markAttendance);
 
 // Get All Attendance
 router.get("/", getAllAttendance);
@@ -50,6 +50,8 @@ router.get("/session/:session_id", getAttendanceBySession);
 // Example:
 // /api/student-attendance/student/20
 router.get("/student/:admission_id", getAttendanceByStudentId);
+
+
 
 // Single Attendance Record
 router.get("/:id", getAttendanceById);
