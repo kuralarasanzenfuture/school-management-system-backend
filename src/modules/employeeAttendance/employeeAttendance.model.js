@@ -35,4 +35,25 @@ export const EmployeeAttendanceModel = {
     );
     return row;
   },
+
+  async update(conn, id, data) {
+    const fields = [];
+    const values = [];
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined && value !== null) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+    if (fields.length === 0) return;
+    values.push(id);
+    await conn.query(
+      `UPDATE employee_attendance SET ${fields.join(", ")} WHERE id = ?`,
+      values,
+    );
+  },
+
+  async delete(conn, id) {
+    await conn.query(`DELETE FROM employee_attendance WHERE id = ?`, [id]);
+  },
 };

@@ -6,6 +6,8 @@ import {
   getAttendanceById,
   getAttendanceByEmployee,
   getAttendanceByDateRange,
+  updateAttendance,
+  deleteAttendance,
 } from "../modules/employeeAttendance/employeeAttendance.controller.js";
 
 import { verifyToken } from "../middlewares/auth.middleware.js";
@@ -28,5 +30,11 @@ router.get("/range", getAttendanceByDateRange);
 
 // 🔎 Single
 router.get("/:id", getAttendanceById);
+
+// ✏️ Update
+router.put("/:id", updateAttendance);
+
+// 🗑️ Delete
+router.delete("/:id", deleteAttendance);
 
 export default router;

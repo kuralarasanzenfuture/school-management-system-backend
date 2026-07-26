@@ -358,3 +358,49 @@ export const getAttendanceByDateRange = async (queryParams) => {
   const [rows] = await db.query(query, values);
   return rows;
 };
+
+export const updateAttendance = async (id, data) => {
+  const db = getDB();
+
+  const fields = [];
+  const values = [];
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined && value !== null) {
+      fields.push(`${key} = ?`);
+      values.push(value);
+    }
+  }
+
+  if (fields.length === 0) {
+    throw { status: 400, message: "No fields to update" };
+  }
+
+  values.push(id);
+
+  const [result] = await db.query(
+    `UPDATE employee_attendance SET ${fields.join(", ")} WHERE id = ?`,
+    values,
+  );
+
+  if (result.affectedRows === 0) {
+    throw { status: 404, message: "Attendance not found" };
+  }
+
+  return { message: "Attendance updated successfully" };
+};
+
+export const deleteAttendance = async (id) => {
+  const db = getDB();
+
+  const [result] = await db.query(
+    `DELETE FROM employee_attendance WHERE id = ?`,
+    [id],
+  );
+
+  if (result.affectedRows === 0) {
+    throw { status: 404, message: "Attendance not found" };
+  }
+
+  return { message: "Attendance deleted successfully" };
+};

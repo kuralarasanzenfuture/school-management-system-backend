@@ -52,3 +52,21 @@ export const getAttendanceByDateRange = async (req, res) => {
     res.status(err.status || 500).json({ message: err.message });
   }
 };
+
+export const updateAttendance = async (req, res) => {
+  try {
+    const result = await Service.updateAttendance(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const deleteAttendance = async (req, res) => {
+  try {
+    const result = await Service.deleteAttendance(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
