@@ -37,10 +37,27 @@ export const getAttendanceById = async (req, res) => {
 
 export const getAttendanceByEmployee = async (req, res) => {
   try {
-    const data = await Service.getAttendanceByEmployee(req.params.employee_id);
-    res.json(data);
+    const { employee_id } = req.params;
+
+    const { month, year, from_date, to_date, status } = req.query;
+
+    const data = await Service.getAttendanceByEmployee(employee_id, {
+      month,
+      year,
+      from_date,
+      to_date,
+      status,
+    });
+
+    res.status(200).json({
+      success: true,
+      data,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 

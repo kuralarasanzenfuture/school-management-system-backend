@@ -317,19 +317,200 @@ export const getAttendanceById = async (id) => {
   return row;
 };
 
-export const getAttendanceByEmployee = async (employee_id) => {
+// export const getAttendanceByEmployee = async (employee_id, filters = {}) => {
+//   const db = getDB();
+
+//   const { month, year, from_date, to_date, status } = filters;
+
+//   let query = `
+//     SELECT
+//       id,
+//       school_id,
+//       employee_id,
+//       attendance_date,
+//       status,
+//       shift_id,
+//       check_in,
+//       check_out,
+//       total_work_minutes,
+//       overtime_minutes,
+//       late_minutes,
+//       remarks,
+//       marked_by,
+//       created_at,
+//       updated_at
+//     FROM employee_attendance
+//     WHERE employee_id = ?
+//   `;
+
+//   const params = [employee_id];
+
+//   if (year) {
+//     query += ` AND YEAR(attendance_date) = ?`;
+//     params.push(Number(year));
+//   }
+
+//   if (month) {
+//     query += ` AND MONTH(attendance_date) = ?`;
+//     params.push(Number(month));
+//   }
+
+//   if (from_date) {
+//     query += ` AND attendance_date >= ?`;
+//     params.push(from_date);
+//   }
+
+//   if (to_date) {
+//     query += ` AND attendance_date <= ?`;
+//     params.push(to_date);
+//   }
+
+//   if (status) {
+//     query += ` AND status = ?`;
+//     params.push(status);
+//   }
+
+//   query += ` ORDER BY attendance_date DESC`;
+
+//   const [rows] = await db.query(query, params);
+
+//   return rows;
+// };
+
+export const getAttendanceByEmployee = async (employee_id, filters = {}) => {
   const db = getDB();
 
-  const [rows] = await db.query(
+  const {
+    month,
+    year,
+    from_date,
+    to_date,
+    status,
+    shift_id,
+    marked_by,
+    late_only,
+    overtime_only,
+  } = filters;
+
+  let where = ` WHERE employee_id = ? `;
+  const params = [employee_id];
+
+  if (year) {
+    where += ` AND YEAR(attendance_date) = ?`;
+    params.push(Number(year));
+  }
+
+  if (month) {
+    where += ` AND MONTH(attendance_date) = ?`;
+    params.push(Number(month));
+  }
+
+  if (from_date) {
+    where += ` AND attendance_date >= ?`;
+    params.push(from_date);
+  }
+
+  if (to_date) {
+    where += ` AND attendance_date <= ?`;
+    params.push(to_date);
+  }
+
+  if (status) {
+    where += ` AND status = ?`;
+    params.push(status);
+  }
+
+  if (shift_id) {
+    where += ` AND shift_id = ?`;
+    params.push(Number(shift_id));
+  }
+
+  if (marked_by) {
+    where += ` AND marked_by = ?`;
+    params.push(Number(marked_by));
+  }
+
+  if (late_only === "true") {
+    where += ` AND late_minutes > 0`;
+  }
+
+  if (overtime_only === "true") {
+    where += ` AND overtime_minutes > 0`;
+  }
+
+  // Attendance Logs
+  const [logs] = await db.query(
     `
-    SELECT * FROM employee_attendance
-    WHERE employee_id = ?
+    SELECT
+      id,
+      school_id,
+      employee_id,
+      attendance_date,
+      status,
+      shift_id,
+      check_in,
+      check_out,
+      total_work_minutes,
+      overtime_minutes,
+      late_minutes,
+      remarks,
+      marked_by,
+      created_at,
+      updated_at
+    FROM employee_attendance
+    ${where}
     ORDER BY attendance_date DESC
     `,
-    [employee_id],
+    params,
   );
 
-  return rows;
+  // Summary
+  const [summary] = await db.query(
+    `
+    SELECT
+      COUNT(*) AS total_records,
+
+      SUM(status='present')  AS present_days,
+      SUM(status='absent')   AS absent_days,
+      SUM(status='late')     AS late_days,
+      SUM(status='half_day') AS half_days,
+      SUM(status='leave')    AS leave_days,
+      SUM(status='holiday')  AS holiday_days,
+      SUM(status='week_off') AS week_off_days,
+
+      SUM(total_work_minutes) AS total_work_minutes,
+      SUM(overtime_minutes)   AS total_overtime_minutes,
+      SUM(late_minutes)       AS total_late_minutes,
+
+      ROUND(SUM(total_work_minutes)/60,2) AS total_work_hours,
+      ROUND(SUM(overtime_minutes)/60,2)   AS total_overtime_hours,
+
+      MIN(attendance_date) AS first_attendance,
+      MAX(attendance_date) AS last_attendance
+    FROM employee_attendance
+    ${where}
+    `,
+    params,
+  );
+
+  return {
+    filters: {
+      employee_id: Number(employee_id),
+      month: month || null,
+      year: year || null,
+      from_date: from_date || null,
+      to_date: to_date || null,
+      status: status || null,
+      shift_id: shift_id || null,
+      marked_by: marked_by || null,
+      late_only: late_only === "true",
+      overtime_only: overtime_only === "true",
+    },
+
+    summary: summary[0],
+
+    logs,
+  };
 };
 
 export const getAttendanceByDateRange = async (queryParams) => {
