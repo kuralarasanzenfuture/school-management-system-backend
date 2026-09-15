@@ -972,6 +972,91 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
   };
 };
 
+export const getAdmissionsReport = async (user, filters) => {
+  const db = getDB();
+
+  let query = `
+    SELECT 
+      sa.id,
+      sa.admission_number,
+      sa.admission_date,
+      sa.academic_year,
+      sa.class_name,
+      sa.section,
+      sa.roll_no,
+      sa.status,
+      sa.admission_type,
+
+      s.first_name,
+      s.last_name,
+      s.mobile_no,
+
+      c.name AS class_actual,
+      ay.name AS academic_year_actual
+
+    FROM student_admissions sa
+    JOIN students s ON sa.student_id = s.id
+    JOIN classes c ON sa.class_id = c.id
+    JOIN academic_years ay ON sa.academic_year_id = ay.id
+
+    WHERE 1=1
+  `;
+
+  const values = [];
+
+  /* =====================================
+     🔴 ROLE-BASED FILTER
+  ===================================== */
+
+  const isAdmin = user.role === "ADMIN" || user.roles?.includes("ADMIN");
+
+  if (!isAdmin) {
+    // school user → restrict
+    if (!user.school_id) {
+      throw { status: 403, message: "No school access" };
+    }
+
+    query += ` AND sa.school_id = ?`;
+    values.push(user.school_id);
+  } else {
+    // admin → optional filter
+    if (filters.school_id) {
+      query += ` AND sa.school_id = ?`;
+      values.push(filters.school_id);
+    }
+  }
+
+  /* =====================================
+     🔴 FILTERS
+  ===================================== */
+
+  if (filters.academic_year_id) {
+    query += ` AND sa.academic_year_id = ?`;
+    values.push(filters.academic_year_id);
+  }
+
+  if (filters.class_id) {
+    query += ` AND sa.class_id = ?`;
+    values.push(filters.class_id);
+  }
+
+  if (filters.status) {
+    query += ` AND sa.status = ?`;
+    values.push(filters.status);
+  }
+
+  if (filters.from_date && filters.to_date) {
+    query += ` AND sa.admission_date BETWEEN ? AND ?`;
+    values.push(filters.from_date, filters.to_date);
+  }
+
+  query += ` ORDER BY sa.id DESC`;
+
+  const [rows] = await db.query(query, values);
+
+  return rows;
+};
+
 export const getAdmissionById = async (id) => {
   try {
     const admission = await StudentAdmissionModel.findById(id);

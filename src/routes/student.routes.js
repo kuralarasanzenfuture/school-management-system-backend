@@ -12,7 +12,7 @@ import { studentDocsUpload } from "../middlewares/student.upload.js";
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 router.post("/", studentDocsUpload, createStudent);
 router.get("/", getAllStudents);

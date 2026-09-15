@@ -8,6 +8,46 @@ export const markManualAttendance = async (req, res) => {
   }
 };
 
+export const checkInAttendance = async (req, res) => {
+  try {
+    const data = await Service.checkInAttendance(req.user);
+    res.status(200).json({ success: true, data });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+export const checkOutAttendance = async (req, res) => {
+  try {
+    const data = await Service.checkOutAttendance(req.user);
+    res.status(200).json({ success: true, data });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+export const getTodayAttendance = async (req, res) => {
+  try {
+    const data = await Service.getTodayAttendance(req.user);
+
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
 export const getAllAttendance = async (req, res) => {
   try {
     const data = await Service.getAllAttendance(req.query);

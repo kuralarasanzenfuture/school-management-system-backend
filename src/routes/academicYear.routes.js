@@ -11,7 +11,7 @@ import {
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 router.post("/", createAcademicYear);
 router.get("/", getAllAcademicYears);

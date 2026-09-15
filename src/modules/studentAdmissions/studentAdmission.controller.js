@@ -77,6 +77,36 @@ export const getClassStudentSummaryByToken = async (req, res) => {
   }
 };
 
+export const getAllStudentAdmissionsReport = async (req, res) => {
+  try {
+    const user = req.user; // from verifyToken
+
+    const filters = {
+      school_id: req.query.school_id,
+      academic_year_id: req.query.academic_year_id,
+      class_id: req.query.class_id,
+      status: req.query.status,
+      from_date: req.query.from_date,
+      to_date: req.query.to_date,
+    };
+
+    const data = await AdmissionService.getAdmissionsReport(
+      user,
+      filters,
+    );
+
+    res.status(200).json({
+      message: "Report fetched successfully",
+      count: data.length,
+      data,
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      message: err.message,
+    });
+  }
+};
+
 /* =====================================
    🔴 GET BY ID
 ===================================== */

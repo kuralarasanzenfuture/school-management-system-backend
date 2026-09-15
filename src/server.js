@@ -17,15 +17,15 @@ const startServer = async () => {
     await initDB();
 
     // 🔥 STEP 2: Run migrations (ONLY if enabled)
-    // console.log("AUTO_MIGRATE:", process.env.AUTO_MIGRATE);
-    // if (process.env.AUTO_MIGRATE === "true") {
-    //   await runMigrations();
-    // }
-    // console.log("✅ DB ready for seeding");
+    console.log("AUTO_MIGRATE:", process.env.AUTO_MIGRATE);
+    if (process.env.AUTO_MIGRATE === "true") {
+      await runMigrations();
+    }
+    console.log("✅ DB ready for seeding");
 
-    // if (process.env.AUTO_SEED === "true") {
-    //   await runSeeds();
-    // }
+    if (process.env.AUTO_SEED === "true") {
+      await runSeeds();
+    }
     // console.log("✅ DB seeded successfully");
     
     const server = http.createServer(app);

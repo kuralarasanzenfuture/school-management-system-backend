@@ -4,7 +4,7 @@ import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 // CREATE
 router.post("/", DepartmentController.createDepartment);

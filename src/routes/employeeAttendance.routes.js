@@ -8,15 +8,22 @@ import {
   getAttendanceByDateRange,
   updateAttendance,
   deleteAttendance,
+  checkInAttendance,
+  checkOutAttendance,
+  getTodayAttendance,
 } from "../modules/employeeAttendance/employeeAttendance.controller.js";
 
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 router.post("/manual", markManualAttendance);
+
+router.post("/check-in", verifyToken, checkInAttendance);
+router.post("/check-out", verifyToken, checkOutAttendance);
+router.get("/today", verifyToken, getTodayAttendance);
 
 // 🔓 Public (or admin use)
 router.get("/", getAllAttendance);

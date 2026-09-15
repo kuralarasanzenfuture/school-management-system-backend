@@ -7,17 +7,19 @@ import {
   updateStudentAdmission,
   getAllStudentAdmissionsByToken,
   getClassStudentSummaryByToken,
+  getAllStudentAdmissionsReport,
 } from "../modules/studentAdmissions/studentAdmission.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 router.post("/", createStudentAdmission);
 router.get("/", getAllStudentAdmissions);
 router.get("/token", verifyToken, getAllStudentAdmissionsByToken);
 router.get("/token/class-summary", verifyToken, getClassStudentSummaryByToken);
+router.get("/report", verifyToken, getAllStudentAdmissionsReport);
 router.get("/:id", getStudentAdmissionById);
 router.put("/:id", updateStudentAdmission);
 router.delete("/:id", deleteStudentAdmission);

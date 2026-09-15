@@ -13,7 +13,7 @@ import { employeeUpload } from "../middlewares/employees.upload.js";
 
 const router = express.Router();
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 router.post("/", employeeUpload, createEmployee);
 router.post("/assign-user", assignUserToEmployee);

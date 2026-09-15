@@ -142,37 +142,117 @@ export const adminOnly = (req, res, next) => {
 //     });
 //   }
 // };
+/* ================================================================*/
+// export const verifyToken = async (req, res, next) => {
+//   try {
+//     const db = getDB();
+
+//     const authHeader = req.headers.authorization;
+
+//     // console.log("authHeader:", authHeader);
+
+//     // console.log("========== REQUEST ==========");
+//     // console.log(req.method, req.originalUrl);
+//     // console.log(req.headers);
+//     // console.log("=============================");
+
+//     // if (!authHeader) {
+//     //   return res.status(401).json({
+//     //     message: "Authorization header missing",
+//     //   });
+//     // }
+
+//     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+//       return res.status(401).json({
+//         message: "Authorization token required",
+//       });
+//     }
+
+//     const token = authHeader.split(" ")[1];
+
+//     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+
+//     // ✅ 1. Check user
+//     const [[user]] = await db.query(
+//       `SELECT status, token_version FROM users WHERE id=?`,
+//       [decoded.id],
+//     );
+
+//     if (!user) {
+//       return res.status(401).json({ message: "User not found" });
+//     }
+
+//     if (user.status !== "active") {
+//       return res.status(403).json({ message: "User inactive" });
+//     }
+
+//     // ✅ 2. Token version check
+//     if (decoded.token_version !== user.token_version) {
+//       return res.status(401).json({
+//         message: "Session expired (forced logout)",
+//       });
+//     }
+
+//     // ✅ 3. SESSION VALIDATION (IMPORTANT 🔥)
+//     const [[session]] = await db.query(
+//       `
+//       SELECT id FROM user_refresh_tokens
+//       WHERE user_id = ?
+//         AND session_id = ?
+//         AND is_active = 1
+//         AND expires_at > NOW()
+//       `,
+//       [decoded.id, decoded.session_id],
+//     );
+
+//     if (!session) {
+//       return res.status(401).json({
+//         message: "Session expired or logged out",
+//       });
+//     }
+
+//     req.user = decoded;
+//     next();
+//   } catch (err) {
+//     console.error("VERIFY ERROR:", err.message);
+
+//     return res.status(401).json({
+//       message: "Invalid or expired token",
+//     });
+//   }
+// };
+
+/*===============================================================*/
 
 export const verifyToken = async (req, res, next) => {
   try {
     const db = getDB();
 
+    let token;
+
+    // ✅ 1. Check Authorization header
     const authHeader = req.headers.authorization;
 
-    // console.log("authHeader:", authHeader);
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
 
-    // console.log("========== REQUEST ==========");
-    // console.log(req.method, req.originalUrl);
-    // console.log(req.headers);
-    // console.log("=============================");
+    // ✅ 2. Fallback to cookies
+    if (!token && req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
+    }
 
-    // if (!authHeader) {
-    //   return res.status(401).json({
-    //     message: "Authorization header missing",
-    //   });
-    // }
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // ❌ No token at all
+    if (!token) {
       return res.status(401).json({
-        message: "Authorization token required",
+        message: "Authentication token required",
       });
     }
 
-    const token = authHeader.split(" ")[1];
-
+    // ✅ 3. Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
-    // ✅ 1. Check user
+    // ✅ 4. Check user
     const [[user]] = await db.query(
       `SELECT status, token_version FROM users WHERE id=?`,
       [decoded.id],
@@ -186,14 +266,14 @@ export const verifyToken = async (req, res, next) => {
       return res.status(403).json({ message: "User inactive" });
     }
 
-    // ✅ 2. Token version check
+    // ✅ 5. Token version check
     if (decoded.token_version !== user.token_version) {
       return res.status(401).json({
         message: "Session expired (forced logout)",
       });
     }
 
-    // ✅ 3. SESSION VALIDATION (IMPORTANT 🔥)
+    // ✅ 6. Session validation
     const [[session]] = await db.query(
       `
       SELECT id FROM user_refresh_tokens

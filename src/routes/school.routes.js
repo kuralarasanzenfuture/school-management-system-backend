@@ -17,7 +17,7 @@ const router = express.Router();
    SCHOOL CRUD
 ========================= */
 
-// router.use(verifyToken);
+router.use(verifyToken);
 
 // 🔐 Create School (ADMIN only ideally)
 router.post("/", schoolUpload, createSchool);

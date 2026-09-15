@@ -206,6 +206,133 @@ export const markManualAttendance = async (data) => {
   }
 };
 
+export const checkInAttendance = async (user) => {
+  const db = getDB();
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // 🔴 Get employee
+  const [[employee]] = await db.query(
+    `SELECT id, school_id FROM employees WHERE user_id = ?`,
+    [user.id],
+  );
+
+  if (!employee) {
+    throw { status: 404, message: "Employee not found" };
+  }
+
+  // 🔴 Check already checked in
+  const [[existing]] = await db.query(
+    `SELECT * FROM employee_attendance 
+     WHERE employee_id = ? AND attendance_date = ?`,
+    [employee.id, today],
+  );
+
+  if (existing && existing.check_in) {
+    throw { status: 400, message: "Already checked in today" };
+  }
+
+  const now = new Date();
+
+  // 🔴 Insert
+  await db.query(
+    `
+    INSERT INTO employee_attendance
+    (school_id, employee_id, attendance_date, status, check_in, marked_by)
+    VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [employee.school_id, employee.id, today, "present", now, user.id],
+  );
+
+  return { message: "Check-in successful", check_in: now };
+};
+
+export const checkOutAttendance = async (user) => {
+  const db = getDB();
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const [[employee]] = await db.query(
+    `SELECT id FROM employees WHERE user_id = ?`,
+    [user.id],
+  );
+
+  if (!employee) {
+    throw { status: 404, message: "Employee not found" };
+  }
+
+  const [[attendance]] = await db.query(
+    `SELECT * FROM employee_attendance
+     WHERE employee_id = ? AND attendance_date = ?`,
+    [employee.id, today],
+  );
+
+  if (!attendance) {
+    throw { status: 400, message: "No check-in found for today" };
+  }
+
+  if (attendance.check_out) {
+    throw { status: 400, message: "Already checked out" };
+  }
+
+  const now = new Date();
+
+  // 🔴 Calculate work minutes
+  const checkInTime = new Date(attendance.check_in);
+  const diffMinutes = Math.floor((now - checkInTime) / (1000 * 60));
+
+  await db.query(
+    `
+    UPDATE employee_attendance
+    SET check_out = ?, total_work_minutes = ?
+    WHERE id = ?
+    `,
+    [now, diffMinutes, attendance.id],
+  );
+
+  return {
+    message: "Check-out successful",
+    total_work_minutes: diffMinutes,
+  };
+};
+
+export const getTodayAttendance = async (user) => {
+  const db = getDB();
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // 🔴 Get employee
+  const [[employee]] = await db.query(
+    `SELECT id, school_id FROM employees WHERE user_id = ?`,
+    [user.id],
+  );
+
+  if (!employee) {
+    throw { status: 404, message: "Employee not found" };
+  }
+
+  // 🔴 Get today attendance
+  const [[attendance]] = await db.query(
+    `
+    SELECT
+      id,
+      attendance_date,
+      status,
+      check_in,
+      check_out,
+      total_work_minutes,
+      overtime_minutes,
+      late_minutes,
+      remarks
+    FROM employee_attendance
+    WHERE employee_id = ? AND attendance_date = ?
+    `,
+    [employee.id, today],
+  );
+
+  return attendance || null;
+};
+
 export const getAllAttendance = async (filters = {}) => {
   const db = getDB();
 
@@ -215,6 +342,8 @@ export const getAllAttendance = async (filters = {}) => {
 
       e.first_name,
       e.last_name,
+      e.photo_url,
+      e.mobile AS employee_mobile,
 
       es.name AS shift_name,
 
@@ -259,6 +388,8 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
       ea.*,
       e.first_name,
       e.last_name,
+      e.photo_url,
+      e.mobile AS employee_mobile,
       es.name AS shift_name,
       sc.name AS school_name
 
