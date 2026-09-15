@@ -75,10 +75,20 @@ export const SchoolModel = {
     return school;
   },
 
-  async getAll() {
+  async getAll(status = "all") {
     const db = getDB();
 
-    const [rows] = await db.query(`SELECT * FROM schools ORDER BY id DESC`);
+    const values = [];
+    let query = `SELECT * FROM schools`;
+
+    if (status !== "all") {
+      query += ` WHERE status = ?`;
+      values.push(status);
+    }
+
+    query += ` ORDER BY id DESC`;
+
+    const [rows] = await db.query(query, values);
 
     return rows;
   },

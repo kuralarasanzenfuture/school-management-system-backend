@@ -1,10 +1,28 @@
+
 import { getDB } from "../../config/db.js";
 import { SchoolModel } from "./school.model.js";
 import {
   validateCreateSchool,
   validateUpdateSchool,
 } from "./school.validation.js";
-import fs from "fs";
+import {
+  deleteSchoolFile,
+  formatSchoolWithLogoUrls,
+  getFullFileUrl,
+} from "../../middlewares/school.upload.js";
+
+const deleteFileSafe = deleteSchoolFile;
+const SCHOOL_STATUSES = ["all", "active", "inactive"];
+
+const getStatusFilter = (req) => {
+  const status = req?.query?.status || "all";
+
+  if (!SCHOOL_STATUSES.includes(status)) {
+    throw { status: 400, message: "Invalid status filter" };
+  }
+
+  return status;
+};
 
 export const generateSchoolCode = async (connection) => {
   const [[last]] = await connection.query(
@@ -15,6 +33,8 @@ export const generateSchoolCode = async (connection) => {
 
   return `SCH-${String(nextId).padStart(4, "0")}`;
 };
+
+
 
 // export const createSchool = async (data) => {
 //   const db = getDB();
@@ -92,7 +112,7 @@ export const generateSchoolCode = async (connection) => {
 //   }
 // };
 
-export const createSchool = async (data) => {
+export const createSchool = async (data, req = null) => {
   const db = getDB();
   const connection = await db.getConnection();
 
@@ -124,13 +144,16 @@ export const createSchool = async (data) => {
       message: "School created",
       id: schoolId,
       code,
+      logo_url: data.logo_url || null,
+      full_logo_url: getFullFileUrl(data.logo_url, req),
+      logo_full_url: getFullFileUrl(data.logo_url, req),
     };
   } catch (err) {
     await connection.rollback();
 
     // 🔥 cleanup uploaded file if exists
     if (data.logo_url) {
-      fs.unlink(`.${data.logo_url}`, () => {});
+      deleteFileSafe(data.logo_url);
     }
 
     throw err;
@@ -139,12 +162,14 @@ export const createSchool = async (data) => {
   }
 };
 
-export const getAllSchools = async () => {
-  return await SchoolModel.getAll();
+export const getAllSchools = async (req = null) => {
+  const rows = await SchoolModel.getAll(getStatusFilter(req));
+  return rows.map((s) => formatSchoolWithLogoUrls(s, req));
 };
 
-export const getAllSchoolsByToken = async (user) => {
+export const getAllSchoolsByToken = async (user, req = null) => {
   const db = getDB();
+  const status = getStatusFilter(req);
 
   if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
@@ -175,38 +200,43 @@ export const getAllSchoolsByToken = async (user) => {
 
   const isAdmin = roles.includes("ADMIN");
 
-  let query = `
-    SELECT *
-    FROM schools
-  `;
-
+  const conditions = [];
   const values = [];
 
-  // 🔥 NON-ADMIN → only their school
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
 
-    query += ` WHERE id = ?`;
+    conditions.push("id = ?");
     values.push(dbUser.school_id);
   }
 
-  query += ` ORDER BY id DESC`;
+  if (status !== "all") {
+    conditions.push("status = ?");
+    values.push(status);
+  }
+
+  const query = `
+    SELECT *
+    FROM schools
+    ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+    ORDER BY id DESC
+  `;
 
   const [rows] = await db.query(query, values);
 
-  return rows;
+  return rows.map((s) => formatSchoolWithLogoUrls(s, req));
 };
 
-export const getSchoolById = async (id) => {
+export const getSchoolById = async (id, req = null) => {
   const school = await SchoolModel.findById(id);
 
   if (!school) {
     throw { status: 404, message: "School not found" };
   }
 
-  return school;
+  return formatSchoolWithLogoUrls(school, req);
 };
 
 // export const updateSchool = async (id, data) => {
@@ -246,13 +276,21 @@ export const getSchoolById = async (id) => {
 //   }
 // };
 
-export const updateSchool = async (id, data) => {
+export const updateSchool = async (id, data, req = null) => {
   const db = getDB();
   const connection = await db.getConnection();
 
   let newLogo = data.logo_url || null;
+  const isRemovingLogo =
+    data.remove_logo === true ||
+    data.remove_logo === "true" ||
+    (data.logo_url === null && "logo_url" in data);
 
   try {
+    if (isRemovingLogo) {
+      data.logo_url = null;
+    }
+
     const updates = validateUpdateSchool(data);
 
     const school = await SchoolModel.findById(id);
@@ -278,18 +316,31 @@ export const updateSchool = async (id, data) => {
 
     await connection.commit();
 
-    // 🔥 delete old logo AFTER success
-    if (newLogo && school.logo_url) {
-      fs.unlink(`.${school.logo_url}`, () => {});
+    // 🔥 Permanently delete old logo AFTER successful update if new logo uploaded or logo removed
+    if (
+      (newLogo || isRemovingLogo) &&
+      school.logo_url &&
+      school.logo_url !== newLogo
+    ) {
+      deleteSchoolFile(school.logo_url);
     }
 
-    return { message: "School updated" };
+    const updatedLogo = newLogo || (isRemovingLogo ? null : (updates.logo_url !== undefined ? updates.logo_url : school.logo_url));
+    const fullLogo = getFullFileUrl(updatedLogo, req);
+
+    return {
+      message: "School updated",
+      logo_url: updatedLogo,
+      full_logo_url: fullLogo,
+      logo_full_url: fullLogo,
+    };
+
   } catch (err) {
     await connection.rollback();
 
-    // 🔥 cleanup newly uploaded logo if failed
+    // 🔥 Permanently cleanup newly uploaded logo if transaction failed
     if (newLogo) {
-      fs.unlink(`.${newLogo}`, () => {});
+      deleteSchoolFile(newLogo);
     }
 
     throw err;
@@ -314,9 +365,20 @@ export const deleteSchool = async (id) => {
 
     await connection.commit();
 
+    // 🔥 Permanently delete school logo from storage when school is deleted
+    if (school.logo_url) {
+      deleteSchoolFile(school.logo_url);
+    }
+
     return { message: "School deleted" };
   } catch (err) {
     await connection.rollback();
+    if (err.code === "ER_ROW_IS_REFERENCED_2" || err.errno === 1451 || (err.message && err.message.includes("foreign key constraint fails"))) {
+      throw {
+        status: 400,
+        message: "Cannot delete this school because it is currently linked to existing records (such as employee attendance, students, or staff). Please remove or reassign associated records first.",
+      };
+    }
     throw err;
   } finally {
     connection.release();

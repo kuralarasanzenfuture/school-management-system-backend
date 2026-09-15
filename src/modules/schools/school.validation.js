@@ -161,8 +161,14 @@
 
 
 /* =============== logo file upload ==========================*/
-export const validateCreateSchool = (data) => {
-  let {
+const trimOrNull = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return value;
+  return value.trim() || null;
+};
+
+export const validateCreateSchool = (data = {}) => {
+  const {
     name,
     email,
     phone,
@@ -174,24 +180,30 @@ export const validateCreateSchool = (data) => {
     country,
     postal_code,
     website,
-    status
+    status,
   } = data;
 
-  if (!name) throw { status: 400, message: "name is required" };
+  if (typeof name !== "string" || !name.trim()) {
+    throw { status: 400, message: "School name is required" };
+  }
 
-  if (data.code) {
+  if (data.code && String(data.code).trim()) {
     throw { status: 400, message: "code is auto-generated" };
   }
 
-  // if (data.logo_url) {
-  //   throw { status: 400, message: "logo_url must not be sent manually" };
-  // }
-
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+  if (email && typeof email !== "string") {
     throw { status: 400, message: "Invalid email" };
   }
 
-  if (website && !/^https?:\/\//.test(website)) {
+  if (email?.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) {
+    throw { status: 400, message: "Invalid email" };
+  }
+
+  if (website && typeof website !== "string") {
+    throw { status: 400, message: "Invalid website URL" };
+  }
+
+  if (website?.trim() && !/^https?:\/\//i.test(website.trim())) {
     throw { status: 400, message: "Invalid website URL" };
   }
 
@@ -199,23 +211,27 @@ export const validateCreateSchool = (data) => {
     throw { status: 400, message: "Invalid status" };
   }
 
+  if (phone !== undefined && phone !== null && typeof phone !== "string") {
+    throw { status: 400, message: "Invalid phone" };
+  }
+
   return {
     name: name.trim(),
-    email: email || null,
-    phone: phone || null,
-    address_line1: address_line1 || null,
-    address_line2: address_line2 || null,
-    city: city || null,
-    district: district || null,
-    state: state || null,
-    country: country || "India",
-    postal_code: postal_code || null,
-    website: website || null,
+    email: trimOrNull(email),
+    phone: trimOrNull(phone),
+    address_line1: trimOrNull(address_line1),
+    address_line2: trimOrNull(address_line2),
+    city: trimOrNull(city),
+    district: trimOrNull(district),
+    state: trimOrNull(state),
+    country: trimOrNull(country) || "India",
+    postal_code: trimOrNull(postal_code),
+    website: trimOrNull(website),
     status: status || "active",
   };
 };
 
-export const validateUpdateSchool = (data) => {
+export const validateUpdateSchool = (data = {}) => {
   const allowedFields = [
     "name",
     "email",
@@ -237,19 +253,42 @@ export const validateUpdateSchool = (data) => {
   for (const key of Object.keys(data)) {
     if (!allowedFields.includes(key)) continue;
 
-    if (key === "email" && data[key]) {
-      if (!/^\S+@\S+\.\S+$/.test(data[key])) {
+    const val = typeof data[key] === "string" ? data[key].trim() : data[key];
+
+    if (
+      ["name", "email", "phone", "address_line1", "address_line2", "city", "district", "state", "country", "postal_code", "website", "status"].includes(key) &&
+      val !== null &&
+      val !== undefined &&
+      typeof val !== "string"
+    ) {
+      throw { status: 400, message: `Invalid ${key}` };
+    }
+
+    if (key === "name") {
+      if (!val) throw { status: 400, message: "School name is required" };
+      updates[key] = val;
+      continue;
+    }
+
+    if (key === "email" && val) {
+      if (!/^\S+@\S+\.\S+$/.test(val)) {
         throw { status: 400, message: "Invalid email" };
       }
     }
 
-    if (key === "website" && data[key]) {
-      if (!data[key].startsWith("http")) {
-        throw { status: 400, message: "Invalid website" };
+    if (key === "website" && val) {
+      if (!/^https?:\/\//i.test(val)) {
+        throw { status: 400, message: "Invalid website URL" };
       }
     }
 
-    updates[key] = data[key];
+    if (key === "status" && val) {
+      if (!["active", "inactive"].includes(val)) {
+        throw { status: 400, message: "Invalid status" };
+      }
+    }
+
+    updates[key] = val === "" ? null : val;
   }
 
   if (Object.keys(updates).length === 0) {
