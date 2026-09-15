@@ -1,5 +1,6 @@
 import { getDB } from "../../../config/db.js";
 import getFilePath from "../../../utils/getFilePath.js";
+import { deleteUploadedFile, deleteUploadedFiles } from "../../../utils/fileStorage.js";
 import { UserModel } from "../../users/user.model.js";
 import { EmployeeModel } from "./employee.model.js";
 import { EmployeeDocumentModel } from "./employee.model.js";
@@ -49,9 +50,23 @@ const EMPLOYEE_FOLDERS = {
   signature: "employees/signature",
 };
 
+const EMPLOYEE_FILE_FIELDS = [
+  "photo_url",
+  "aadhaar_card_url",
+  "pan_card_url",
+  "passport_size_photo_url",
+  "degree_certificate_url",
+  "experience_certificate_url",
+  "signature_url",
+];
+
+const getRequestFilePaths = (files = {}) =>
+  Object.values(files).flat().map((file) => file.path).filter(Boolean);
+
 export const createEmployee = async (req) => {
   const db = getDB();
   const conn = await db.getConnection();
+  const uploadedFiles = getRequestFilePaths(req.files);
 
   // console.log("createEmployee req.body:", req.body);
   // console.log("createEmployee req.files:", req.files);
@@ -132,6 +147,7 @@ export const createEmployee = async (req) => {
     };
   } catch (err) {
     await conn.rollback();
+    deleteUploadedFiles(uploadedFiles);
     throw err;
   } finally {
     conn.release();
@@ -141,6 +157,7 @@ export const createEmployee = async (req) => {
 export const updateEmployee = async (id, req) => {
   const db = getDB();
   const conn = await db.getConnection();
+  const uploadedFiles = getRequestFilePaths(req.files);
 
   try {
     if (!id) {
@@ -235,6 +252,12 @@ export const updateEmployee = async (id, req) => {
 
     await conn.commit();
 
+    EMPLOYEE_FILE_FIELDS.forEach((field) => {
+      if (data[field] && existing[field] && existing[field] !== data[field]) {
+        deleteUploadedFile(existing[field]);
+      }
+    });
+
     return {
       message: "Employee updated successfully",
       employee_id: id,
@@ -244,6 +267,7 @@ export const updateEmployee = async (id, req) => {
     };
   } catch (err) {
     await conn.rollback();
+    deleteUploadedFiles(uploadedFiles);
     throw err;
   } finally {
     conn.release();
@@ -267,6 +291,10 @@ export const deleteEmployee = async (id) => {
     await EmployeeModel.delete(conn, id);
 
     await conn.commit();
+
+    EMPLOYEE_FILE_FIELDS.forEach((field) => {
+      deleteUploadedFile(existing[field]);
+    });
 
     return { message: "Employee deleted successfully" };
   } catch (err) {

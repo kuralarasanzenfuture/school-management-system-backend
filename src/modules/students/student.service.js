@@ -1,17 +1,39 @@
 import { getDB } from "../../config/db.js";
 import getFilePath from "../../utils/getFilePath.js";
 import { StudentModel } from "./student.model.js";
+import { deleteUploadedFile, deleteUploadedFiles } from "../../utils/fileStorage.js";
 import {
   validateCreateStudent,
   validateUpdateStudent,
 } from "./student.validation.js";
-import fs from "fs";
 
 const FILE_FOLDERS = {
   photo: "students/photos",
   aadhaar_front: "students/aadhaar",
   aadhaar_back: "students/aadhaar",
   birth_certificate: "students/certificates",
+  transfer_certificate: "students/certificates",
+  previous_marksheets: "students/marksheets",
+};
+
+const STUDENT_FILE_FIELDS = [
+  "photo_url",
+  "birth_certificate_url",
+  "aadhaar_front_url",
+  "aadhaar_back_url",
+  "transfer_certificate_url",
+  "previous_marksheets_url",
+];
+
+const getStoredFilePaths = (value) => {
+  if (!value) return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [value];
+  } catch {
+    return [value];
+  }
 };
 
 /* =========================================
@@ -303,6 +325,10 @@ const generateStudentCode = async (conn) => {
 export const createStudent = async (req) => {
   const db = getDB();
   const conn = await db.getConnection();
+  const uploadedFiles = Object.values(req.files || {})
+    .flat()
+    .map((file) => file.path)
+    .filter(Boolean);
 
   try {
     if (!req.body || Object.keys(req.body).length === 0) {
@@ -370,13 +396,16 @@ export const createStudent = async (req) => {
 
       data.transfer_certificate_url = getFilePath(
         req.files.transfer_certificate?.[0],
-        "students/certificates",
+        FILE_FOLDERS.transfer_certificate,
       );
 
-      data.previous_marksheets_url = getFilePath(
-        req.files.previous_marksheets?.[0],
-        "students/marksheets",
-      );
+      data.previous_marksheets_url = req.files.previous_marksheets?.length
+        ? JSON.stringify(
+            req.files.previous_marksheets.map(
+              (file) => getFilePath(file, FILE_FOLDERS.previous_marksheets),
+            ),
+          )
+        : null;
     }
 
     // Copy Address
@@ -403,6 +432,7 @@ export const createStudent = async (req) => {
     };
   } catch (err) {
     await conn.rollback();
+    deleteUploadedFiles(uploadedFiles);
 
     console.error("CREATE STUDENT ERROR:", err);
 
@@ -634,6 +664,12 @@ export const updateStudent = async (id, req) => {
 
     await conn.commit();
 
+    STUDENT_FILE_FIELDS.forEach((field) => {
+      if (data[field] && existing[field] && existing[field] !== data[field]) {
+        getStoredFilePaths(existing[field]).forEach(deleteUploadedFile);
+      }
+    });
+
     return {
       message: "Student updated successfully",
     };
@@ -641,7 +677,7 @@ export const updateStudent = async (id, req) => {
     await conn.rollback();
 
     // 🔥 rollback file cleanup
-    uploadedFiles.forEach((p) => fs.unlink(p, () => {}));
+    deleteUploadedFiles(uploadedFiles);
 
     throw err;
   } finally {
@@ -669,6 +705,10 @@ export const deleteStudent = async (id) => {
     await StudentModel.delete(conn, id);
 
     await conn.commit();
+
+    STUDENT_FILE_FIELDS.forEach((field) => {
+      getStoredFilePaths(existing[field]).forEach(deleteUploadedFile);
+    });
 
     return { message: "Student deleted successfully" };
   } catch (err) {

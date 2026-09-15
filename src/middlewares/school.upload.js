@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getImageUrl } from "../utils/imageUrl.js";
-
+import { deleteUploadedFile, deleteUploadedFiles } from "../utils/fileStorage.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,8 +46,8 @@ const storage = multer.diskStorage({
       .replace(/\s+/g, "_")
       .replace(/[^a-zA-Z0-9_-]/g, "");
 
-    const uniqueName = `${Date.now()}-${cleanBase || file.fieldname}${ext}`;
-    cb(null, uniqueName);
+    const uniqueId = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${uniqueId}-${cleanBase || file.fieldname}${ext}`);
   },
 });
 
@@ -55,14 +55,14 @@ const storage = multer.diskStorage({
    🔥 FILE FILTER
 ========================================= */
 const fileFilter = (req, file, cb) => {
-  const allowedExt = /jpg|jpeg|png|webp/;
-  const allowedMime = /^image\/(jpeg|jpg|png|webp)$/;
+  const allowedExt = /^\.(jpg|jpeg|png|webp)$/i;
+  const allowedMime = /^image\/(jpeg|jpg|png|webp)$/i;
 
-  const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
-  const mimeValid = allowedMime.test(file.mimetype);
+  const ext = path.extname(file.originalname).toLowerCase();
   const extValid = allowedExt.test(ext);
+  const mimeValid = !file.mimetype || allowedMime.test(file.mimetype);
 
-  if (extValid && (mimeValid || !file.mimetype)) {
+  if (extValid && mimeValid) {
     cb(null, true);
   } else {
     cb(new Error("Only JPG, JPEG, PNG, and WEBP image files are allowed for school logo"));
@@ -88,82 +88,13 @@ export const schoolUpload = upload.fields([
 ]);
 
 /* =========================================
-   🔥 PERMANENT FILE DELETION HELPER
+   🔥 PERMANENT FILE DELETION HELPERS
 ========================================= */
-/**
- * Permanently deletes a stored school file (e.g. logo) from the filesystem.
- * Handles relative URLs (/uploads/schools/logos/...), absolute paths, or full URLs.
- * Protects default placeholders and prevents directory traversal.
- *
- * @param {string} filePathOrUrl - The relative URL, absolute path, or filename of the file
- * @returns {boolean} true if deleted successfully, false otherwise
- */
-export const deleteSchoolFile = (filePathOrUrl) => {
-  if (!filePathOrUrl || typeof filePathOrUrl !== "string") {
-    return false;
-  }
-
-  // 🛡️ Protect default logos / placeholders from being deleted
-  if (
-    filePathOrUrl.includes("default-school-logo") ||
-    filePathOrUrl.includes("default-logo") ||
-    filePathOrUrl.includes("placeholder")
-  ) {
-    return false;
-  }
-
-  try {
-    let cleanPath = filePathOrUrl.trim();
-
-    // If HTTP/HTTPS URL, extract pathname
-    if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
-      try {
-        cleanPath = new URL(cleanPath).pathname;
-      } catch {
-        // use string as-is if URL constructor fails
-      }
-    }
-
-    // Strip URL query parameters or hash
-    cleanPath = cleanPath.split("?")[0].split("#")[0];
-
-    // Resolve target path on disk
-    let targetPath;
-    if (path.isAbsolute(cleanPath) && fs.existsSync(cleanPath)) {
-      targetPath = cleanPath;
-    } else {
-      const relativePath = cleanPath.replace(/^[/\\]+/, "");
-
-      if (relativePath.startsWith("uploads")) {
-        targetPath = path.resolve(__dirname, "..", relativePath);
-      } else {
-        targetPath = path.resolve(logoUploadPath, path.basename(relativePath));
-      }
-    }
-
-    // Security guard: Ensure target path resides inside the uploads directory
-    const uploadsRoot = path.resolve(__dirname, "../uploads");
-    const resolvedTarget = path.resolve(targetPath);
-    if (!resolvedTarget.startsWith(uploadsRoot)) {
-      console.warn(`[deleteSchoolFile] Prevented unauthorized file deletion outside uploads: ${resolvedTarget}`);
-      return false;
-    }
-
-    if (fs.existsSync(resolvedTarget)) {
-      fs.unlinkSync(resolvedTarget);
-      console.log(`[deleteSchoolFile] File permanently deleted: ${resolvedTarget}`);
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    console.error(`[deleteSchoolFile] Failed to permanently delete file (${filePathOrUrl}):`, error.message);
-    return false;
-  }
-};
-
+export const deleteSchoolFile = deleteUploadedFile;
+export const deleteSchoolFiles = deleteUploadedFiles;
 export const deleteSchoolLogo = deleteSchoolFile;
 export const deleteFileSafe = deleteSchoolFile;
+
 
 /* =========================================
    🔥 URL HELPERS (RELATIVE & FULL URLS)
@@ -225,4 +156,4 @@ export const formatSchoolWithLogoUrls = (school, req = null) => {
     logo_full_url: fullUrl,      // alias for convenience
   };
 };
-
+
