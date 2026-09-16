@@ -1,0 +1,198 @@
+{
+  "info": {
+    "_postman_id": "emp-mgmt-001-postman-collection",
+    "name": "Employee Core Management Module - School Management System",
+    "description": "Postman collection for Core Employee CRUD, file/document uploads (photo, aadhaar, pan, degree, experience, signature), sequential code generation, and user login account linking/unlinking.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "EMPLOYEE_ID", "value": "1", "type": "string" },
+    { "key": "USER_ID", "value": "2", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Employee (JSON Body)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": 1,\n  \"first_name\": \"Kavitha\",\n  \"last_name\": \"Raman\",\n  \"email\": \"kavitha.raman@school.edu\",\n  \"mobile\": \"9876543210\",\n  \"gender\": \"female\",\n  \"dob\": \"1990-05-15\",\n  \"blood_group\": \"O+\",\n  \"aadhaar_no\": \"123456789012\",\n  \"joining_date\": \"2026-06-01\",\n  \"designation\": \"SENIOR TEACHER\",\n  \"department\": \"SCIENCE\",\n  \"qualification\": \"M.Sc., B.Ed.\",\n  \"experience_years\": 6,\n  \"salary\": 45000,\n  \"current_address\": \"123 Anna Nagar 2nd Street\",\n  \"current_city\": \"Chennai\",\n  \"current_district\": \"Chennai\",\n  \"current_state\": \"Tamil Nadu\",\n  \"current_postal_code\": \"600040\",\n  \"current_address_same_as_permanent\": true,\n  \"emergency_contact\": \"9876543211\",\n  \"emergency_relationship\": \"husband\",\n  \"bank_name\": \"STATE BANK OF INDIA\",\n  \"branch_name\": \"ANNA NAGAR\",\n  \"account_number\": \"30123456789\",\n  \"account_type\": \"SAVINGS\",\n  \"ifsc_code\": \"SBIN0001234\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees"]
+        },
+        "description": "Creates an employee using JSON payload."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Employee (Multipart Form with File Uploads)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "school_id", "value": "1", "type": "text" },
+            { "key": "first_name", "value": "Rajesh", "type": "text" },
+            { "key": "last_name", "value": "Kumar", "type": "text" },
+            { "key": "email", "value": "rajesh.kumar@school.edu", "type": "text" },
+            { "key": "mobile", "value": "9812345678", "type": "text" },
+            { "key": "gender", "value": "male", "type": "text" },
+            { "key": "dob", "value": "1988-08-20", "type": "text" },
+            { "key": "joining_date", "value": "2026-06-01", "type": "text" },
+            { "key": "designation", "value": "PRINCIPAL", "type": "text" },
+            { "key": "department", "value": "ADMINISTRATION", "type": "text" },
+            { "key": "salary", "value": "75000", "type": "text" },
+            { "key": "status", "value": "active", "type": "text" },
+            { "key": "photo", "type": "file", "src": "", "description": "Profile picture (JPG/PNG)" },
+            { "key": "aadhaar_card", "type": "file", "src": "", "description": "Aadhaar Card copy (PDF/Image)" },
+            { "key": "pan_card", "type": "file", "src": "", "description": "PAN Card copy (PDF/Image)" },
+            { "key": "passport_size_photo", "type": "file", "src": "", "description": "Passport photo" },
+            { "key": "degree_certificate", "type": "file", "src": "", "description": "Degree Certificate (PDF/Image)" },
+            { "key": "experience_certificate", "type": "file", "src": "", "description": "Experience Certificate (PDF/Image)" },
+            { "key": "signature", "type": "file", "src": "", "description": "Digital Signature" }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees"]
+        },
+        "description": "Creates an employee while uploading certificates and photos via Multer."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get All Employees",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees"]
+        },
+        "description": "Lists all employee records."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Employee by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+        },
+        "description": "Fetches single employee details by ID."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Employee by ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"first_name\": \"Kavitha\",\n  \"last_name\": \"Ramanathan\",\n  \"salary\": 48000,\n  \"designation\": \"HEAD OF DEPARTMENT\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+        },
+        "description": "Updates employee profile fields."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Assign User to Employee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 1,\n  \"user_id\": 2\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees/assign-user",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees", "assign-user"]
+        },
+        "description": "Associates a login account with an employee."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Unassign User from Employee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 1\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees/unassign-user",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees", "unassign-user"]
+        },
+        "description": "Removes login account association from an employee."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Delete Employee by ID",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+        },
+        "description": "Soft deletes employee by ID."
+      },
+      "response": []
+    }
+  ]
+}

@@ -38,7 +38,8 @@ export const getAllClassesByToken = async (req, res) => {
 
 export const getAllClassesSchoolId = async (req, res) => {
   try {
-    const data = await ClassService.getAllClassesSchoolId(req.query.school_id);
+    const school_id = req.params.school_id || req.query.school_id;
+    const data = await ClassService.getAllClassesSchoolId(school_id);
     res.json(data);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

@@ -1,4 +1,4 @@
-import * as Service from "./employeeSalaryStructureWithDetail.service";
+import * as Service from "./employeeSalaryStructureWithDetail.service.js";
 
 export const createSalaryStructureWithDetails = async (req, res) => {
   try {

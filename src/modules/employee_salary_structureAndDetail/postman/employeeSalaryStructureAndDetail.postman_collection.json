@@ -1,0 +1,140 @@
+{
+  "info": {
+    "_postman_id": "sal-struct-with-detail-001-postman-collection",
+    "name": "Employee Salary Structure With Details Module - School Management System",
+    "description": "Complete Postman collection for atomic creation of Employee Salary Structures along with their line item details in a single database transaction. Validates employee existence, prevents overlapping active salary records, auto-generates structure name based on employee designation, and validates component calculation rules.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "EMPLOYEE_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Salary Structure With Details (Standard Mix - Fixed & Percentage)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 1,\n  \"effective_from\": \"2026-04-01\",\n  \"effective_to\": null,\n  \"status\": \"active\",\n  \"remarks\": \"Standard faculty salary package FY2026-27\",\n  \"components\": [\n    {\n      \"component_id\": 1,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 50000,\n      \"percentage\": null,\n      \"based_on\": \"basic\"\n    },\n    {\n      \"component_id\": 2,\n      \"calculation_type\": \"percentage\",\n      \"amount\": null,\n      \"percentage\": 40,\n      \"based_on\": \"basic\"\n    },\n    {\n      \"component_id\": 3,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 3500,\n      \"percentage\": null,\n      \"based_on\": \"basic\"\n    },\n    {\n      \"component_id\": 4,\n      \"calculation_type\": \"percentage\",\n      \"amount\": null,\n      \"percentage\": 12,\n      \"based_on\": \"basic\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-with-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-with-details"]
+        },
+        "description": "Atomically inserts the header structure row and multiple line item details in a single database transaction. Overlapping structures and invalid/duplicate components are blocked."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Salary Structure With Details (All Fixed Components)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 2,\n  \"effective_from\": \"2026-06-01\",\n  \"effective_to\": \"2027-05-31\",\n  \"status\": \"active\",\n  \"remarks\": \"Fixed contract compensation structure\",\n  \"components\": [\n    {\n      \"component_id\": 1,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 35000,\n      \"percentage\": null,\n      \"based_on\": \"basic\"\n    },\n    {\n      \"component_id\": 3,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 2500,\n      \"percentage\": null,\n      \"based_on\": \"basic\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-with-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-with-details"]
+        },
+        "description": "Creates structure with all fixed component allowances."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Create Salary Structure With Details (Singular Route Alias)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 3,\n  \"effective_from\": \"2026-07-01\",\n  \"status\": \"active\",\n  \"remarks\": \"Created via singular alias endpoint\",\n  \"components\": [\n    {\n      \"component_id\": 1,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 42000,\n      \"based_on\": \"basic\"\n    },\n    {\n      \"component_id\": 2,\n      \"calculation_type\": \"percentage\",\n      \"percentage\": 35,\n      \"based_on\": \"basic\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structure-with-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structure-with-details"]
+        },
+        "description": "Demonstrates creation using the singular alias route `/api/employee-salary-structure-with-details`."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Validation Test - Duplicate Component in Payload (Expect 400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 1,\n  \"effective_from\": \"2026-10-01\",\n  \"status\": \"active\",\n  \"components\": [\n    {\n      \"component_id\": 1,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 50000\n    },\n    {\n      \"component_id\": 1,\n      \"calculation_type\": \"fixed\",\n      \"amount\": 10000\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-with-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-with-details"]
+        },
+        "description": "Tests rejection when duplicate component_ids are supplied in the same components array."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Validation Test - Missing Required Components Array (Expect 400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 1,\n  \"effective_from\": \"2026-10-01\",\n  \"status\": \"active\",\n  \"components\": []\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-with-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-with-details"]
+        },
+        "description": "Tests rejection when the components list is empty or omitted."
+      },
+      "response": []
+    }
+  ]
+}

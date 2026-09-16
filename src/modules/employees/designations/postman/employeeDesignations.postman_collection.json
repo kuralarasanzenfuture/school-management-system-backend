@@ -1,0 +1,132 @@
+{
+  "info": {
+    "_postman_id": "emp-desig-001-postman-collection",
+    "name": "Employee Designations Module - School Management System",
+    "description": "Postman collection for Employee Designations: CRUD operations, token-scoped listings, and status filtering.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "DESIGNATION_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Designation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"SENIOR TEACHER\",\n  \"description\": \"Senior high school faculty\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-designations",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-designations"]
+        },
+        "description": "Creates a new designation."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get All Designations",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-designations?school_id={{SCHOOL_ID}}&status=active",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-designations"],
+          "query": [
+            { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+            { "key": "status", "value": "active" }
+          ]
+        },
+        "description": "Lists all designations."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get All Designations by Token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-designations/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-designations", "token"]
+        },
+        "description": "Lists designations scoped to token school."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Designation by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+        },
+        "description": "Fetches designation by ID."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Designation by ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"LEAD SENIOR TEACHER\",\n  \"description\": \"Department head and senior educator\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+        },
+        "description": "Updates designation details."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Delete Designation by ID",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+        },
+        "description": "Deletes designation by ID."
+      },
+      "response": []
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "info": {
+    "_postman_id": "sal-struct-001-postman-collection",
+    "name": "Employee Salary Structures Module - School Management System",
+    "description": "Complete Postman collection for testing Employee Salary Structures: create salary structure, get all structures, school-filtered list via token, get details by ID, update structure, and delete structure.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "STRUCTURE_ID", "value": "1", "type": "string" },
+    { "key": "EMPLOYEE_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Salary Structure",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": {{EMPLOYEE_ID}},\n  \"effective_from\": \"2026-06-01\",\n  \"effective_to\": null,\n  \"remarks\": \"Annual revision salary structure\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures"]
+        }
+      }
+    },
+    {
+      "name": "2. Get All Salary Structures",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures"]
+        }
+      }
+    },
+    {
+      "name": "3. Get Salary Structures By Token (School Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures", "token"]
+        }
+      }
+    },
+    {
+      "name": "4. Get Salary Structure By ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures/{{STRUCTURE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures", "{{STRUCTURE_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "5. Update Salary Structure",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"effective_to\": \"2027-05-31\",\n  \"status\": \"active\",\n  \"remarks\": \"Updated effective end date\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures/{{STRUCTURE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures", "{{STRUCTURE_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Delete Salary Structure",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures/{{STRUCTURE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures", "{{STRUCTURE_ID}}"]
+        }
+      }
+    }
+  ]
+}

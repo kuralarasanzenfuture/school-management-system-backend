@@ -1,0 +1,326 @@
+{
+  "info": {
+    "_postman_id": "users-module-001-postman-collection",
+    "name": "Users & Auth Module - School Management System",
+    "description": "Complete Postman collection for Users and Authentication: user registration, login (JWT access & refresh tokens with cookies), refresh token rotation, profile retrieval (/me), password change, logout (single & all devices), availability checks (username, email, phone), user listings, updates, status changes, and deletion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "REFRESH_TOKEN", "value": "YOUR_REFRESH_TOKEN_HERE", "type": "string" },
+    { "key": "USER_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication & Session",
+      "item": [
+        {
+          "name": "1.1 User Login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login_id\": \"admin\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "login"]
+            },
+            "description": "Authenticates a user via username, email, or mobile number. Returns accessToken, refreshToken, and user profile with assigned roles."
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Refresh Access Token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{REFRESH_TOKEN}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/refresh-token",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "refresh-token"]
+            },
+            "description": "Generates a new access token and rotated refresh token using an active refresh token."
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 Get My Profile (/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "me"]
+            },
+            "description": "Retrieves the authenticated user's account details, school associations, and permission roles."
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"NewStrongPass@2026\",\n  \"confirmPassword\": \"NewStrongPass@2026\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/change-password",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "change-password"]
+            },
+            "description": "Changes password for the logged-in user and increments token version to invalidate older sessions."
+          },
+          "response": []
+        },
+        {
+          "name": "1.5 Logout (Current Session)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/logout",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "logout"]
+            },
+            "description": "Logs out current user session and clears authentication cookies."
+          },
+          "response": []
+        },
+        {
+          "name": "1.6 Logout All Devices",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/logout-all",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "logout-all"]
+            },
+            "description": "Invalidates all active sessions and refresh tokens across all devices for the user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. User Registration & Availability Checks",
+      "item": [
+        {
+          "name": "2.1 Register / Create User",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"faculty_sarah\",\n  \"email\": \"sarah.faculty@school.edu\",\n  \"phone\": \"9876543299\",\n  \"password\": \"SecurePass@123\",\n  \"school_id\": 1,\n  \"roles\": [\"TEACHER\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/register",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "register"]
+            },
+            "description": "Registers a new user account and links assigned roles."
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 Check Username Availability",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/check-username/faculty_sarah",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "check-username", "faculty_sarah"]
+            },
+            "description": "Checks if a username is available or already taken."
+          },
+          "response": []
+        },
+        {
+          "name": "2.3 Check Email Availability",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/check-email/sarah.faculty@school.edu",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "check-email", "sarah.faculty@school.edu"]
+            },
+            "description": "Checks if an email is available or already in use."
+          },
+          "response": []
+        },
+        {
+          "name": "2.4 Check Phone Availability",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/check-phone/9876543299",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "check-phone", "9876543299"]
+            },
+            "description": "Checks if a phone number is available or already in use."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. User Management (Admin & Scoped)",
+      "item": [
+        {
+          "name": "3.1 Get All Users (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Lists all users across schools with aggregated roles and school names."
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Get All Users by Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/token",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "token"]
+            },
+            "description": "Lists users automatically scoped to the authenticated user's school."
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/{{USER_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "{{USER_ID}}"]
+            },
+            "description": "Fetches single user details by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 Update User Details",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sarah.updated@school.edu\",\n  \"phone\": \"9876543290\",\n  \"roles\": [\"TEACHER\", \"EXAM_COORDINATOR\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/update/{{USER_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "update", "{{USER_ID}}"]
+            },
+            "description": "Updates user details and synchronizes assigned roles."
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 Update User Status (Activate/Deactivate)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/status/{{USER_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "status", "{{USER_ID}}"]
+            },
+            "description": "Updates user account status (`active` or `inactive`). Inactive accounts cannot log in."
+          },
+          "response": []
+        },
+        {
+          "name": "3.6 Delete User by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/users/delete/{{USER_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "users", "delete", "{{USER_ID}}"]
+            },
+            "description": "Soft deletes a user account."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

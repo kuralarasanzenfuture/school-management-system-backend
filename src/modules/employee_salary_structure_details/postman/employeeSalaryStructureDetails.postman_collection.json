@@ -1,0 +1,178 @@
+{
+  "info": {
+    "_postman_id": "sal-detail-001-postman-collection",
+    "name": "Employee Salary Structure Details Module - School Management System",
+    "description": "Complete Postman collection for testing Salary Structure Details: assign individual components, bulk upsert breakdown, compute monthly/annual CTC calculations, full employee breakdown, token filtering, updates, and deletion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "DETAIL_ID", "value": "1", "type": "string" },
+    { "key": "SALARY_STRUCTURE_ID", "value": "1", "type": "string" },
+    { "key": "COMPONENT_ID", "value": "1", "type": "string" },
+    { "key": "EMPLOYEE_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Salary Structure Detail (Fixed Amount)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"salary_structure_id\": {{SALARY_STRUCTURE_ID}},\n  \"component_id\": {{COMPONENT_ID}},\n  \"calculation_type\": \"fixed\",\n  \"amount\": 25000,\n  \"based_on\": \"basic\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details"]
+        }
+      }
+    },
+    {
+      "name": "2. Create Salary Structure Detail (Percentage)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"salary_structure_id\": {{SALARY_STRUCTURE_ID}},\n  \"component_id\": 2,\n  \"calculation_type\": \"percentage\",\n  \"percentage\": 12,\n  \"based_on\": \"basic\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details"]
+        }
+      }
+    },
+    {
+      "name": "3. Bulk Upsert Structure Components",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"salary_structure_id\": {{SALARY_STRUCTURE_ID}},\n  \"components\": [\n    {\n      \"component_id\": {{COMPONENT_ID}},\n      \"calculation_type\": \"fixed\",\n      \"amount\": 25000,\n      \"based_on\": \"basic\"\n    },\n    {\n      \"component_id\": 2,\n      \"calculation_type\": \"percentage\",\n      \"percentage\": 12,\n      \"based_on\": \"basic\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/bulk",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "bulk"]
+        }
+      }
+    },
+    {
+      "name": "4. Get All Structure Details",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details"]
+        }
+      }
+    },
+    {
+      "name": "5. Get Structure Details By Token (School Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "token"]
+        }
+      }
+    },
+    {
+      "name": "6. Calculate Salary By Employee ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/salary-calculatebyemployee/{{EMPLOYEE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "salary-calculatebyemployee", "{{EMPLOYEE_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Get Full Salary Breakdown By Employee ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/full-salary-by-employee/{{EMPLOYEE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "full-salary-by-employee", "{{EMPLOYEE_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "8. Get Structure Detail By ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/{{DETAIL_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "{{DETAIL_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "9. Update Structure Detail",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"calculation_type\": \"fixed\",\n  \"amount\": 28000,\n  \"based_on\": \"basic\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/{{DETAIL_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "{{DETAIL_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "10. Delete Structure Detail",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-salary-structures-details/{{DETAIL_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-salary-structures-details", "{{DETAIL_ID}}"]
+        }
+      }
+    }
+  ]
+}

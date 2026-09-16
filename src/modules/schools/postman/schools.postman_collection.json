@@ -1,0 +1,467 @@
+{
+  "info": {
+    "_postman_id": "a9e25871-3cb5-451d-8cf7-school-mgmt-001",
+    "name": "Schools Module - School Management System",
+    "description": "Postman collection for testing all Schools CRUD endpoints, file uploads, logo removal, role-based queries, and permanent storage deletion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "TOKEN",
+      "value": "YOUR_JWT_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "SCHOOL_ID",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Create School (Form-Data with Logo File)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 or 201\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "pm.test(\"Response has school ID and code\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"id\");",
+              "    pm.expect(jsonData).to.have.property(\"code\");",
+              "    if (jsonData.id) {",
+              "        pm.collectionVariables.set(\"SCHOOL_ID\", jsonData.id);",
+              "    }",
+              "});",
+              "pm.test(\"Response returns both relative and full logo URLs\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.logo_url) {",
+              "        pm.expect(jsonData.logo_url).to.include(\"/uploads/schools/logos/\");",
+              "        pm.expect(jsonData.full_logo_url).to.include(\"http\");",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "name",
+              "value": "Springfield International School",
+              "type": "text"
+            },
+            {
+              "key": "logo",
+              "description": "Select an image file (jpg, jpeg, png, webp <= 2MB)",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "email",
+              "value": "admin@springfield.edu",
+              "type": "text"
+            },
+            {
+              "key": "phone",
+              "value": "9876543210",
+              "type": "text"
+            },
+            {
+              "key": "address_line1",
+              "value": "123 Knowledge Park Avenue",
+              "type": "text"
+            },
+            {
+              "key": "address_line2",
+              "value": "Near Technology Campus",
+              "type": "text"
+            },
+            {
+              "key": "city",
+              "value": "Chennai",
+              "type": "text"
+            },
+            {
+              "key": "district",
+              "value": "Chennai",
+              "type": "text"
+            },
+            {
+              "key": "state",
+              "value": "Tamil Nadu",
+              "type": "text"
+            },
+            {
+              "key": "country",
+              "value": "India",
+              "type": "text"
+            },
+            {
+              "key": "postal_code",
+              "value": "600001",
+              "type": "text"
+            },
+            {
+              "key": "website",
+              "value": "https://springfield.edu",
+              "type": "text"
+            },
+            {
+              "key": "status",
+              "value": "active",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools"
+          ]
+        },
+        "description": "Creates a new school with an optional logo image. Backend automatically generates the unique school code."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create School (JSON without File)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 or 201\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "pm.test(\"Auto-generated code begins with SCH-\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.code).to.match(/^SCH-\\d+/);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Oakridge Public School\",\n  \"email\": \"info@oakridge.edu\",\n  \"phone\": \"9123456780\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"country\": \"India\",\n  \"postal_code\": \"560001\",\n  \"website\": \"https://oakridge.edu\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get All Schools",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Returns an array of schools\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an(\"array\");",
+              "});",
+              "pm.test(\"Each school with a logo includes logo_url and full_logo_url\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    jsonData.forEach(function (school) {",
+              "        if (school.logo_url) {",
+              "            pm.expect(school.logo_url).to.be.a(\"string\");",
+              "            pm.expect(school.full_logo_url).to.be.a(\"string\");",
+              "        }",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools"
+          ]
+        },
+        "description": "Fetches all schools in the system ordered by id descending."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Schools By Token (Role-Based)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response is an array of schools\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an(\"array\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools/token",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools",
+            "token"
+          ]
+        },
+        "description": "Returns all schools if authenticated user is ADMIN; returns only the user's assigned school otherwise."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Get School By ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Returns school object matching requested ID\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"id\");",
+              "    pm.expect(jsonData).to.have.property(\"name\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools/{{SCHOOL_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools",
+            "{{SCHOOL_ID}}"
+          ]
+        },
+        "description": "Retrieves a single school by its database ID."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Update School (Form-Data with New Logo)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Returns updated confirmation and logo URLs\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"updated\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "name",
+              "value": "Springfield International Academy",
+              "type": "text"
+            },
+            {
+              "key": "logo",
+              "description": "Upload a new logo to replace the existing one",
+              "type": "file",
+              "src": []
+            },
+            {
+              "key": "phone",
+              "value": "9998887776",
+              "type": "text"
+            },
+            {
+              "key": "city",
+              "value": "Chennai Central",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools/{{SCHOOL_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools",
+            "{{SCHOOL_ID}}"
+          ]
+        },
+        "description": "Updates school details. If a new logo file is uploaded, the old logo file is permanently deleted from disk storage."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Update School (Remove Logo)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Logo is cleared to null\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.logo_url).to.be.null;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Springfield International Academy\",\n  \"remove_logo\": true\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools/{{SCHOOL_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools",
+            "{{SCHOOL_ID}}"
+          ]
+        },
+        "description": "Removes the existing logo from the school and permanently unlinks the stored file from disk."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Delete School",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Success message returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"deleted\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/schools/{{SCHOOL_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "schools",
+            "{{SCHOOL_ID}}"
+          ]
+        },
+        "description": "Deletes the school record from the database and permanently deletes its logo file from storage. Note: will return 500 error if foreign key references exist (e.g. students/employees assigned to this school)."
+      },
+      "response": []
+    }
+  ]
+}

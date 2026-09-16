@@ -1,0 +1,107 @@
+{
+  "info": {
+    "_postman_id": "sec-001-postman-collection",
+    "name": "Sections Module - School Management System",
+    "description": "Complete collection for testing Sections: CRUD, tree structure, class-filtered sections, and existence checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "SECTION_ID", "value": "1", "type": "string" },
+    { "key": "CLASS_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Section",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"class_id\": {{CLASS_ID}},\n  \"name\": \"A\",\n  \"capacity\": 40,\n  \"status\": \"active\"\n}"
+        },
+        "url": { "raw": "{{BASE_URL}}/api/sections", "host": ["{{BASE_URL}}"], "path": ["api", "sections"] }
+      }
+    },
+    {
+      "name": "2. Get All Sections",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/sections", "host": ["{{BASE_URL}}"], "path": ["api", "sections"] }
+      }
+    },
+    {
+      "name": "3. Get Sections By Token",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/sections/token", "host": ["{{BASE_URL}}"], "path": ["api", "sections", "token"] }
+      }
+    },
+    {
+      "name": "4. Get School Tree (Hierarchical)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/sections/tree", "host": ["{{BASE_URL}}"], "path": ["api", "sections", "tree"] }
+      }
+    },
+    {
+      "name": "5. Check Existing Section in Class",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/sections/check-section?class_id={{CLASS_ID}}&name=A",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "sections", "check-section"],
+          "query": [
+            { "key": "class_id", "value": "{{CLASS_ID}}" },
+            { "key": "name", "value": "A" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Get Sections By Class ID (Param)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/sections/class/{{CLASS_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "sections", "class", "{{CLASS_ID}}"] }
+      }
+    },
+    {
+      "name": "7. Get Section By ID",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/sections/{{SECTION_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "sections", "{{SECTION_ID}}"] }
+      }
+    },
+    {
+      "name": "8. Update Section",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"A1\",\n  \"capacity\": 45,\n  \"status\": \"active\"\n}"
+        },
+        "url": { "raw": "{{BASE_URL}}/api/sections/{{SECTION_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "sections", "{{SECTION_ID}}"] }
+      }
+    },
+    {
+      "name": "9. Delete Section",
+      "request": {
+        "method": "DELETE",
+        "url": { "raw": "{{BASE_URL}}/api/sections/{{SECTION_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "sections", "{{SECTION_ID}}"] }
+      }
+    }
+  ]
+}

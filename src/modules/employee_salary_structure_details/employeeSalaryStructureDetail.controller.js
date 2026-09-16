@@ -68,7 +68,8 @@ export const deleteSalaryStructureDetail = async (req, res) => {
 
 export const calculateSalaryByEmployeeId = async (req, res) => {
   try {
-    const result = await Service.calculateSalary(req.params.id);
+    const employee_id = req.params.employee_id || req.params.id;
+    const result = await Service.calculateSalary(employee_id);
     res.json(result);
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });

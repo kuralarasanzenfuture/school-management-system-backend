@@ -1,3 +1,6 @@
+import { getDB } from "../../config/db.js";
+import { validateCreateStructureWithDetails } from "./employeeSalaryStructureWithDetail.validation.js";
+
 export const createSalaryStructureWithDetails = async (data, user) => {
   const db = getDB();
   const conn = await db.getConnection();

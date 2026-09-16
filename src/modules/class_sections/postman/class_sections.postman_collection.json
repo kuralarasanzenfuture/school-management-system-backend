@@ -1,0 +1,116 @@
+{
+  "info": {
+    "_postman_id": "cls-sec-001-postman-collection",
+    "name": "Class Sections Module - School Management System",
+    "description": "Complete Postman collection for testing Class Sections: mapping class, section, and academic year, assigning class teachers, setting capacities, querying mappings, updates, and deletion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "CLASS_SECTION_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" },
+    { "key": "CLASS_ID", "value": "1", "type": "string" },
+    { "key": "SECTION_ID", "value": "1", "type": "string" },
+    { "key": "ACADEMIC_YEAR_ID", "value": "1", "type": "string" },
+    { "key": "CLASS_TEACHER_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Class Section Mapping",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"class_id\": {{CLASS_ID}},\n  \"section_id\": {{SECTION_ID}},\n  \"academic_year_id\": {{ACADEMIC_YEAR_ID}},\n  \"class_teacher_id\": {{CLASS_TEACHER_ID}},\n  \"capacity\": 40,\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/class-sections",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "class-sections"]
+        }
+      }
+    },
+    {
+      "name": "2. Get All Class Sections",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/class-sections",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "class-sections"]
+        }
+      }
+    },
+    {
+      "name": "3. Get Class Sections By Token (School Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/class-sections/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "class-sections", "token"]
+        }
+      }
+    },
+    {
+      "name": "4. Get Class Section By ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/class-sections/{{CLASS_SECTION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "class-sections", "{{CLASS_SECTION_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "5. Update Class Section",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"class_teacher_id\": {{CLASS_TEACHER_ID}},\n  \"capacity\": 45,\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/class-sections/{{CLASS_SECTION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "class-sections", "{{CLASS_SECTION_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Delete Class Section",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/class-sections/{{CLASS_SECTION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "class-sections", "{{CLASS_SECTION_ID}}"]
+        }
+      }
+    }
+  ]
+}

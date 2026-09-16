@@ -1,0 +1,152 @@
+{
+  "info": {
+    "_postman_id": "std-001-postman-collection",
+    "name": "Students Module - School Management System",
+    "description": "Complete Postman collection for testing Students: creation (JSON & multipart file upload), list all, school-filtered list via token, get student details, update student, and delete student.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "STUDENT_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Student (JSON)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"first_name\": \"Aarav\",\n  \"middle_name\": \"Kumar\",\n  \"last_name\": \"Sharma\",\n  \"email\": \"aarav.sharma@example.com\",\n  \"mobile_no\": \"9876543210\",\n  \"date_of_birth\": \"2010-05-15\",\n  \"gender\": \"male\",\n  \"blood_group\": \"O+\",\n  \"aadhaar_no\": \"123456789012\",\n  \"religion\": \"HINDU\",\n  \"nationality\": \"INDIAN\",\n  \"mother_tongue\": \"TAMIL\",\n  \"current_address\": \"123 Anna Nagar\",\n  \"current_area\": \"Anna Nagar\",\n  \"current_city\": \"Chennai\",\n  \"current_district\": \"Chennai\",\n  \"current_state\": \"Tamil Nadu\",\n  \"current_postal_code\": \"600040\",\n  \"current_address_same_as_permanent\": true,\n  \"father_name\": \"Ramesh Sharma\",\n  \"mother_name\": \"Priya Sharma\",\n  \"father_occupation\": \"Engineer\",\n  \"mother_occupation\": \"Teacher\",\n  \"parent_mobile\": \"9876543211\",\n  \"parent_email\": \"ramesh.sharma@example.com\",\n  \"emergency_contact\": \"9876543212\",\n  \"emergency_relationship\": \"UNCLE\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/students",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students"]
+        }
+      }
+    },
+    {
+      "name": "2. Create Student (Multipart Form-Data with Files)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "school_id", "value": "{{SCHOOL_ID}}", "type": "text" },
+            { "key": "first_name", "value": "Aarav", "type": "text" },
+            { "key": "last_name", "value": "Sharma", "type": "text" },
+            { "key": "email", "value": "aarav.sharma@example.com", "type": "text" },
+            { "key": "mobile_no", "value": "9876543210", "type": "text" },
+            { "key": "date_of_birth", "value": "2010-05-15", "type": "text" },
+            { "key": "gender", "value": "male", "type": "text" },
+            { "key": "blood_group", "value": "O+", "type": "text" },
+            { "key": "aadhaar_no", "value": "123456789012", "type": "text" },
+            { "key": "current_address", "value": "123 Anna Nagar", "type": "text" },
+            { "key": "current_city", "value": "Chennai", "type": "text" },
+            { "key": "current_state", "value": "Tamil Nadu", "type": "text" },
+            { "key": "current_postal_code", "value": "600040", "type": "text" },
+            { "key": "current_address_same_as_permanent", "value": "true", "type": "text" },
+            { "key": "father_name", "value": "Ramesh Sharma", "type": "text" },
+            { "key": "mother_name", "value": "Priya Sharma", "type": "text" },
+            { "key": "parent_mobile", "value": "9876543211", "type": "text" },
+            { "key": "photo", "type": "file", "src": "" },
+            { "key": "aadhaar_front", "type": "file", "src": "" },
+            { "key": "aadhaar_back", "type": "file", "src": "" },
+            { "key": "birth_certificate", "type": "file", "src": "" },
+            { "key": "transfer_certificate", "type": "file", "src": "" },
+            { "key": "previous_marksheets", "type": "file", "src": "" }
+          ]
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/students",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students"]
+        }
+      }
+    },
+    {
+      "name": "3. Get All Students",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students"]
+        }
+      }
+    },
+    {
+      "name": "4. Get Students By Token (School Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students", "token"]
+        }
+      }
+    },
+    {
+      "name": "5. Get Student By ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students/{{STUDENT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students", "{{STUDENT_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Update Student",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"first_name\": \"Aarav\",\n  \"last_name\": \"Sharma\",\n  \"mobile_no\": \"9876543210\",\n  \"blood_group\": \"A+\",\n  \"current_address\": \"456 Gandhi Road\",\n  \"current_city\": \"Chennai\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/students/{{STUDENT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students", "{{STUDENT_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Delete Student",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students/{{STUDENT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students", "{{STUDENT_ID}}"]
+        }
+      }
+    }
+  ]
+}

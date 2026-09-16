@@ -59,7 +59,8 @@
 
 import { RoleModel } from "./role.model.js";
 import { validateRoleName, validateStatus } from "./role.validation.js";
-import { getDB as db } from "../../config/db.js";
+import { getDB } from "../../config/db.js";
+
 
 export const createRole = async (data) => {
   let { name, description } = data;

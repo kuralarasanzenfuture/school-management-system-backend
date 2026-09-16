@@ -1,0 +1,103 @@
+{
+  "info": {
+    "_postman_id": "adm-001-postman-collection",
+    "name": "Student Admissions Module - School Management System",
+    "description": "Collection for testing Student Admissions: create admission, reports, class-summaries, and updates.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{TOKEN}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "ADMISSION_ID", "value": "1", "type": "string" },
+    { "key": "STUDENT_ID", "value": "1", "type": "string" },
+    { "key": "ACADEMIC_YEAR_ID", "value": "1", "type": "string" },
+    { "key": "CLASS_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Student Admission",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"student_id\": {{STUDENT_ID}},\n  \"academic_year_id\": {{ACADEMIC_YEAR_ID}},\n  \"class_id\": {{CLASS_ID}},\n  \"section\": \"A\",\n  \"joining_date\": \"2026-06-01\",\n  \"subject_group\": \"Science\",\n  \"transport_required\": true,\n  \"hostel_required\": false,\n  \"admission_type\": \"new\"\n}"
+        },
+        "url": { "raw": "{{BASE_URL}}/api/student-admissions", "host": ["{{BASE_URL}}"], "path": ["api", "student-admissions"] }
+      }
+    },
+    {
+      "name": "2. Get All Admissions (Filtered)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-admissions?academic_year_id={{ACADEMIC_YEAR_ID}}&class_id={{CLASS_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-admissions"],
+          "query": [
+            { "key": "academic_year_id", "value": "{{ACADEMIC_YEAR_ID}}" },
+            { "key": "class_id", "value": "{{CLASS_ID}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Get Admissions By Token",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/student-admissions/token", "host": ["{{BASE_URL}}"], "path": ["api", "student-admissions", "token"] }
+      }
+    },
+    {
+      "name": "4. Get Class Student Summary By Token",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/student-admissions/token/class-summary", "host": ["{{BASE_URL}}"], "path": ["api", "student-admissions", "token", "class-summary"] }
+      }
+    },
+    {
+      "name": "5. Get Admissions Report",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-admissions/report?status=active",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-admissions", "report"],
+          "query": [{ "key": "status", "value": "active" }]
+        }
+      }
+    },
+    {
+      "name": "6. Get Admission By ID",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{BASE_URL}}/api/student-admissions/{{ADMISSION_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "student-admissions", "{{ADMISSION_ID}}"] }
+      }
+    },
+    {
+      "name": "7. Update Admission",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"section\": \"B\",\n  \"transport_required\": false,\n  \"status\": \"active\"\n}"
+        },
+        "url": { "raw": "{{BASE_URL}}/api/student-admissions/{{ADMISSION_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "student-admissions", "{{ADMISSION_ID}}"] }
+      }
+    },
+    {
+      "name": "8. Delete Admission",
+      "request": {
+        "method": "DELETE",
+        "url": { "raw": "{{BASE_URL}}/api/student-admissions/{{ADMISSION_ID}}", "host": ["{{BASE_URL}}"], "path": ["api", "student-admissions", "{{ADMISSION_ID}}"] }
+      }
+    }
+  ]
+}

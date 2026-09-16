@@ -1326,7 +1326,8 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
 export const getAttendanceByDate = async (filters = {}) => {
   const db = getDB();
 
-  if (!filters.date) {
+  const targetDate = filters.date || filters.attendance_date;
+  if (!targetDate) {
     throw { status: 400, message: "date required" };
   }
 
@@ -1378,7 +1379,7 @@ export const getAttendanceByDate = async (filters = {}) => {
     WHERE sas.attendance_date = ?
   `;
 
-  const values = [filters.date];
+  const values = [targetDate];
 
   if (filters.class_section_id) {
     query += ` AND sas.class_section_id = ?`;
@@ -1521,4 +1522,64 @@ export const unlockAttendanceSession = async (session_id, user) => {
   );
 
   return { message: "Session unlocked successfully" };
+};
+
+export const getAttendanceSummary = async (filters = {}) => {
+  const db = getDB();
+
+  let query = `
+    SELECT 
+      COUNT(sa.id) AS total_records,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS total_present,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS total_absent,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS total_late,
+      SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS total_half_day,
+      SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS total_leave
+    FROM student_attendance sa
+    JOIN student_attendance_sessions sas ON sa.attendance_session_id = sas.id
+    WHERE 1=1
+  `;
+  const values = [];
+
+  const targetDate = filters.date || filters.attendance_date;
+  if (targetDate) {
+    query += ` AND sas.attendance_date = ?`;
+    values.push(targetDate);
+  }
+
+  if (filters.from_date) {
+    query += ` AND sas.attendance_date >= ?`;
+    values.push(filters.from_date);
+  }
+
+  if (filters.to_date) {
+    query += ` AND sas.attendance_date <= ?`;
+    values.push(filters.to_date);
+  }
+
+  if (filters.class_section_id) {
+    query += ` AND sas.class_section_id = ?`;
+    values.push(filters.class_section_id);
+  }
+
+  if (filters.school_id) {
+    query += ` AND sas.school_id = ?`;
+    values.push(filters.school_id);
+  }
+
+  if (filters.academic_year_id) {
+    query += ` AND sas.academic_year_id = ?`;
+    values.push(filters.academic_year_id);
+  }
+
+  const [[row]] = await db.query(query, values);
+
+  return {
+    total_records: Number(row?.total_records || 0),
+    total_present: Number(row?.total_present || 0),
+    total_absent: Number(row?.total_absent || 0),
+    total_late: Number(row?.total_late || 0),
+    total_half_day: Number(row?.total_half_day || 0),
+    total_leave: Number(row?.total_leave || 0),
+  };
 };

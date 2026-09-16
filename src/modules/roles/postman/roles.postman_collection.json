@@ -1,0 +1,318 @@
+{
+  "info": {
+    "_postman_id": "b8f41092-4df7-492e-b6a1-roles-mgmt-001",
+    "name": "Roles Module - School Management System",
+    "description": "Postman collection for testing the Roles module: role creation, role listing, updating, cascading status changes, and deletion safeguards.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "TOKEN",
+      "value": "YOUR_JWT_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "ROLE_ID",
+      "value": "2",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Create Role",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Success message returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"created\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"TEACHER\",\n  \"description\": \"Responsible for classroom instruction, grading, and attendance tracking\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/roles",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "roles"
+          ]
+        },
+        "description": "Creates a new role. Name is auto-converted to uppercase and must only contain letters and underscores (ADMIN is reserved)."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get All Roles",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Returns an array of roles\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an(\"array\");",
+              "    if (jsonData.length > 1) {",
+              "        // Set ROLE_ID to the first non-admin role if present",
+              "        var nonAdmin = jsonData.find(function(r) { return r.name !== 'ADMIN'; });",
+              "        if (nonAdmin) {",
+              "            pm.collectionVariables.set(\"ROLE_ID\", String(nonAdmin.id));",
+              "        }",
+              "    }",
+              "});",
+              "pm.test(\"ADMIN role exists and has id 1\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var adminRole = jsonData.find(function(r) { return r.name === 'ADMIN'; });",
+              "    pm.expect(adminRole).to.exist;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/roles",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "roles"
+          ]
+        },
+        "description": "Retrieves all roles configured in the database ordered by id ascending."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Update Role",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Success message returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"updated\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"SENIOR_TEACHER\",\n  \"description\": \"Senior teaching staff responsible for curriculum planning and guidance\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/roles/{{ROLE_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "roles",
+            "{{ROLE_ID}}"
+          ]
+        },
+        "description": "Updates role name, description, and status. ADMIN role (id: 1) cannot be modified."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Update Role Status (Set Inactive)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response confirms role and users updated\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"successfully\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"inactive\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/roles/status/{{ROLE_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "roles",
+            "status",
+            "{{ROLE_ID}}"
+          ]
+        },
+        "description": "Deactivates the role and cascades the status to all assigned users, incrementing token_version to invalidate active sessions."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Update Role Status (Set Active)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response confirms role and users active\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"successfully\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/roles/status/{{ROLE_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "roles",
+            "status",
+            "{{ROLE_ID}}"
+          ]
+        },
+        "description": "Reactivates a deactivated role and all associated users."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Delete Role",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 or 400\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "    pm.test(\"Role deleted successfully\", function () {",
+              "        var jsonData = pm.response.json();",
+              "        pm.expect(jsonData.message).to.include(\"deleted\");",
+              "    });",
+              "} else if (pm.response.code === 400) {",
+              "    pm.test(\"Safeguard prevents deletion if users assigned\", function () {",
+              "        var jsonData = pm.response.json();",
+              "        pm.expect(jsonData.message).to.include(\"users assigned\");",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/roles/{{ROLE_ID}}",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "roles",
+            "{{ROLE_ID}}"
+          ]
+        },
+        "description": "Deletes the role if no users are currently assigned to it. Cannot delete the ADMIN role."
+      },
+      "response": []
+    }
+  ]
+}

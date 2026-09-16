@@ -1,0 +1,448 @@
+{
+  "info": {
+    "_postman_id": "employees-suite-001-postman-collection",
+    "name": "Employees Suite (All Modules) - School Management System",
+    "description": "Complete Postman suite for the entire Employees ecosystem: 1. Core Employee Management (Creation with file uploads, updates, soft delete, user account linking & unlinking), 2. Employee Designations (CRUD, token-based listing), 3. Employee Leave Types (CRUD, carry-forward, gender eligibility, approval rules, availability check).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "EMPLOYEE_ID", "value": "1", "type": "string" },
+    { "key": "DESIGNATION_ID", "value": "1", "type": "string" },
+    { "key": "LEAVE_TYPE_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" },
+    { "key": "USER_ID", "value": "2", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Employee Management",
+      "item": [
+        {
+          "name": "1.1 Create Employee (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": 1,\n  \"first_name\": \"Kavitha\",\n  \"last_name\": \"Raman\",\n  \"email\": \"kavitha.raman@school.edu\",\n  \"mobile\": \"9876543210\",\n  \"gender\": \"female\",\n  \"dob\": \"1990-05-15\",\n  \"blood_group\": \"O+\",\n  \"aadhaar_no\": \"123456789012\",\n  \"joining_date\": \"2026-06-01\",\n  \"designation\": \"SENIOR TEACHER\",\n  \"department\": \"SCIENCE\",\n  \"qualification\": \"M.Sc., B.Ed.\",\n  \"experience_years\": 6,\n  \"salary\": 45000,\n  \"current_address\": \"123 Anna Nagar 2nd Street\",\n  \"current_city\": \"Chennai\",\n  \"current_district\": \"Chennai\",\n  \"current_state\": \"Tamil Nadu\",\n  \"current_postal_code\": \"600040\",\n  \"current_address_same_as_permanent\": true,\n  \"emergency_contact\": \"9876543211\",\n  \"emergency_relationship\": \"husband\",\n  \"bank_name\": \"STATE BANK OF INDIA\",\n  \"branch_name\": \"ANNA NAGAR\",\n  \"account_number\": \"30123456789\",\n  \"account_type\": \"SAVINGS\",\n  \"ifsc_code\": \"SBIN0001234\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees"]
+            },
+            "description": "Registers a new employee. Automatically generates sequential employee_code `EMP-{school_id}-{year}-{0001}`."
+          },
+          "response": []
+        },
+        {
+          "name": "1.2 Create Employee (Multipart Form with File Uploads)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "school_id", "value": "1", "type": "text" },
+                { "key": "first_name", "value": "Rajesh", "type": "text" },
+                { "key": "last_name", "value": "Kumar", "type": "text" },
+                { "key": "email", "value": "rajesh.kumar@school.edu", "type": "text" },
+                { "key": "mobile", "value": "9812345678", "type": "text" },
+                { "key": "gender", "value": "male", "type": "text" },
+                { "key": "dob", "value": "1988-08-20", "type": "text" },
+                { "key": "joining_date", "value": "2026-06-01", "type": "text" },
+                { "key": "designation", "value": "PRINCIPAL", "type": "text" },
+                { "key": "department", "value": "ADMINISTRATION", "type": "text" },
+                { "key": "salary", "value": "75000", "type": "text" },
+                { "key": "status", "value": "active", "type": "text" },
+                { "key": "photo", "type": "file", "src": "", "description": "Profile picture (JPG/PNG)" },
+                { "key": "aadhaar_card", "type": "file", "src": "", "description": "Aadhaar Card copy (PDF/Image)" },
+                { "key": "pan_card", "type": "file", "src": "", "description": "PAN Card copy (PDF/Image)" },
+                { "key": "passport_size_photo", "type": "file", "src": "", "description": "Passport photo" },
+                { "key": "degree_certificate", "type": "file", "src": "", "description": "Degree Certificate (PDF/Image)" },
+                { "key": "experience_certificate", "type": "file", "src": "", "description": "Experience Certificate (PDF/Image)" },
+                { "key": "signature", "type": "file", "src": "", "description": "Digital Signature" }
+              ]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees"]
+            },
+            "description": "Multipart upload allowing document and image uploads for employee records."
+          },
+          "response": []
+        },
+        {
+          "name": "1.3 Get All Employees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees"]
+            },
+            "description": "Lists all employees with school details, designation, and user linkages."
+          },
+          "response": []
+        },
+        {
+          "name": "1.4 Get Employee by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+            },
+            "description": "Fetches complete employee profile including address, bank info, and document URLs."
+          },
+          "response": []
+        },
+        {
+          "name": "1.5 Update Employee by ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Kavitha\",\n  \"last_name\": \"Ramanathan\",\n  \"salary\": 48000,\n  \"designation\": \"HEAD OF DEPARTMENT\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+            },
+            "description": "Updates employee personal, professional, or salary details."
+          },
+          "response": []
+        },
+        {
+          "name": "1.6 Assign User Account to Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": 1,\n  \"user_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/assign-user",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "assign-user"]
+            },
+            "description": "Links a user login account with an employee record. Ensures both belong to the same school."
+          },
+          "response": []
+        },
+        {
+          "name": "1.7 Unassign User Account from Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/unassign-user",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "unassign-user"]
+            },
+            "description": "Unlinks the user login account from the specified employee."
+          },
+          "response": []
+        },
+        {
+          "name": "1.8 Delete Employee by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees/{{EMPLOYEE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees", "{{EMPLOYEE_ID}}"]
+            },
+            "description": "Soft deletes employee record and unlinks any associated user account."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Employee Designations",
+      "item": [
+        {
+          "name": "2.1 Create Designation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": 1,\n  \"name\": \"SENIOR TEACHER\",\n  \"description\": \"Responsible for teaching high school grades and curriculum planning\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"]
+            },
+            "description": "Creates a new staff designation. Name is automatically converted to uppercase."
+          },
+          "response": []
+        },
+        {
+          "name": "2.2 Get All Designations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?school_id={{SCHOOL_ID}}&status=active",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "Filter by school ID" },
+                { "key": "status", "value": "active", "description": "Filter by status: active, inactive" }
+              ]
+            },
+            "description": "Lists all designations across schools or filtered by school ID and status."
+          },
+          "response": []
+        },
+        {
+          "name": "2.3 Get All Designations by Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/token",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "token"]
+            },
+            "description": "Lists designations automatically scoped to the logged-in user's school."
+          },
+          "response": []
+        },
+        {
+          "name": "2.4 Get Designation by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Fetches designation details by primary key ID."
+          },
+          "response": []
+        },
+        {
+          "name": "2.5 Update Designation by ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"LEAD SENIOR TEACHER\",\n  \"description\": \"Department head and senior educator\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Updates designation title, description, or status."
+          },
+          "response": []
+        },
+        {
+          "name": "2.6 Delete Designation by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Deletes a designation by ID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Employee Leave Types",
+      "item": [
+        {
+          "name": "3.1 Create Leave Type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": 1,\n  \"name\": \"CASUAL LEAVE\",\n  \"code\": \"CL\",\n  \"description\": \"Standard casual leave for staff members\",\n  \"days_per_year\": 12,\n  \"max_days_per_request\": 3,\n  \"is_paid\": true,\n  \"carry_forward\": false,\n  \"max_carry_forward_days\": 0,\n  \"allow_half_day\": true,\n  \"requires_approval\": true,\n  \"requires_attachment\": false,\n  \"applicable_gender\": \"all\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types"]
+            },
+            "description": "Creates a leave policy type with carry-forward, gender eligibility, and approval requirements."
+          },
+          "response": []
+        },
+        {
+          "name": "3.2 Get All Leave Types",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types?school_id={{SCHOOL_ID}}&status=active&search=casual",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types"],
+              "query": [
+                { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "Filter by school ID" },
+                { "key": "status", "value": "active", "description": "Filter by status: active, inactive" },
+                { "key": "search", "value": "casual", "description": "Search in name or code" }
+              ]
+            },
+            "description": "Lists all leave types with search and status filters."
+          },
+          "response": []
+        },
+        {
+          "name": "3.3 Get All Leave Types by Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types/token",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types", "token"]
+            },
+            "description": "Lists leave types scoped to the authenticated user's school."
+          },
+          "response": []
+        },
+        {
+          "name": "3.4 Check Existing Leave Type (Name/Code Uniqueness)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types/check-leave-type?school_id={{SCHOOL_ID}}&name=CASUAL LEAVE&code=CL",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types", "check-leave-type"],
+              "query": [
+                { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "School ID" },
+                { "key": "name", "value": "CASUAL LEAVE", "description": "Leave type name to check" },
+                { "key": "code", "value": "CL", "description": "Leave type code to check" }
+              ]
+            },
+            "description": "Verifies whether a leave type name or code is already taken in the school."
+          },
+          "response": []
+        },
+        {
+          "name": "3.5 Get Leave Type by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types/{{LEAVE_TYPE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types", "{{LEAVE_TYPE_ID}}"]
+            },
+            "description": "Fetches single leave type configuration by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "3.6 Update Leave Type by ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CASUAL LEAVE REVISED\",\n  \"days_per_year\": 14,\n  \"max_days_per_request\": 4,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types/{{LEAVE_TYPE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types", "{{LEAVE_TYPE_ID}}"]
+            },
+            "description": "Updates leave type rules or quota."
+          },
+          "response": []
+        },
+        {
+          "name": "3.7 Delete Leave Type by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-leave-types/{{LEAVE_TYPE_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-leave-types", "{{LEAVE_TYPE_ID}}"]
+            },
+            "description": "Deletes a leave type by ID."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

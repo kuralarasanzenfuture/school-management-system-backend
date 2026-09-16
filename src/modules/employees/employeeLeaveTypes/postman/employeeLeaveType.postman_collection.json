@@ -1,0 +1,152 @@
+{
+  "info": {
+    "_postman_id": "emp-leave-001-postman-collection",
+    "name": "Employee Leave Types Module - School Management System",
+    "description": "Postman collection for Employee Leave Types: CRUD operations, carry-forward configuration, gender applicability, token-based scoping, and uniqueness validation check.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "LEAVE_TYPE_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Leave Type",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"CASUAL LEAVE\",\n  \"code\": \"CL\",\n  \"description\": \"Standard casual leave for staff members\",\n  \"days_per_year\": 12,\n  \"max_days_per_request\": 3,\n  \"is_paid\": true,\n  \"carry_forward\": false,\n  \"max_carry_forward_days\": 0,\n  \"allow_half_day\": true,\n  \"requires_approval\": true,\n  \"requires_attachment\": false,\n  \"applicable_gender\": \"all\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types"]
+        },
+        "description": "Creates a leave type definition."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Get All Leave Types",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types?school_id={{SCHOOL_ID}}&status=active&search=casual",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types"],
+          "query": [
+            { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+            { "key": "status", "value": "active" },
+            { "key": "search", "value": "casual" }
+          ]
+        },
+        "description": "Lists all leave types."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get All Leave Types by Token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types", "token"]
+        },
+        "description": "Lists leave types scoped to authenticated user's school."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Check Existing Leave Type (Name/Code Uniqueness)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types/check-leave-type?school_id={{SCHOOL_ID}}&name=CASUAL LEAVE&code=CL",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types", "check-leave-type"],
+          "query": [
+            { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+            { "key": "name", "value": "CASUAL LEAVE" },
+            { "key": "code", "value": "CL" }
+          ]
+        },
+        "description": "Checks if leave type name/code already exists."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Get Leave Type by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types/{{LEAVE_TYPE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types", "{{LEAVE_TYPE_ID}}"]
+        },
+        "description": "Fetches leave type by ID."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Update Leave Type by ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"CASUAL LEAVE REVISED\",\n  \"days_per_year\": 14,\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types/{{LEAVE_TYPE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types", "{{LEAVE_TYPE_ID}}"]
+        },
+        "description": "Updates leave type rules."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Delete Leave Type by ID",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employees-leave-types/{{LEAVE_TYPE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employees-leave-types", "{{LEAVE_TYPE_ID}}"]
+        },
+        "description": "Deletes leave type by ID."
+      },
+      "response": []
+    }
+  ]
+}

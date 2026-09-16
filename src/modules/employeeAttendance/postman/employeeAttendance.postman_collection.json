@@ -1,0 +1,263 @@
+{
+  "info": {
+    "_postman_id": "emp-attendance-001-postman-collection",
+    "name": "Employee Attendance Module - School Management System",
+    "description": "Complete Postman collection for testing Employee Attendance: manual attendance logging (with shift calculations for late minutes and overtime), real-time check-in and check-out, today's attendance status, comprehensive employee attendance logs with aggregated metrics (present, absent, late, half-day, total hours, overtime hours), date range queries, token-filtered queries, updates, and deletion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "ATTENDANCE_ID", "value": "1", "type": "string" },
+    { "key": "EMPLOYEE_ID", "value": "1", "type": "string" },
+    { "key": "SHIFT_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Mark Manual Attendance (Present with Shift & Times)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 1,\n  \"attendance_date\": \"2026-09-16\",\n  \"status\": \"present\",\n  \"shift_id\": 1,\n  \"check_in\": \"2026-09-16 08:50:00\",\n  \"check_out\": \"2026-09-16 17:10:00\",\n  \"remarks\": \"Regular full-day duty on time\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/manual",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "manual"]
+        },
+        "description": "Marks manual attendance with check_in and check_out. Automatically computes total_work_minutes, late_minutes (based on shift grace period), and overtime_minutes."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Mark Manual Attendance (Absent/Leave without Times)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employee_id\": 2,\n  \"attendance_date\": \"2026-09-16\",\n  \"status\": \"leave\",\n  \"shift_id\": null,\n  \"check_in\": null,\n  \"check_out\": null,\n  \"remarks\": \"Casual leave approved by principal\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/manual",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "manual"]
+        },
+        "description": "Marks non-working attendance status (absent, leave, holiday, week_off). Enforces that check_in and check_out must be omitted/null."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Employee Self Check-In (Today)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/check-in",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "check-in"]
+        },
+        "description": "Allows logged-in staff to clock-in for today. Resolves employee record from authenticated token."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Employee Self Check-Out (Today)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/check-out",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "check-out"]
+        },
+        "description": "Allows logged-in staff to clock-out for today, recording exact checkout timestamp and computing total work duration in minutes."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Get Today Attendance (Logged-in Employee)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/today",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "today"]
+        },
+        "description": "Fetches current day's attendance details for the authenticated user/employee."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Get All Attendance (Admin Filter by Status & School)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance?status=present&school_id={{SCHOOL_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance"],
+          "query": [
+            { "key": "status", "value": "present", "description": "Filter by status: present, absent, late, half_day, leave, holiday, week_off" },
+            { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "Filter by school ID" }
+          ]
+        },
+        "description": "Lists all employee attendance records with joined employee details (name, photo, mobile) and shift name."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Get All Attendance by Token (School Auto-filtered)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/token?status=present",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "token"],
+          "query": [
+            { "key": "status", "value": "present", "description": "Filter by status" }
+          ]
+        },
+        "description": "Lists attendance automatically scoped to the logged-in user's assigned school (or across all for super admin)."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Get Attendance by Employee (Summary Metrics & Detailed Logs)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/employee/{{EMPLOYEE_ID}}?year=2026&month=9&late_only=false&overtime_only=false",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "employee", "{{EMPLOYEE_ID}}"],
+          "query": [
+            { "key": "year", "value": "2026", "description": "Filter by year" },
+            { "key": "month", "value": "9", "description": "Filter by month (1-12)" },
+            { "key": "from_date", "value": "2026-09-01", "disabled": true, "description": "Custom date range start" },
+            { "key": "to_date", "value": "2026-09-30", "disabled": true, "description": "Custom date range end" },
+            { "key": "status", "value": "present", "disabled": true, "description": "Filter by specific status" },
+            { "key": "shift_id", "value": "1", "disabled": true, "description": "Filter by shift ID" },
+            { "key": "late_only", "value": "false", "description": "Set true to filter only late arrival days" },
+            { "key": "overtime_only", "value": "false", "description": "Set true to filter only overtime days" }
+          ]
+        },
+        "description": "Returns attendance history for an employee alongside calculated summary metrics (total days, present, absent, late, half-day, leave, total work hours, overtime hours)."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Get Attendance by Date Range",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/range?start_date=2026-09-01&end_date=2026-09-30&employee_id={{EMPLOYEE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "range"],
+          "query": [
+            { "key": "start_date", "value": "2026-09-01", "description": "Required start date (YYYY-MM-DD)" },
+            { "key": "end_date", "value": "2026-09-30", "description": "Required end date (YYYY-MM-DD)" },
+            { "key": "employee_id", "value": "{{EMPLOYEE_ID}}", "description": "Optional employee filter" }
+          ]
+        },
+        "description": "Fetches all attendance entries between `start_date` and `end_date`."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Get Attendance by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/{{ATTENDANCE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "{{ATTENDANCE_ID}}"]
+        },
+        "description": "Fetches single attendance record by ID including employee details and shift name."
+      },
+      "response": []
+    },
+    {
+      "name": "11. Update Attendance by ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"present\",\n  \"check_in\": \"2026-09-16 09:00:00\",\n  \"check_out\": \"2026-09-16 17:00:00\",\n  \"remarks\": \"Corrected punch-in time by HR supervisor\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/{{ATTENDANCE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "{{ATTENDANCE_ID}}"]
+        },
+        "description": "Updates attendance status, timings, or remarks."
+      },
+      "response": []
+    },
+    {
+      "name": "12. Delete Attendance by ID",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/{{ATTENDANCE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "{{ATTENDANCE_ID}}"]
+        },
+        "description": "Deletes an attendance record by ID."
+      },
+      "response": []
+    }
+  ]
+}

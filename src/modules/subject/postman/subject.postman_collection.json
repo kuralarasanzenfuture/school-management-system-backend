@@ -1,0 +1,128 @@
+{
+  "info": {
+    "_postman_id": "sub-001-postman-collection",
+    "name": "Subjects Module - School Management System",
+    "description": "Complete Postman collection for testing Subjects: create subject, get all subjects, school-filtered list via token, check existence, get subject details, update subject, and delete subject.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "SUBJECT_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Subject",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"name\": \"MATHEMATICS\",\n  \"code\": \"MATH101\",\n  \"subject_type\": \"theory\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects"]
+        }
+      }
+    },
+    {
+      "name": "2. Get All Subjects",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects"]
+        }
+      }
+    },
+    {
+      "name": "3. Get Subjects By Token (School Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects", "token"]
+        }
+      }
+    },
+    {
+      "name": "4. Check Subject Existence",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects/check-subject?school_id={{SCHOOL_ID}}&name=MATHEMATICS&code=MATH101",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects", "check-subject"],
+          "query": [
+            { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+            { "key": "name", "value": "MATHEMATICS" },
+            { "key": "code", "value": "MATH101" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Get Subject By ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects/{{SUBJECT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects", "{{SUBJECT_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Update Subject",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"ADVANCED MATHEMATICS\",\n  \"code\": \"MATH102\",\n  \"subject_type\": \"both\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects/{{SUBJECT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects", "{{SUBJECT_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Delete Subject",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/subjects/{{SUBJECT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "subjects", "{{SUBJECT_ID}}"]
+        }
+      }
+    }
+  ]
+}

@@ -22,6 +22,7 @@ import employeeLeaveTypeRoutes from "./employeeLeaveType.routes.js";
 import employeeSalaryComponentRoutes from "./employeeSalaryComponent.routes.js";
 import employeeSalaryStructureRoutes from "./employeeSalaryStructure.routes.js";
 import employeeSalaryStructureDetailsRoutes from "./employeeSalaryStructureDetail.routes.js";
+import employeeSalaryStructureWithDetailRoutes from "./employeeSalaryStructureWithDetail.routes.js";
 
 const router = express.Router();
 
@@ -48,5 +49,7 @@ router.use("/employees-leave-types", employeeLeaveTypeRoutes);
 router.use("/employee-salary-components", employeeSalaryComponentRoutes);
 router.use("/employee-salary-structures", employeeSalaryStructureRoutes);
 router.use("/employee-salary-structures-details", employeeSalaryStructureDetailsRoutes);
+router.use("/employee-salary-structures-with-details", employeeSalaryStructureWithDetailRoutes);
+router.use("/employee-salary-structure-with-details", employeeSalaryStructureWithDetailRoutes);
 
 export default router;

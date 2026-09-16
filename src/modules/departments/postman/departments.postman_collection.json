@@ -1,0 +1,138 @@
+{
+  "info": {
+    "_postman_id": "dept-001-postman-collection",
+    "name": "Departments Module - School Management System",
+    "description": "Complete Postman collection for testing Departments: create department, get all departments, school-filtered list via token, get by school ID, check department existence, get details by ID, update department, and delete department.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "DEPARTMENT_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Department",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"name\": \"MATHEMATICS\",\n  \"description\": \"Department of Mathematics and Computing\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments"]
+        }
+      }
+    },
+    {
+      "name": "2. Get All Departments",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments"]
+        }
+      }
+    },
+    {
+      "name": "3. Get Departments By Token (School Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments", "token"]
+        }
+      }
+    },
+    {
+      "name": "4. Check Department Existence",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments/check-department?school_id={{SCHOOL_ID}}&name=MATHEMATICS",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments", "check-department"],
+          "query": [
+            { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+            { "key": "name", "value": "MATHEMATICS" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Get Departments By School ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments/school/{{SCHOOL_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments", "school", "{{SCHOOL_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "6. Get Department By ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments/{{DEPARTMENT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments", "{{DEPARTMENT_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Update Department",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"ADVANCED MATHEMATICS\",\n  \"description\": \"Updated department description\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments/{{DEPARTMENT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments", "{{DEPARTMENT_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "8. Delete Department",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/departments/{{DEPARTMENT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "departments", "{{DEPARTMENT_ID}}"]
+        }
+      }
+    }
+  ]
+}

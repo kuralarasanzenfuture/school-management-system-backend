@@ -1,0 +1,223 @@
+{
+  "info": {
+    "_postman_id": "std-att-001-postman-collection",
+    "name": "Student Attendance Module - School Management System",
+    "description": "Complete Postman collection for testing Student Attendance: mark daily and period attendance, filter by token/school, summaries, date, session, student history, record updates, session locking/unlocking, and deletion.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "CLASS_SECTION_ID", "value": "1", "type": "string" },
+    { "key": "ADMISSION_ID", "value": "1", "type": "string" },
+    { "key": "SESSION_ID", "value": "1", "type": "string" },
+    { "key": "ATTENDANCE_ID", "value": "1", "type": "string" },
+    { "key": "DATE", "value": "2026-09-15", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Mark Attendance (Daily)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"class_section_id\": {{CLASS_SECTION_ID}},\n  \"attendance_date\": \"{{DATE}}\",\n  \"attendance_type\": \"daily\",\n  \"remarks\": \"Morning roll call\",\n  \"students\": [\n    {\n      \"admission_id\": {{ADMISSION_ID}},\n      \"status\": \"present\",\n      \"remarks\": \"On time\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/mark",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "mark"]
+        }
+      }
+    },
+    {
+      "name": "2. Mark Attendance (Period-wise)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"class_section_id\": {{CLASS_SECTION_ID}},\n  \"attendance_date\": \"{{DATE}}\",\n  \"attendance_type\": \"period\",\n  \"period_no\": 1,\n  \"remarks\": \"Period 1 Mathematics\",\n  \"students\": [\n    {\n      \"admission_id\": {{ADMISSION_ID}},\n      \"status\": \"present\",\n      \"remarks\": \"Attended\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/mark",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "mark"]
+        }
+      }
+    },
+    {
+      "name": "3. Get All Attendance Records",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance?date={{DATE}}&class_section_id={{CLASS_SECTION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance"],
+          "query": [
+            { "key": "date", "value": "{{DATE}}" },
+            { "key": "class_section_id", "value": "{{CLASS_SECTION_ID}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Get Attendance By Token (School-Scoped)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/token?from_date=2026-09-01&to_date=2026-09-30&limit=50&offset=0",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "token"],
+          "query": [
+            { "key": "from_date", "value": "2026-09-01" },
+            { "key": "to_date", "value": "2026-09-30" },
+            { "key": "limit", "value": "50" },
+            { "key": "offset", "value": "0" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. Get Attendance Summary",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/summary?date={{DATE}}&class_section_id={{CLASS_SECTION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "summary"],
+          "query": [
+            { "key": "date", "value": "{{DATE}}" },
+            { "key": "class_section_id", "value": "{{CLASS_SECTION_ID}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Get Attendance By Date",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/date?date={{DATE}}&class_section_id={{CLASS_SECTION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "date"],
+          "query": [
+            { "key": "date", "value": "{{DATE}}" },
+            { "key": "class_section_id", "value": "{{CLASS_SECTION_ID}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Get Attendance By Session ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/session/{{SESSION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "session", "{{SESSION_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "8. Get Attendance History By Student",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/student/{{ADMISSION_ID}}?attendance_type=daily",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "student", "{{ADMISSION_ID}}"],
+          "query": [
+            { "key": "attendance_type", "value": "daily" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Get Single Attendance Record",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/{{ATTENDANCE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "{{ATTENDANCE_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "10. Update Attendance Record",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"present\",\n  \"remarks\": \"Updated attendance status\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/{{ATTENDANCE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "{{ATTENDANCE_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "11. Lock Attendance Session",
+      "request": {
+        "method": "PATCH",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/session/{{SESSION_ID}}/lock",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "session", "{{SESSION_ID}}", "lock"]
+        }
+      }
+    },
+    {
+      "name": "12. Unlock Attendance Session",
+      "request": {
+        "method": "PATCH",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/session/{{SESSION_ID}}/unlock",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "session", "{{SESSION_ID}}", "unlock"]
+        }
+      }
+    },
+    {
+      "name": "13. Delete Attendance Record",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{BASE_URL}}/api/students-attendance/{{ATTENDANCE_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "students-attendance", "{{ATTENDANCE_ID}}"]
+        }
+      }
+    }
+  ]
+}

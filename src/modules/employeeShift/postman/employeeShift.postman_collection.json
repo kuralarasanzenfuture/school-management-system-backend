@@ -1,0 +1,151 @@
+{
+  "info": {
+    "_postman_id": "emp-shift-001-postman-collection",
+    "name": "Employee Shift Module - School Management System",
+    "description": "Complete Postman collection for testing Employee Shifts: create shift with start/end times and grace minutes (automatic working hours calculation), list all shifts, token-scoped shifts listing, get shift by ID, update shift, and delete shift.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{TOKEN}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:5000", "type": "string" },
+    { "key": "TOKEN", "value": "YOUR_JWT_TOKEN_HERE", "type": "string" },
+    { "key": "SHIFT_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Create Shift (Standard Morning Shift)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"MORNING SHIFT\",\n  \"start_time\": \"08:30:00\",\n  \"end_time\": \"16:30:00\",\n  \"grace_minutes\": 15,\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts"]
+        },
+        "description": "Creates a new employee shift. System automatically computes `working_hours` (8.00) based on start_time and end_time."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Shift (Afternoon / Evening Shift)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"AFTERNOON SHIFT\",\n  \"start_time\": \"12:00:00\",\n  \"end_time\": \"20:00:00\",\n  \"grace_minutes\": 10,\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts"]
+        },
+        "description": "Creates an afternoon work shift with custom grace period."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get All Shifts",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts"]
+        },
+        "description": "Lists all employee shifts across the system."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get All Shifts by Token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts/token",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts", "token"]
+        },
+        "description": "Lists shifts automatically filtered by the logged-in user's assigned school."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Get Shift by ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+        },
+        "description": "Fetches single shift details by primary key ID."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Update Shift by ID",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"PRIMARY MORNING SHIFT\",\n  \"start_time\": \"08:00:00\",\n  \"end_time\": \"16:00:00\",\n  \"grace_minutes\": 10,\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+        },
+        "description": "Updates shift details. Re-calculates working_hours automatically if times are modified."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Delete Shift by ID",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+        },
+        "description": "Deletes an employee shift by ID."
+      },
+      "response": []
+    }
+  ]
+}
