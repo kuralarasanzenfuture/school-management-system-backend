@@ -5,6 +5,7 @@ import {
   getAllAttendanceByToken,
   getAttendanceById,
   getAttendanceByEmployee,
+  getAttendanceByFilters,
   getAttendanceByDateRange,
   updateAttendance,
   deleteAttendance,
@@ -17,31 +18,32 @@ import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
+// Require authentication for all attendance endpoints
 router.use(verifyToken);
 
+// 📝 Manual Marking
 router.post("/manual", markManualAttendance);
 
-router.post("/check-in", verifyToken, checkInAttendance);
-router.post("/check-out", verifyToken, checkOutAttendance);
-router.get("/today", verifyToken, getTodayAttendance);
+// ⏱️ Self-Service Check-In / Check-Out
+router.post("/check-in", checkInAttendance);
+router.post("/check-out", checkOutAttendance);
+router.get("/today", getTodayAttendance);
 
-// 🔓 Public (or admin use)
-router.get("/", getAllAttendance);
+// 🔐 Token Scoped
+router.get("/token", getAllAttendanceByToken);
 
-// 🔐 Role-based
-router.get("/token", verifyToken, getAllAttendanceByToken);
-
-// 🔍 Filters
+// 🔍 Search & Filters
+router.get("/filter", getAttendanceByFilters);
+router.get("/filters", getAttendanceByFilters);
 router.get("/employee/:employee_id", getAttendanceByEmployee);
 router.get("/range", getAttendanceByDateRange);
 
-// 🔎 Single
+// 📋 All Attendance
+router.get("/", getAllAttendance);
+
+// 🔎 Single ID Operations
 router.get("/:id", getAttendanceById);
-
-// ✏️ Update
 router.put("/:id", updateAttendance);
-
-// 🗑️ Delete
 router.delete("/:id", deleteAttendance);
 
 export default router;

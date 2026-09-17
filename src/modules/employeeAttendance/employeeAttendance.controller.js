@@ -1,10 +1,18 @@
 import * as Service from "./employeeAttendance.service.js";
+
 export const markManualAttendance = async (req, res) => {
   try {
-    const result = await Service.markManualAttendance(req.body);
+    const payload = {
+      ...req.body,
+      marked_by: req.user?.id || req.body.marked_by || null,
+    };
+    const result = await Service.markManualAttendance(payload);
     res.status(201).json(result);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
@@ -15,7 +23,7 @@ export const checkInAttendance = async (req, res) => {
   } catch (err) {
     res.status(err.status || 500).json({
       success: false,
-      message: err.message,
+      message: err.message || "Internal Server Error",
     });
   }
 };
@@ -27,7 +35,7 @@ export const checkOutAttendance = async (req, res) => {
   } catch (err) {
     res.status(err.status || 500).json({
       success: false,
-      message: err.message,
+      message: err.message || "Internal Server Error",
     });
   }
 };
@@ -35,7 +43,6 @@ export const checkOutAttendance = async (req, res) => {
 export const getTodayAttendance = async (req, res) => {
   try {
     const data = await Service.getTodayAttendance(req.user);
-
     res.status(200).json({
       success: true,
       data,
@@ -43,7 +50,7 @@ export const getTodayAttendance = async (req, res) => {
   } catch (err) {
     res.status(err.status || 500).json({
       success: false,
-      message: err.message,
+      message: err.message || "Internal Server Error",
     });
   }
 };
@@ -51,44 +58,58 @@ export const getTodayAttendance = async (req, res) => {
 export const getAllAttendance = async (req, res) => {
   try {
     const data = await Service.getAllAttendance(req.query);
-    res.json(data);
+    res.status(200).json(data);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
 export const getAllAttendanceByToken = async (req, res) => {
   try {
     const data = await Service.getAllAttendanceByToken(req.user, req.query);
-    res.json(data);
+    res.status(200).json(data);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
 export const getAttendanceById = async (req, res) => {
   try {
     const data = await Service.getAttendanceById(req.params.id);
-    res.json(data);
+    res.status(200).json(data);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
+  }
+};
+
+export const getAttendanceByFilters = async (req, res) => {
+  try {
+    const data = await Service.getAttendanceByFilters(req.query);
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
 export const getAttendanceByEmployee = async (req, res) => {
   try {
     const { employee_id } = req.params;
-
-    const { month, year, from_date, to_date, status } = req.query;
-
-    const data = await Service.getAttendanceByEmployee(employee_id, {
-      month,
-      year,
-      from_date,
-      to_date,
-      status,
-    });
-
+    const data = await Service.getAttendanceByEmployee(employee_id, req.query);
     res.status(200).json({
       success: true,
       data,
@@ -104,26 +125,38 @@ export const getAttendanceByEmployee = async (req, res) => {
 export const getAttendanceByDateRange = async (req, res) => {
   try {
     const data = await Service.getAttendanceByDateRange(req.query);
-    res.json(data);
+    res.status(200).json(data);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
 export const updateAttendance = async (req, res) => {
   try {
-    const result = await Service.updateAttendance(req.params.id, req.body);
-    res.json(result);
+    const result = await Service.updateAttendance(req.params.id, {
+      ...req.body,
+      marked_by: req.user?.id || req.body.marked_by || null,
+    });
+    res.status(200).json(result);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };
 
 export const deleteAttendance = async (req, res) => {
   try {
     const result = await Service.deleteAttendance(req.params.id);
-    res.json(result);
+    res.status(200).json(result);
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 };

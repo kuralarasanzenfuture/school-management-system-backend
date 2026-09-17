@@ -166,6 +166,33 @@
       "response": []
     },
     {
+      "name": "7.5. Get Attendance by Generic Filters",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{BASE_URL}}/api/employee-attendance/filter?status=present&school_id={{SCHOOL_ID}}&year=2026&month=9&late_only=true",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "employee-attendance", "filter"],
+          "query": [
+            { "key": "status", "value": "present", "description": "Filter by attendance status" },
+            { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "Filter by school ID" },
+            { "key": "employee_id", "value": "{{EMPLOYEE_ID}}", "disabled": true, "description": "Optional employee ID filter" },
+            { "key": "year", "value": "2026", "description": "Optional year filter" },
+            { "key": "month", "value": "9", "description": "Optional month filter (1-12)" },
+            { "key": "from_date", "value": "2026-09-01", "disabled": true, "description": "Optional custom date range start" },
+            { "key": "to_date", "value": "2026-09-30", "disabled": true, "description": "Optional custom date range end" },
+            { "key": "shift_id", "value": "1", "disabled": true, "description": "Optional shift ID filter" },
+            { "key": "marked_by", "value": "1", "disabled": true, "description": "Optional marked-by user filter" },
+            { "key": "late_only", "value": "true", "description": "Set to true to return only late attendance" },
+            { "key": "overtime_only", "value": "false", "disabled": true, "description": "Set to true to return only overtime attendance" }
+          ]
+        },
+        "description": "Generic attendance filter endpoint supporting status, school, employee, month/year, date range, shift, late-only, and overtime-only query params."
+      },
+      "response": []
+    },
+    {
       "name": "8. Get Attendance by Employee (Summary Metrics & Detailed Logs)",
       "request": {
         "method": "GET",

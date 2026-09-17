@@ -22,6 +22,7 @@ Comprehensive API documentation for the **Employee Attendance Module** in the Sc
 | `POST` | `/api/employee-attendance/check-out` | Self-service check-out for authenticated employee | Bearer Token |
 | `GET` | `/api/employee-attendance/today` | Get today's attendance for the authenticated employee | Bearer Token |
 | `GET` | `/api/employee-attendance` | Get all attendance records (with filters: `status`, `school_id`) | Bearer Token |
+| `GET` | `/api/employee-attendance/filter` | Generic filter endpoint for `status`, `school_id`, `employee_id`, `year`, `month`, `from_date`, `to_date`, `shift_id`, `late_only`, `overtime_only` | Bearer Token |
 | `GET` | `/api/employee-attendance/token` | Get attendance records auto-scoped to token user's school | Bearer Token |
 | `GET` | `/api/employee-attendance/employee/:employee_id` | Get attendance history & aggregated monthly summary metrics | Bearer Token |
 | `GET` | `/api/employee-attendance/range` | Get attendance records within date range (`start_date`, `end_date`) | Bearer Token |
