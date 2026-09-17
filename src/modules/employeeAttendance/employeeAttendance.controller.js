@@ -93,7 +93,22 @@ export const getAttendanceById = async (req, res) => {
 
 export const getAttendanceByFilters = async (req, res) => {
   try {
-    const data = await Service.getAttendanceByFilters(req.query);
+    const data = await Service.getAttendanceByFilters(req.query, req.user);
+    res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
+  }
+};
+
+export const getAttendanceMatrix = async (req, res) => {
+  try {
+    const data = await Service.getAttendanceMatrix(req.query, req.user);
     res.status(200).json({
       success: true,
       data,

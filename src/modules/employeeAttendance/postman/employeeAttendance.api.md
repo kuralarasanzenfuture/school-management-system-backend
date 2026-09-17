@@ -22,7 +22,8 @@ Comprehensive API documentation for the **Employee Attendance Module** in the Sc
 | `POST` | `/api/employee-attendance/check-out` | Self-service check-out for authenticated employee | Bearer Token |
 | `GET` | `/api/employee-attendance/today` | Get today's attendance for the authenticated employee | Bearer Token |
 | `GET` | `/api/employee-attendance` | Get all attendance records (with filters: `status`, `school_id`) | Bearer Token |
-| `GET` | `/api/employee-attendance/filter` | Generic filter endpoint for `status`, `school_id`, `employee_id`, `year`, `month`, `from_date`, `to_date`, `shift_id`, `late_only`, `overtime_only` | Bearer Token |
+| `GET` | `/api/employee-attendance/filter` | Generic filter endpoint (returns UI Matrix or filtered records) | Bearer Token |
+| `GET` | `/api/employee-attendance/matrix` | UI-ready grouped matrix (Employee × Days) with status codes, hovers & monthly summaries | Bearer Token |
 | `GET` | `/api/employee-attendance/token` | Get attendance records auto-scoped to token user's school | Bearer Token |
 | `GET` | `/api/employee-attendance/employee/:employee_id` | Get attendance history & aggregated monthly summary metrics | Bearer Token |
 | `GET` | `/api/employee-attendance/range` | Get attendance records within date range (`start_date`, `end_date`) | Bearer Token |
@@ -226,6 +227,163 @@ Fetches attendance scoped automatically to the authenticated user's assigned `sc
 - **Route**: `{{BASE_URL}}/api/employee-attendance/token`
 - **Query Parameters**:
   - `status` (optional): Filter by status.
+
+---
+
+### 6.5. Get Attendance Matrix (Employee × Days Grid View)
+
+Returns UI-ready structured matrix data directly mapped to the monthly, weekly, or daily attendance grid view (Employees × Days).
+
+- **Method**: `GET`
+- **Route**: `{{BASE_URL}}/api/employee-attendance/matrix` (also available on `/api/employee-attendance/filter` and `/grid`)
+- **Query Parameters**:
+  - `school_id` (optional): School ID (auto-scoped to token if omitted).
+  - `month` (optional, 1-12): Month number (defaults to current month).
+  - `year` (optional): Year number (defaults to current year).
+  - `view` (optional): `monthly` (default), `weekly`, or `daily`.
+  - `date` (optional): `YYYY-MM-DD` (for daily view).
+  - `from_date`, `to_date` (optional): Custom range / weekly view.
+  - `department` (optional): Filter employees by department.
+  - `designation` (optional): Filter employees by designation.
+  - `shift_id` (optional): Filter by shift.
+  - `search` (optional): Search employee by name or employee code.
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": {
+    "view": "monthly",
+    "month": 9,
+    "year": 2026,
+    "start_date": "2026-09-01",
+    "end_date": "2026-09-30",
+    "total_days": 30,
+    "days_meta": [
+      {
+        "day": 1,
+        "date": "2026-09-01",
+        "day_name": "Tue",
+        "day_of_week": 2,
+        "is_weekend": false,
+        "is_today": false
+      },
+      {
+        "day": 17,
+        "date": "2026-09-17",
+        "day_name": "Thu",
+        "day_of_week": 4,
+        "is_weekend": false,
+        "is_today": true
+      }
+    ],
+    "total_employees": 15,
+    "school_id": 1,
+    "overall_summary": {
+      "total_records": 340,
+      "present_days": 300,
+      "absent_days": 15,
+      "late_days": 10,
+      "half_days": 5,
+      "leave_days": 10,
+      "holiday_days": 0,
+      "week_off_days": 0,
+      "total_work_minutes": 153000,
+      "total_work_hours": "2550.00",
+      "total_overtime_minutes": 2400,
+      "total_overtime_hours": "40.00"
+    },
+    "employees": [
+      {
+        "employee_id": 1,
+        "employee_code": "EMP001",
+        "first_name": "Kural",
+        "last_name": "M",
+        "name": "Kural M",
+        "photo_url": "uploads/staff/kural.png",
+        "designation": "Senior Teacher",
+        "department": "Science",
+        "mobile": "9876543210",
+        "summary": {
+          "present_days": 20,
+          "absent_days": 1,
+          "late_days": 1,
+          "half_days": 0,
+          "leave_days": 1,
+          "holiday_days": 0,
+          "week_off_days": 0,
+          "total_work_minutes": 10200,
+          "total_work_hours": "170.00",
+          "total_overtime_minutes": 120,
+          "total_overtime_hours": "2.00",
+          "total_late_minutes": 15,
+          "marked_days": 23,
+          "attendance_percentage": "95%"
+        },
+        "attendance": {
+          "1": {
+            "id": 105,
+            "attendance_date": "2026-09-01",
+            "status": "present",
+            "code": "P",
+            "check_in": "2026-09-01 08:50:00",
+            "check_out": "2026-09-01 17:10:00",
+            "check_in_time": "08:50 AM",
+            "check_out_time": "05:10 PM",
+            "total_work_minutes": 500,
+            "total_work_hours": "8.33",
+            "late_minutes": 0,
+            "overtime_minutes": 20,
+            "is_late": false,
+            "is_overtime": true,
+            "shift_id": 1,
+            "shift_name": "Morning Shift",
+            "remarks": "On time"
+          },
+          "2": {
+            "id": 118,
+            "attendance_date": "2026-09-02",
+            "status": "late",
+            "code": "L",
+            "check_in": "2026-09-02 09:25:00",
+            "check_out": "2026-09-02 17:00:00",
+            "check_in_time": "09:25 AM",
+            "check_out_time": "05:00 PM",
+            "total_work_minutes": 455,
+            "total_work_hours": "7.58",
+            "late_minutes": 25,
+            "overtime_minutes": 0,
+            "is_late": true,
+            "is_overtime": false,
+            "shift_id": 1,
+            "shift_name": "Morning Shift",
+            "remarks": "Traffic delay"
+          },
+          "3": {
+            "id": null,
+            "attendance_date": "2026-09-03",
+            "status": null,
+            "code": "-",
+            "check_in": null,
+            "check_out": null,
+            "check_in_time": null,
+            "check_out_time": null,
+            "total_work_minutes": 0,
+            "total_work_hours": "0.00",
+            "late_minutes": 0,
+            "overtime_minutes": 0,
+            "is_late": false,
+            "is_overtime": false,
+            "shift_id": null,
+            "shift_name": null,
+            "remarks": null
+          }
+        }
+      }
+    ]
+  }
+}
+```
 
 ---
 

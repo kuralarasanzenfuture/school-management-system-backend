@@ -23,21 +23,99 @@ export const parseTimeToDate = (timeStr, baseDateStr) => {
   if (!timeStr) return null;
   if (timeStr instanceof Date) return timeStr;
 
-  const cleanDate =
-    typeof baseDateStr === "string"
-      ? baseDateStr.slice(0, 10)
-      : baseDateStr instanceof Date
-        ? baseDateStr.toISOString().slice(0, 10)
-        : getTodayDate();
-
   if (typeof timeStr === "string") {
     const trimmed = timeStr.trim();
     if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
       return new Date(trimmed.replace(" ", "T"));
     }
-    return new Date(`${cleanDate}T${trimmed}`);
+    return new Date(`${baseDateStr}T${trimmed}`);
   }
   return new Date(timeStr);
+};
+
+/**
+ * Helper to format a datetime/time string into a clean "09:05 AM" string.
+ */
+export const formatTime = (datetimeStr) => {
+  if (!datetimeStr) return null;
+  const d = new Date(datetimeStr);
+  if (!isNaN(d.getTime())) {
+    const hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    return `${String(h12).padStart(2, "0")}:${minutes} ${ampm}`;
+  }
+  const match = String(datetimeStr).match(/(\d{1,2}):(\d{2})/);
+  if (match) {
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
+  }
+  return String(datetimeStr);
+};
+
+/**
+ * Maps attendance status enum to UI single/two-letter badge codes.
+ */
+/**
+ * Helper to compute week boundaries (Monday to Sunday) for a given reference date (YYYY-MM-DD).
+ */
+export const getWeekRange = (refDateStr) => {
+  const d = refDateStr ? new Date(`${refDateStr}T00:00:00`) : new Date();
+  const day = d.getDay(); // 0 is Sun, 1 is Mon, ..., 6 is Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const format = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const dayNum = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dayNum}`;
+  };
+
+  return {
+    startDate: format(monday),
+    endDate: format(sunday),
+  };
+};
+
+/**
+ * Helper to compute ISO 8601 week number.
+ */
+export const getISOWeekNumber = (dateObj) => {
+  const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+};
+
+export const mapStatusCode = (status) => {
+  switch (status) {
+    case "present":
+      return "P";
+    case "absent":
+      return "A";
+    case "late":
+      return "L";
+    case "half_day":
+      return "HD";
+    case "leave":
+      return "LV";
+    case "holiday":
+      return "H";
+    case "week_off":
+      return "WO";
+    default:
+      return "-";
+  }
 };
 
 /**
@@ -48,12 +126,10 @@ export const calculateAttendanceMetrics = ({
   check_in,
   check_out,
   shift,
-  late_minutes = 0,
-  overtime_minutes = 0,
 }) => {
   let total_work_minutes = 0;
-  let calculatedLate = Number(late_minutes) || 0;
-  let calculatedOvertime = Number(overtime_minutes) || 0;
+  let late_minutes = 0;
+  let overtime_minutes = 0;
 
   if (check_in && shift) {
     const inTime = parseTimeToDate(check_in, attendance_date);
@@ -61,12 +137,9 @@ export const calculateAttendanceMetrics = ({
 
     if (inTime && shiftStart && !isNaN(inTime) && !isNaN(shiftStart)) {
       const diffLate = Math.floor((inTime - shiftStart) / 60000);
-      const grace =
-        shift.grace_minutes != null ? Number(shift.grace_minutes) : 10;
+      const grace = shift.grace_minutes != null ? Number(shift.grace_minutes) : 10;
       if (diffLate > grace) {
-        calculatedLate = diffLate;
-      } else if (!late_minutes) {
-        calculatedLate = 0;
+        late_minutes = diffLate;
       }
     }
   }
@@ -88,18 +161,12 @@ export const calculateAttendanceMetrics = ({
     if (shift && shift.working_hours) {
       const expectedMinutes = Math.round(Number(shift.working_hours) * 60);
       if (total_work_minutes > expectedMinutes) {
-        calculatedOvertime = total_work_minutes - expectedMinutes;
-      } else if (!overtime_minutes) {
-        calculatedOvertime = 0;
+        overtime_minutes = total_work_minutes - expectedMinutes;
       }
     }
   }
 
-  return {
-    total_work_minutes,
-    late_minutes: calculatedLate,
-    overtime_minutes: calculatedOvertime,
-  };
+  return { total_work_minutes, late_minutes, overtime_minutes };
 };
 
 const checkIsAdmin = (user) => {
@@ -149,11 +216,11 @@ export const markManualAttendance = async (data) => {
       throw { status: 409, message: "Attendance already marked" };
     }
 
-    // 3. Shift logic: use provided shift or fallback to school default active shift
+    // 3. Shift logic
     let shift = null;
     if (validated.shift_id) {
       const [[shiftRow]] = await conn.query(
-        `SELECT id, start_time, working_hours, grace_minutes, crosses_midnight, school_id 
+        `SELECT start_time, working_hours, grace_minutes, crosses_midnight, school_id 
          FROM employee_shifts WHERE id=?`,
         [validated.shift_id],
       );
@@ -169,18 +236,6 @@ export const markManualAttendance = async (data) => {
         };
       }
       shift = shiftRow;
-    } else {
-      const [[defaultShift]] = await conn.query(
-        `SELECT id, start_time, working_hours, grace_minutes, crosses_midnight, school_id 
-         FROM employee_shifts 
-         WHERE school_id = ? AND is_default = 1 AND status = 'active' 
-         LIMIT 1`,
-        [school_id],
-      );
-      if (defaultShift) {
-        shift = defaultShift;
-        validated.shift_id = defaultShift.id;
-      }
     }
 
     // 4. Calculate metrics
@@ -190,8 +245,6 @@ export const markManualAttendance = async (data) => {
         check_in: validated.check_in,
         check_out: validated.check_out,
         shift,
-        late_minutes: validated.late_minutes,
-        overtime_minutes: validated.overtime_minutes,
       });
 
     // 5. Insert
@@ -205,34 +258,9 @@ export const markManualAttendance = async (data) => {
 
     await conn.commit();
 
-    // 6. Fetch created record with joins
-    const [[createdRecord]] = await db.query(
-      `
-      SELECT 
-        ea.*,
-        e.first_name,
-        e.last_name,
-        e.employee_code,
-        e.photo_url,
-        e.mobile AS employee_mobile,
-        e.designation,
-        e.department,
-        es.name AS shift_name,
-        sc.name AS school_name
-      FROM employee_attendance ea
-      JOIN employees e ON ea.employee_id = e.id
-      JOIN schools sc ON ea.school_id = sc.id
-      LEFT JOIN employee_shifts es ON ea.shift_id = es.id
-      WHERE ea.id = ?
-      `,
-      [id],
-    );
-
     return {
       message: "Attendance marked successfully",
       id,
-      record: createdRecord,
-      data: createdRecord,
     };
   } catch (err) {
     await conn.rollback();
@@ -295,59 +323,45 @@ export const checkInAttendance = async (user) => {
     }
   }
 
-  // 4. Calculate lateness against shift start
-  if (shift && shift.start_time) {
+  if (shift) {
     const inTime = now;
     const shiftStart = parseTimeToDate(shift.start_time, today);
-    if (shiftStart && !isNaN(shiftStart)) {
+    if (inTime && shiftStart && !isNaN(shiftStart.getTime())) {
       const diffLate = Math.floor((inTime - shiftStart) / 60000);
-      const grace =
-        shift.grace_minutes != null ? Number(shift.grace_minutes) : 10;
+      const grace = shift.grace_minutes != null ? Number(shift.grace_minutes) : 10;
       if (diffLate > grace) {
         late_minutes = diffLate;
       }
     }
   }
 
-  // 5. Determine initial status
-  const status = late_minutes > 0 ? "late" : "present";
-
-  // 6. If an attendance row already exists, update it
   if (existing) {
+    // Update existing attendance row instead of crashing on unique key
     await db.query(
       `
       UPDATE employee_attendance
-      SET status = ?, shift_id = ?, check_in = ?, late_minutes = ?
+      SET status = 'present',
+          check_in = ?,
+          shift_id = COALESCE(shift_id, ?),
+          late_minutes = ?,
+          marked_by = ?
       WHERE id = ?
       `,
-      [status, shift_id, now, late_minutes, existing.id],
+      [now, shift_id, late_minutes, user.id, existing.id],
     );
-    return {
-      message: "Check-in successful",
-      id: existing.id,
-      check_in: now,
-      status,
-      late_minutes,
-    };
+  } else {
+    // Insert new attendance record
+    await db.query(
+      `
+      INSERT INTO employee_attendance
+      (school_id, employee_id, attendance_date, status, shift_id, check_in, late_minutes, marked_by)
+      VALUES (?, ?, ?, 'present', ?, ?, ?, ?)
+      `,
+      [employee.school_id, employee.id, today, shift_id, now, late_minutes, user.id],
+    );
   }
 
-  // 7. Insert new row
-  const [res] = await db.query(
-    `
-    INSERT INTO employee_attendance
-    (school_id, employee_id, attendance_date, status, shift_id, check_in, late_minutes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    `,
-    [employee.school_id, employee.id, today, status, shift_id, now, late_minutes],
-  );
-
-  return {
-    message: "Check-in successful",
-    id: res.insertId,
-    check_in: now,
-    status,
-    late_minutes,
-  };
+  return { message: "Check-in successful", check_in: now, late_minutes };
 };
 
 export const checkOutAttendance = async (user) => {
@@ -365,7 +379,7 @@ export const checkOutAttendance = async (user) => {
   }
 
   const [[attendance]] = await db.query(
-    `SELECT * FROM employee_attendance 
+    `SELECT * FROM employee_attendance
      WHERE employee_id = ? AND attendance_date = ?`,
     [employee.id, today],
   );
@@ -410,8 +424,6 @@ export const checkOutAttendance = async (user) => {
 
   return {
     message: "Check-out successful",
-    id: attendance.id,
-    check_out: now,
     total_work_minutes: diffMinutes,
     overtime_minutes,
   };
@@ -446,15 +458,8 @@ export const getTodayAttendance = async (user) => {
       ea.total_work_minutes,
       ea.overtime_minutes,
       ea.late_minutes,
-      ea.remarks,
-      e.first_name,
-      e.last_name,
-      e.employee_code,
-      e.photo_url,
-      sc.name AS school_name
+      ea.remarks
     FROM employee_attendance ea
-    JOIN employees e ON ea.employee_id = e.id
-    JOIN schools sc ON ea.school_id = sc.id
     LEFT JOIN employee_shifts es ON ea.shift_id = es.id
     WHERE ea.employee_id = ? AND ea.attendance_date = ?
     `,
@@ -471,8 +476,6 @@ export const getAllAttendance = async (filters = {}) => {
     employee_id,
     school_id,
     status,
-    date,
-    attendance_date,
     month,
     year,
     from_date,
@@ -481,7 +484,6 @@ export const getAllAttendance = async (filters = {}) => {
     marked_by,
     late_only,
     overtime_only,
-    search,
   } = filters;
 
   let query = `
@@ -489,11 +491,8 @@ export const getAllAttendance = async (filters = {}) => {
       ea.*,
       e.first_name,
       e.last_name,
-      e.employee_code,
       e.photo_url,
       e.mobile AS employee_mobile,
-      e.designation,
-      e.department,
       es.name AS shift_name,
       sc.name AS school_name
     FROM employee_attendance ea
@@ -518,12 +517,6 @@ export const getAllAttendance = async (filters = {}) => {
   if (status) {
     query += ` AND ea.status = ?`;
     values.push(status);
-  }
-
-  const targetDate = date || attendance_date;
-  if (targetDate) {
-    query += ` AND ea.attendance_date = ?`;
-    values.push(normalizeDate(targetDate));
   }
 
   if (year) {
@@ -564,12 +557,6 @@ export const getAllAttendance = async (filters = {}) => {
     query += ` AND ea.overtime_minutes > 0`;
   }
 
-  if (search && String(search).trim()) {
-    const term = `%${String(search).trim()}%`;
-    query += ` AND (CONCAT(e.first_name, ' ', COALESCE(e.last_name, '')) LIKE ? OR e.employee_code LIKE ?)`;
-    values.push(term, term);
-  }
-
   query += ` ORDER BY ea.attendance_date DESC, ea.id DESC`;
 
   const [rows] = await db.query(query, values);
@@ -588,11 +575,8 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
       ea.*,
       e.first_name,
       e.last_name,
-      e.employee_code,
       e.photo_url,
       e.mobile AS employee_mobile,
-      e.designation,
-      e.department,
       es.name AS shift_name,
       sc.name AS school_name
     FROM employee_attendance ea
@@ -620,15 +604,26 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
     values.push(Number(filters.employee_id));
   }
 
-  if (filters.status) {
-    query += ` AND ea.status = ?`;
-    values.push(filters.status);
-  }
-
   const targetDate = filters.date || filters.attendance_date;
   if (targetDate) {
     query += ` AND ea.attendance_date = ?`;
     values.push(normalizeDate(targetDate));
+  }
+
+  if (filters.department && String(filters.department).trim()) {
+    query += ` AND e.department = ?`;
+    values.push(String(filters.department).trim());
+  }
+
+  if (filters.search && String(filters.search).trim()) {
+    const term = `%${String(filters.search).trim()}%`;
+    query += ` AND (CONCAT(e.first_name, ' ', COALESCE(e.last_name, '')) LIKE ? OR e.employee_code LIKE ?)`;
+    values.push(term, term);
+  }
+
+  if (filters.status) {
+    query += ` AND ea.status = ?`;
+    values.push(filters.status);
   }
 
   if (filters.year) {
@@ -669,50 +664,393 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
     query += ` AND ea.overtime_minutes > 0`;
   }
 
-  if (filters.search && String(filters.search).trim()) {
-    const term = `%${String(filters.search).trim()}%`;
-    query += ` AND (CONCAT(e.first_name, ' ', COALESCE(e.last_name, '')) LIKE ? OR e.employee_code LIKE ?)`;
-    values.push(term, term);
-  }
-
   query += ` ORDER BY ea.attendance_date DESC, ea.id DESC`;
 
   const [rows] = await db.query(query, values);
   return rows;
 };
 
-export const getAttendanceByFilters = async (filters = {}) => {
-  const normalized = { ...filters };
+/**
+ * UI-Ready Structured Attendance Matrix (Employee × Days)
+ * Supports Monthly, Weekly, and Daily views.
+ */
+export const getAttendanceMatrix = async (filters = {}, user = null) => {
+  const db = getDB();
 
-  if (normalized.employee_id) {
-    return getAttendanceByEmployee(normalized.employee_id, normalized);
+  // 1. Resolve school_id
+  let school_id = filters.school_id ? Number(filters.school_id) : null;
+  if (!school_id && user?.school_id) {
+    school_id = Number(user.school_id);
   }
 
-  const rows = await getAllAttendance(normalized);
+  // 2. Resolve view mode: 'monthly' (default), 'weekly', 'daily'
+  const view = (filters.view || "monthly").toLowerCase();
+
+  const todayStr = getTodayDate();
+  const [currentYear, currentMonth] = todayStr.split("-").map(Number);
+
+  let startDate, endDate;
+  let month = filters.month ? Number(filters.month) : null;
+  let year = filters.year ? Number(filters.year) : null;
+
+  if (view === "daily") {
+    const targetDate = filters.date ? normalizeDate(filters.date) : todayStr;
+    startDate = targetDate;
+    endDate = targetDate;
+    const [y, m] = targetDate.split("-").map(Number);
+    year = y;
+    month = m;
+  } else if (view === "weekly" || filters.week || (filters.from_date && !filters.month)) {
+    if (filters.from_date && filters.to_date) {
+      startDate = normalizeDate(filters.from_date);
+      endDate = normalizeDate(filters.to_date);
+    } else if (filters.from_date) {
+      const sObj = new Date(`${normalizeDate(filters.from_date)}T00:00:00`);
+      const eObj = new Date(sObj);
+      eObj.setDate(sObj.getDate() + 6);
+      startDate = normalizeDate(filters.from_date);
+      const y = eObj.getFullYear();
+      const m = String(eObj.getMonth() + 1).padStart(2, "0");
+      const d = String(eObj.getDate()).padStart(2, "0");
+      endDate = `${y}-${m}-${d}`;
+    } else {
+      const refDate = filters.date || filters.week_date || todayStr;
+      const range = getWeekRange(refDate);
+      startDate = range.startDate;
+      endDate = range.endDate;
+    }
+    const [y, m] = startDate.split("-").map(Number);
+    year = y;
+    month = m;
+  } else {
+    // Monthly view (default)
+    if (!year) year = currentYear;
+    if (!month) month = currentMonth;
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    endDate = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+  }
+
+  // 3. Build days_meta array
+  const daysMeta = [];
+  const startD = new Date(`${startDate}T00:00:00`);
+  const endD = new Date(`${endDate}T00:00:00`);
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dayNum = d.getDate();
+    const dayStr = String(dayNum).padStart(2, "0");
+    const dateFormatted = `${y}-${m}-${dayStr}`;
+    const dayOfWeek = d.getDay();
+
+    daysMeta.push({
+      day: dayNum,
+      date: dateFormatted,
+      day_name: dayNames[dayOfWeek],
+      day_abbr: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][dayOfWeek],
+      day_of_week: dayOfWeek,
+      is_weekend: dayOfWeek === 0 || dayOfWeek === 6,
+      is_today: dateFormatted === todayStr,
+    });
+  }
+
+  // 4. Query employees
+  let empQuery = `
+    SELECT 
+      e.id,
+      e.school_id,
+      e.employee_code,
+      e.first_name,
+      e.last_name,
+      e.photo_url,
+      e.designation,
+      e.department,
+      e.mobile,
+      sc.name AS school_name
+    FROM employees e
+    LEFT JOIN schools sc ON e.school_id = sc.id
+    WHERE e.status = 'active'
+  `;
+  const empParams = [];
+
+  if (school_id) {
+    empQuery += ` AND e.school_id = ?`;
+    empParams.push(school_id);
+  }
+
+  if (filters.employee_id) {
+    empQuery += ` AND e.id = ?`;
+    empParams.push(Number(filters.employee_id));
+  }
+
+  if (filters.department) {
+    empQuery += ` AND e.department = ?`;
+    empParams.push(filters.department);
+  }
+
+  if (filters.designation) {
+    empQuery += ` AND e.designation = ?`;
+    empParams.push(filters.designation);
+  }
+
+  if (filters.search) {
+    empQuery += ` AND (e.first_name LIKE ? OR e.last_name LIKE ? OR e.employee_code LIKE ?)`;
+    const term = `%${filters.search.trim()}%`;
+    empParams.push(term, term, term);
+  }
+
+  empQuery += ` ORDER BY e.first_name ASC, e.last_name ASC`;
+
+  const [employees] = await db.query(empQuery, empParams);
+
+  // 5. Query attendance rows in range
+  let attQuery = `
+    SELECT 
+      ea.id,
+      ea.school_id,
+      ea.employee_id,
+      ea.attendance_date,
+      ea.status,
+      ea.shift_id,
+      es.name AS shift_name,
+      ea.check_in,
+      ea.check_out,
+      ea.total_work_minutes,
+      ea.overtime_minutes,
+      ea.late_minutes,
+      ea.remarks
+    FROM employee_attendance ea
+    LEFT JOIN employee_shifts es ON ea.shift_id = es.id
+    WHERE ea.attendance_date BETWEEN ? AND ?
+  `;
+  const attParams = [startDate, endDate];
+
+  if (school_id) {
+    attQuery += ` AND ea.school_id = ?`;
+    attParams.push(school_id);
+  }
+
+  if (filters.employee_id) {
+    attQuery += ` AND ea.employee_id = ?`;
+    attParams.push(Number(filters.employee_id));
+  }
+
+  if (filters.shift_id) {
+    attQuery += ` AND ea.shift_id = ?`;
+    attParams.push(Number(filters.shift_id));
+  }
+
+  const [attendanceRows] = await db.query(attQuery, attParams);
+
+  const attendanceMap = new Map();
+  for (const row of attendanceRows) {
+    const dateStr = typeof row.attendance_date === "string"
+      ? row.attendance_date.slice(0, 10)
+      : new Intl.DateTimeFormat("en-CA").format(new Date(row.attendance_date));
+    attendanceMap.set(`${row.employee_id}_${dateStr}`, row);
+  }
+
+  // 6. Build matrix per employee
+  const overallStats = {
+    total_records: 0,
+    present_days: 0,
+    absent_days: 0,
+    late_days: 0,
+    half_days: 0,
+    leave_days: 0,
+    holiday_days: 0,
+    week_off_days: 0,
+    total_work_minutes: 0,
+    total_overtime_minutes: 0,
+    total_late_minutes: 0,
+  };
+
+  const employeeMatrix = employees.map((emp) => {
+    const empAttendance = {};
+    const empSummary = {
+      present_days: 0,
+      absent_days: 0,
+      late_days: 0,
+      half_days: 0,
+      leave_days: 0,
+      holiday_days: 0,
+      week_off_days: 0,
+      total_work_minutes: 0,
+      total_work_hours: "0.00",
+      total_overtime_minutes: 0,
+      total_overtime_hours: "0.00",
+      total_late_minutes: 0,
+      marked_days: 0,
+      attendance_percentage: "0%",
+    };
+
+    for (const dayMeta of daysMeta) {
+      const key = `${emp.id}_${dayMeta.date}`;
+      const row = attendanceMap.get(key);
+
+      if (row) {
+        empSummary.marked_days++;
+        overallStats.total_records++;
+
+        if (row.status === "present") {
+          empSummary.present_days++;
+          overallStats.present_days++;
+        } else if (row.status === "absent") {
+          empSummary.absent_days++;
+          overallStats.absent_days++;
+        } else if (row.status === "late") {
+          empSummary.late_days++;
+          overallStats.late_days++;
+        } else if (row.status === "half_day") {
+          empSummary.half_days++;
+          overallStats.half_days++;
+        } else if (row.status === "leave") {
+          empSummary.leave_days++;
+          overallStats.leave_days++;
+        } else if (row.status === "holiday") {
+          empSummary.holiday_days++;
+          overallStats.holiday_days++;
+        } else if (row.status === "week_off") {
+          empSummary.week_off_days++;
+          overallStats.week_off_days++;
+        }
+
+        const workMin = row.total_work_minutes || 0;
+        const otMin = row.overtime_minutes || 0;
+        const lateMin = row.late_minutes || 0;
+
+        empSummary.total_work_minutes += workMin;
+        overallStats.total_work_minutes += workMin;
+
+        empSummary.total_overtime_minutes += otMin;
+        overallStats.total_overtime_minutes += otMin;
+
+        empSummary.total_late_minutes += lateMin;
+        overallStats.total_late_minutes += lateMin;
+
+        const cellObj = {
+          id: row.id,
+          attendance_date: dayMeta.date,
+          status: row.status,
+          code: mapStatusCode(row.status),
+          check_in: row.check_in,
+          check_out: row.check_out,
+          check_in_time: formatTime(row.check_in),
+          check_out_time: formatTime(row.check_out),
+          total_work_minutes: workMin,
+          total_work_hours: (workMin / 60).toFixed(2),
+          late_minutes: lateMin,
+          overtime_minutes: otMin,
+          is_late: Boolean(lateMin > 0 || row.status === "late"),
+          is_overtime: Boolean(otMin > 0),
+          shift_id: row.shift_id || null,
+          shift_name: row.shift_name || null,
+          remarks: row.remarks || null,
+        };
+        empAttendance[dayMeta.day] = cellObj;
+        empAttendance[dayMeta.date] = cellObj;
+      } else {
+        const emptyCell = {
+          id: null,
+          attendance_date: dayMeta.date,
+          status: null,
+          code: "-",
+          check_in: null,
+          check_out: null,
+          check_in_time: null,
+          check_out_time: null,
+          total_work_minutes: 0,
+          total_work_hours: "0.00",
+          late_minutes: 0,
+          overtime_minutes: 0,
+          is_late: false,
+          is_overtime: false,
+          shift_id: null,
+          shift_name: null,
+          remarks: null,
+        };
+        empAttendance[dayMeta.day] = emptyCell;
+        empAttendance[dayMeta.date] = emptyCell;
+      }
+    }
+
+    empSummary.total_work_hours = (empSummary.total_work_minutes / 60).toFixed(2);
+    empSummary.total_overtime_hours = (empSummary.total_overtime_minutes / 60).toFixed(2);
+    const presentEquiv = empSummary.present_days + empSummary.late_days + empSummary.half_days * 0.5;
+    const workingDaysCount = daysMeta.filter((d) => !d.is_weekend).length || daysMeta.length;
+    empSummary.attendance_percentage =
+      workingDaysCount > 0
+        ? `${Math.min(100, Math.round((presentEquiv / workingDaysCount) * 100))}%`
+        : "0%";
+
+    return {
+      employee_id: emp.id,
+      school_id: emp.school_id,
+      school_name: emp.school_name,
+      employee_code: emp.employee_code,
+      first_name: emp.first_name,
+      last_name: emp.last_name,
+      name: `${emp.first_name} ${emp.last_name || ""}`.trim(),
+      photo_url: emp.photo_url,
+      designation: emp.designation,
+      department: emp.department,
+      mobile: emp.mobile,
+      summary: empSummary,
+      attendance: empAttendance,
+    };
+  });
+
+  const startDObj = new Date(`${startDate}T00:00:00`);
+  const endDObj = new Date(`${endDate}T00:00:00`);
+  const weekNumber = getISOWeekNumber(startDObj);
+  const weekLabel = `${startDObj.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${endDObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
   return {
-    filters: {
-      employee_id: normalized.employee_id
-        ? Number(normalized.employee_id)
-        : null,
-      school_id: normalized.school_id ? Number(normalized.school_id) : null,
-      status: normalized.status || null,
-      date: normalized.date || normalized.attendance_date || null,
-      month: normalized.month ? Number(normalized.month) : null,
-      year: normalized.year ? Number(normalized.year) : null,
-      from_date: normalized.from_date || null,
-      to_date: normalized.to_date || null,
-      shift_id: normalized.shift_id ? Number(normalized.shift_id) : null,
-      marked_by: normalized.marked_by ? Number(normalized.marked_by) : null,
-      late_only:
-        normalized.late_only === "true" || normalized.late_only === true,
-      overtime_only:
-        normalized.overtime_only === "true" ||
-        normalized.overtime_only === true,
+    view,
+    month: Number(month),
+    year: Number(year),
+    start_date: startDate,
+    end_date: endDate,
+    week_number: weekNumber,
+    week_label: weekLabel,
+    total_days: daysMeta.length,
+    days: daysMeta.length,
+    days_meta: daysMeta,
+    total_employees: employees.length,
+    school_id: school_id || null,
+    overall_summary: {
+      ...overallStats,
+      total_work_hours: (overallStats.total_work_minutes / 60).toFixed(2),
+      total_overtime_hours: (overallStats.total_overtime_minutes / 60).toFixed(2),
+      avg_work_hours: employees.length > 0 ? (overallStats.total_work_minutes / 60 / employees.length).toFixed(1) : "0.0",
     },
-    total: Array.isArray(rows) ? rows.length : 0,
-    data: rows,
+    employees: employeeMatrix,
+    flat_records: attendanceRows,
   };
+};
+
+export const getAttendanceByFilters = async (filters = {}, user = null) => {
+  // If explicitly requesting flat rows
+  if (filters.format === "flat" || filters.flat === "true") {
+    const normalized = { ...filters };
+    const rows = await getAllAttendance(normalized);
+    return {
+      filters: normalized,
+      total: Array.isArray(rows) ? rows.length : 0,
+      data: rows,
+    };
+  }
+
+  // If a specific employee_id is requested without month/year/view, return employee detail
+  if (filters.employee_id && !filters.month && !filters.year && !filters.view) {
+    return getAttendanceByEmployee(filters.employee_id, filters);
+  }
+
+  // Default: Return rich structured matrix directly mapped to the UI grid!
+  return getAttendanceMatrix(filters, user);
 };
 
 export const getAttendanceById = async (id) => {
@@ -728,11 +1066,8 @@ export const getAttendanceById = async (id) => {
       ea.*,
       e.first_name,
       e.last_name,
-      e.employee_code,
       e.photo_url,
       e.mobile AS employee_mobile,
-      e.designation,
-      e.department,
       es.name AS shift_name,
       sc.name AS school_name
     FROM employee_attendance ea
@@ -767,8 +1102,6 @@ export const getAttendanceByEmployee = async (employee_id, filters = {}) => {
   }
 
   const {
-    date,
-    attendance_date,
     month,
     year,
     from_date,
@@ -787,12 +1120,6 @@ export const getAttendanceByEmployee = async (employee_id, filters = {}) => {
   if (school_id) {
     where += ` AND ea.school_id = ?`;
     params.push(Number(school_id));
-  }
-
-  const targetDate = date || attendance_date;
-  if (targetDate) {
-    where += ` AND ea.attendance_date = ?`;
-    params.push(normalizeDate(targetDate));
   }
 
   if (year) {
@@ -838,23 +1165,27 @@ export const getAttendanceByEmployee = async (employee_id, filters = {}) => {
     where += ` AND ea.overtime_minutes > 0`;
   }
 
-  // Attendance Logs with complete employee & shift joins
+  // Attendance Logs
   const [logs] = await db.query(
     `
     SELECT
-      ea.*,
-      e.first_name,
-      e.last_name,
-      e.employee_code,
-      e.photo_url,
-      e.mobile AS employee_mobile,
-      e.designation,
-      e.department,
+      ea.id,
+      ea.school_id,
+      ea.employee_id,
+      ea.attendance_date,
+      ea.status,
+      ea.shift_id,
       es.name AS shift_name,
-      sc.name AS school_name
+      ea.check_in,
+      ea.check_out,
+      ea.total_work_minutes,
+      ea.overtime_minutes,
+      ea.late_minutes,
+      ea.remarks,
+      ea.marked_by,
+      ea.created_at,
+      ea.updated_at
     FROM employee_attendance ea
-    JOIN employees e ON ea.employee_id = e.id
-    JOIN schools sc ON ea.school_id = sc.id
     LEFT JOIN employee_shifts es ON ea.shift_id = es.id
     ${where}
     ORDER BY ea.attendance_date DESC, ea.id DESC
@@ -894,7 +1225,6 @@ export const getAttendanceByEmployee = async (employee_id, filters = {}) => {
   return {
     filters: {
       employee_id: Number(employee_id),
-      date: targetDate || null,
       month: month ? Number(month) : null,
       year: year ? Number(year) : null,
       from_date: from_date || null,
@@ -931,11 +1261,8 @@ export const getAttendanceByDateRange = async (queryParams = {}) => {
       ea.*,
       e.first_name,
       e.last_name,
-      e.employee_code,
       e.photo_url,
       e.mobile AS employee_mobile,
-      e.designation,
-      e.department,
       es.name AS shift_name,
       sc.name AS school_name
     FROM employee_attendance ea
@@ -995,7 +1322,7 @@ export const updateAttendance = async (id, rawData) => {
   const targetStatus =
     validated.status !== undefined ? validated.status : existing.status;
 
-  let targetShiftId =
+  const targetShiftId =
     validated.shift_id !== undefined ? validated.shift_id : existing.shift_id;
 
   let targetCheckIn =
@@ -1003,16 +1330,6 @@ export const updateAttendance = async (id, rawData) => {
 
   let targetCheckOut =
     validated.check_out !== undefined ? validated.check_out : existing.check_out;
-
-  let manualLateMinutes =
-    validated.late_minutes !== undefined
-      ? validated.late_minutes
-      : existing.late_minutes;
-
-  let manualOvertimeMinutes =
-    validated.overtime_minutes !== undefined
-      ? validated.overtime_minutes
-      : existing.overtime_minutes;
 
   // Check unique date conflict if attendance_date changed
   if (
@@ -1035,8 +1352,6 @@ export const updateAttendance = async (id, rawData) => {
     }
     targetCheckIn = null;
     targetCheckOut = null;
-    manualLateMinutes = 0;
-    manualOvertimeMinutes = 0;
   }
 
   if (targetCheckOut && !targetCheckIn) {
@@ -1046,11 +1361,11 @@ export const updateAttendance = async (id, rawData) => {
     };
   }
 
-  // Fetch shift if shift_id present, or fallback to default active shift
+  // Fetch shift if shift_id present
   let shift = null;
   if (targetShiftId) {
     const [[shiftRow]] = await db.query(
-      `SELECT id, start_time, working_hours, grace_minutes, crosses_midnight, school_id FROM employee_shifts WHERE id = ?`,
+      `SELECT start_time, working_hours, grace_minutes, school_id FROM employee_shifts WHERE id = ?`,
       [targetShiftId],
     );
     if (!shiftRow) {
@@ -1060,38 +1375,16 @@ export const updateAttendance = async (id, rawData) => {
       throw { status: 400, message: "Shift does not belong to employee school" };
     }
     shift = shiftRow;
-  } else {
-    const [[defaultShift]] = await db.query(
-      `SELECT id, start_time, working_hours, grace_minutes, crosses_midnight, school_id 
-       FROM employee_shifts 
-       WHERE school_id = ? AND is_default = 1 AND status = 'active' 
-       LIMIT 1`,
-      [existing.school_id],
-    );
-    if (defaultShift) {
-      shift = defaultShift;
-      targetShiftId = defaultShift.id;
-    }
   }
 
   // Calculate metrics
-  let total_work_minutes = 0;
-  let late_minutes = 0;
-  let overtime_minutes = 0;
-
-  if (!NON_WORKING_STATUSES.includes(targetStatus)) {
-    const metrics = calculateAttendanceMetrics({
+  const { total_work_minutes, late_minutes, overtime_minutes } =
+    calculateAttendanceMetrics({
       attendance_date: targetDate,
       check_in: targetCheckIn,
       check_out: targetCheckOut,
       shift,
-      late_minutes: manualLateMinutes,
-      overtime_minutes: manualOvertimeMinutes,
     });
-    total_work_minutes = metrics.total_work_minutes;
-    late_minutes = metrics.late_minutes;
-    overtime_minutes = metrics.overtime_minutes;
-  }
 
   const updateData = {
     ...validated,
@@ -1110,15 +1403,7 @@ export const updateAttendance = async (id, rawData) => {
     throw { status: 404, message: "Attendance not found" };
   }
 
-  // Fetch full updated record with employee, school, and shift joins
-  const updatedRecord = await getAttendanceById(Number(id));
-
-  return {
-    message: "Attendance updated successfully",
-    id: Number(id),
-    record: updatedRecord,
-    data: updatedRecord,
-  };
+  return { message: "Attendance updated successfully" };
 };
 
 export const deleteAttendance = async (id) => {
@@ -1134,8 +1419,5 @@ export const deleteAttendance = async (id) => {
     throw { status: 404, message: "Attendance not found" };
   }
 
-  return {
-    message: "Attendance deleted successfully",
-    id: Number(id),
-  };
+  return { message: "Attendance deleted successfully" };
 };

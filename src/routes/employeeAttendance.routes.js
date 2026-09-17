@@ -6,6 +6,7 @@ import {
   getAttendanceById,
   getAttendanceByEmployee,
   getAttendanceByFilters,
+  getAttendanceMatrix,
   getAttendanceByDateRange,
   updateAttendance,
   deleteAttendance,
@@ -29,10 +30,14 @@ router.post("/check-in", checkInAttendance);
 router.post("/check-out", checkOutAttendance);
 router.get("/today", getTodayAttendance);
 
+// 📊 UI-Ready Matrix / Grid Views (Employee × Days)
+router.get("/matrix", getAttendanceMatrix);
+router.get("/grid", getAttendanceMatrix);
+
 // 🔐 Token Scoped
 router.get("/token", getAllAttendanceByToken);
 
-// 🔍 Search & Filters
+// 🔍 Search & Filters (Supports both Matrix and Single Employee)
 router.get("/filter", getAttendanceByFilters);
 router.get("/filters", getAttendanceByFilters);
 router.get("/employee/:employee_id", getAttendanceByEmployee);
