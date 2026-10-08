@@ -20,11 +20,11 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS class_subjects (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        class_section_id INT NOT NULL,
-        subject_id INT NOT NULL,
-        subject_group_id INT NULL,
-        employee_id BIGINT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        class_section_id BIGINT UNSIGNED NOT NULL,
+        subject_id BIGINT UNSIGNED NOT NULL,
+        subject_group_id BIGINT UNSIGNED NULL,
+        employee_id BIGINT UNSIGNED NULL,
         is_optional BOOLEAN DEFAULT FALSE,
         weekly_periods INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

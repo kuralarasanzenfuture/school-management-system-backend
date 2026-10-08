@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS
     employee_salary_structure_details (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        salary_structure_id BIGINT NOT NULL,
-        component_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        salary_structure_id BIGINT UNSIGNED NOT NULL,
+        component_id BIGINT UNSIGNED NOT NULL,
         calculation_type ENUM ('fixed', 'percentage') NOT NULL,
         amount DECIMAL(12, 2) DEFAULT NULL,
         percentage DECIMAL(6, 2) DEFAULT NULL,

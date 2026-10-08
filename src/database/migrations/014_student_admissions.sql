@@ -28,14 +28,14 @@
 -- );
 CREATE TABLE
     IF NOT EXISTS student_admissions (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
-        student_id BIGINT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
+        student_id BIGINT UNSIGNED NOT NULL,
         admission_number VARCHAR(20) NOT NULL,
         admission_date DATE NOT NULL,
-        academic_year_id INT NOT NULL,
+        academic_year_id BIGINT UNSIGNED NOT NULL,
         academic_year VARCHAR(20) NOT NULL,
-        class_id INT NOT NULL,
+        class_id BIGINT UNSIGNED NOT NULL,
         class_name VARCHAR(50) NOT NULL,
         section VARCHAR(20),
         roll_no VARCHAR(20),

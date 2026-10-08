@@ -1,8 +1,8 @@
 -- If biometric/RFID/mobile app is used.
 CREATE TABLE
     IF NOT EXISTS employee_attendance_logs (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        employee_id BIGINT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        employee_id BIGINT UNSIGNED NOT NULL,
         log_time DATETIME NOT NULL,
         log_type ENUM ('check_in', 'check_out'),
         device_name VARCHAR(100),

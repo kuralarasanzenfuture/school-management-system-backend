@@ -20,8 +20,8 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS employee_shifts (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
         name VARCHAR(100) NOT NULL,
         shift_type ENUM ('day', 'evening', 'night', 'flexible') DEFAULT 'day',
         start_time TIME NOT NULL,

@@ -1,12 +1,12 @@
 CREATE TABLE class_sections (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 
-    school_id INT NOT NULL,
-    class_id INT NOT NULL,
-    section_id INT NOT NULL,
-    academic_year_id INT NOT NULL,
+    school_id BIGINT UNSIGNED NOT NULL,
+    class_id BIGINT UNSIGNED NOT NULL,
+    section_id BIGINT UNSIGNED NOT NULL,
+    academic_year_id BIGINT UNSIGNED NOT NULL,
 
-    class_teacher_id INT NULL,
+    class_teacher_id BIGINT UNSIGNED NULL,
 
     capacity INT DEFAULT NULL,
 

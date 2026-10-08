@@ -16,10 +16,10 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS employee_leave_requests (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        employee_id BIGINT NOT NULL,
-        leave_type_id INT NOT NULL,
-        academic_year_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        employee_id BIGINT UNSIGNED NOT NULL,
+        leave_type_id BIGINT UNSIGNED NOT NULL,
+        academic_year_id BIGINT UNSIGNED NOT NULL,
         from_date DATE NOT NULL,
         to_date DATE NOT NULL,
         total_days DECIMAL(5, 2) NOT NULL,

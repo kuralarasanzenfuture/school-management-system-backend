@@ -13,15 +13,15 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS academic_years (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
         name VARCHAR(20) NOT NULL, -- 2025-2026
         start_date DATE NOT NULL,
         end_date DATE NOT NULL,
         is_current BOOLEAN DEFAULT FALSE,
         status ENUM ('active', 'inactive', 'archived') DEFAULT 'active',
-        created_by INT NULL,
-        updated_by INT NULL,
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         remarks VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

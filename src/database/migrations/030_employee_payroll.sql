@@ -19,10 +19,10 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS employee_payroll (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
-        employee_id BIGINT NOT NULL,
-        salary_structure_id BIGINT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
+        employee_id BIGINT UNSIGNED NOT NULL,
+        salary_structure_id BIGINT UNSIGNED NOT NULL,
         payroll_year YEAR NOT NULL,
         payroll_month TINYINT NOT NULL,
         total_working_days INT NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE
         payment_method ENUM ('cash', 'bank_transfer', 'upi', 'cheque') NULL,
         transaction_reference VARCHAR(255),
         remarks TEXT,
-        generated_by BIGINT,
+        generated_by BIGINT UNSIGNED NULL,
         generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uq_payroll (employee_id, payroll_year, payroll_month),
         FOREIGN KEY (school_id) REFERENCES schools (id),

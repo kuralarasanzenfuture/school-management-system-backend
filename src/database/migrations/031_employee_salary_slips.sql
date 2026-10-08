@@ -9,8 +9,8 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS employee_salary_slips (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        payroll_id BIGINT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        payroll_id BIGINT UNSIGNED NOT NULL,
         slip_number VARCHAR(50) UNIQUE NOT NULL,
         generated_date DATETIME DEFAULT CURRENT_TIMESTAMP,
         pdf_url VARCHAR(500),

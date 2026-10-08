@@ -1,7 +1,7 @@
 CREATE TABLE
     IF NOT EXISTS students (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
         student_code VARCHAR(50) NOT NULL,
         first_name VARCHAR(100) NOT NULL,
         middle_name VARCHAR(100),

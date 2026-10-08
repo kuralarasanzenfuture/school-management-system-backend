@@ -1,8 +1,8 @@
 CREATE TABLE
     IF NOT EXISTS employees (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT UNIQUE NULL,
-        school_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT UNSIGNED UNIQUE NULL,
+        school_id BIGINT UNSIGNED NOT NULL,
         employee_code VARCHAR(30) UNIQUE NOT NULL,
         first_name VARCHAR(100) NOT NULL,
         -- middle_name VARCHAR(100),

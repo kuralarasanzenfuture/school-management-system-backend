@@ -19,12 +19,12 @@
 --     );
 CREATE TABLE
     student_attendance (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        attendance_session_id BIGINT NOT NULL,
-        admission_id BIGINT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        attendance_session_id BIGINT UNSIGNED NOT NULL,
+        admission_id BIGINT UNSIGNED NOT NULL,
         attendance_status ENUM ('present', 'absent', 'late', 'half_day', 'leave') NOT NULL,
         remarks VARCHAR(255),
-        marked_by BIGINT NOT NULL,
+        marked_by BIGINT UNSIGNED NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_student_attendance (attendance_session_id, admission_id),

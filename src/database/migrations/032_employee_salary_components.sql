@@ -1,7 +1,7 @@
 CREATE TABLE
     IF NOT EXISTS employee_salary_components (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
         name VARCHAR(100) NOT NULL,
         code VARCHAR(30) NOT NULL,
         component_type ENUM ('earning', 'deduction') NOT NULL,

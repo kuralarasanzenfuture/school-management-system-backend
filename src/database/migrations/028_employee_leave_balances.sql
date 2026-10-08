@@ -11,10 +11,10 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS employee_leave_balances (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        employee_id BIGINT NOT NULL,
-        leave_type_id INT NOT NULL,
-        academic_year_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        employee_id BIGINT UNSIGNED NOT NULL,
+        leave_type_id BIGINT UNSIGNED NOT NULL,
+        academic_year_id BIGINT UNSIGNED NOT NULL,
         allotted_days DECIMAL(5, 2) NOT NULL DEFAULT 0,
         carried_forward_days DECIMAL(5, 2) DEFAULT 0,
         used_days DECIMAL(5, 2) DEFAULT 0,

@@ -26,14 +26,14 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS student_attendance_sessions (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
-        academic_year_id INT NOT NULL,
-        class_section_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
+        academic_year_id BIGINT UNSIGNED NOT NULL,
+        class_section_id BIGINT UNSIGNED NOT NULL,
         attendance_date DATE NOT NULL,
         attendance_type ENUM ('daily', 'period') DEFAULT 'daily',
         period_no TINYINT UNSIGNED NULL,
-        taken_by BIGINT NOT NULL,
+        taken_by BIGINT UNSIGNED NOT NULL,
         is_locked BOOLEAN DEFAULT FALSE,
         remarks TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

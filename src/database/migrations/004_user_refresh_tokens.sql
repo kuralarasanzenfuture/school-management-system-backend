@@ -1,7 +1,7 @@
 CREATE TABLE
     IF NOT EXISTS user_refresh_tokens (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT UNSIGNED NOT NULL,
         session_id VARCHAR(255) NOT NULL,
         refresh_token_hash VARCHAR(255) NOT NULL,
         ip_address VARCHAR(45),

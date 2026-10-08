@@ -50,15 +50,15 @@
 --     );
 CREATE TABLE
     IF NOT EXISTS employee_salary_structures (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        school_id INT NOT NULL,
-        employee_id BIGINT NOT NULL,
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        school_id BIGINT UNSIGNED NOT NULL,
+        employee_id BIGINT UNSIGNED NOT NULL,
         structure_name VARCHAR(100) NOT NULL,
         effective_from DATE NOT NULL,
         effective_to DATE DEFAULT NULL,
         status ENUM ('active', 'inactive') DEFAULT 'active',
         remarks TEXT,
-        created_by BIGINT NULL,
+        created_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_employee (employee_id),
