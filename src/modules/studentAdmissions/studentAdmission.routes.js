@@ -8,8 +8,8 @@ import {
   getAllStudentAdmissionsByToken,
   getClassStudentSummaryByToken,
   getAllStudentAdmissionsReport,
-} from "../modules/studentAdmissions/studentAdmission.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./studentAdmission.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

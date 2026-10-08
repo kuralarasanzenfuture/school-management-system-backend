@@ -9,8 +9,8 @@ import {
   getAllClassesByToken,
   checkExistingClass,
   checkExistingClassByToken,
-} from "../modules/classes/class.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./class.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

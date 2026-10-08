@@ -6,9 +6,9 @@ import {
   getAllStudentsByToken,
   getStudentById,
   updateStudent,
-} from "../modules/students/student.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import { studentDocsUpload } from "../middlewares/student.upload.js";
+} from "./student.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
+import { studentDocsUpload } from "../../middlewares/student.upload.js";
 
 const router = express.Router();
 

@@ -6,8 +6,8 @@ import {
   updateSalaryStructure,
   deleteSalaryStructure,
   getAllSalaryStructuresByToken,
-} from "../modules/employee_salary_structure/employeeSalaryStructure.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./employeeSalaryStructure.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

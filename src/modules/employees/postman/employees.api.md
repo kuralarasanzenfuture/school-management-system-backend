@@ -25,8 +25,11 @@ Comprehensive API documentation for the entire **Employees Ecosystem** in the Sc
 | `POST` | `/api/employees` | Create employee (JSON or multipart with files) | Bearer Token |
 | `POST` | `/api/employees/assign-user` | Link an existing user login account to an employee | Bearer Token |
 | `POST` | `/api/employees/unassign-user` | Unlink the user login account from an employee | Bearer Token |
-| `GET` | `/api/employees` | Get all employees | Bearer Token |
-| `GET` | `/api/employees/:id` | Get employee by ID (includes documents & address) | Bearer Token |
+| `GET` | `/api/employees` | Get all employees with advanced filtering, search, sorting & pagination | Bearer Token |
+| `GET` | `/api/employees/token` | Get employees automatically scoped to user's school | Bearer Token |
+| `GET` | `/api/employees/filter-options` | Get distinct filter options (designations, departments, etc.) for UI dropdowns | Bearer Token |
+| `GET` | `/api/employees/stats` | Get aggregate statistics (counts, department/gender breakdowns) | Bearer Token |
+| `GET` | `/api/employees/:id` | Get employee by ID (includes documents, address & user profile) | Bearer Token |
 | `PUT` | `/api/employees/:id` | Update employee profile or upload updated files | Bearer Token |
 | `DELETE` | `/api/employees/:id` | Soft delete employee and unlink user account | Bearer Token |
 
@@ -164,11 +167,49 @@ Links an existing user login account (`users` table) with an employee record.
 
 ---
 
-### 1.4 Get All Employees
+### 1.4 Get All Employees (Advanced Filtering, Search & Pagination)
 
 - **Method**: `GET`
 - **Route**: `{{BASE_URL}}/api/employees`
-- **Success Response (`200 OK`)**:
+- **Headers**: `Authorization: Bearer {{TOKEN}}`
+
+#### Supported Query Parameters
+
+| Parameter | Type | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `search` / `q` | `String` | Global multi-field text search across name, code, email, mobile, aadhaar, designation, department, qualification | `?search=Kavitha` |
+| `school_id` | `Number` / `String` | Filter by school ID or comma-separated school IDs | `?school_id=1` |
+| `status` | `String` | Single status or comma-separated list (`active`, `inactive`, `resigned`, `terminated`) | `?status=active,inactive` |
+| `designation` | `String` | Exact designation or comma-separated list | `?designation=TEACHER,PRINCIPAL` |
+| `department` | `String` | Exact department or comma-separated list | `?department=SCIENCE,MATHEMATICS` |
+| `gender` | `String` | Filter by gender (`male`, `female`, `other`) | `?gender=female` |
+| `blood_group` | `String` | Filter by blood group (`A+`, `B+`, `O+`, `AB+`, etc.) | `?blood_group=O+` |
+| `user_assigned` | `Boolean` | Filter employees with user account (`true`/`1`) or without (`false`/`0`) | `?user_assigned=false` |
+| `min_experience` | `Number` | Minimum years of experience | `?min_experience=3` |
+| `max_experience` | `Number` | Maximum years of experience | `?max_experience=10` |
+| `min_salary` | `Number` | Minimum salary threshold | `?min_salary=30000` |
+| `max_salary` | `Number` | Maximum salary threshold | `?max_salary=75000` |
+| `joining_date_from` | `Date` | Filter employees joining on or after date (`YYYY-MM-DD`) | `?joining_date_from=2024-01-01` |
+| `joining_date_to` | `Date` | Filter employees joining on or before date (`YYYY-MM-DD`) | `?joining_date_to=2026-12-31` |
+| `joining_year` | `Number` | Filter by joining calendar year | `?joining_year=2026` |
+| `city` | `String` | Partial match on current or permanent city | `?city=Chennai` |
+| `district` | `String` | Partial match on current or permanent district | `?district=Coimbatore` |
+| `state` | `String` | Partial match on state | `?state=Tamil Nadu` |
+| `qualification` | `String` | Partial match on qualification | `?qualification=M.Sc` |
+| `sort_by` | `String` | Sort field: `id`, `name`, `employee_code`, `joining_date`, `salary`, `experience_years`, `department`, `designation`, `status` | `?sort_by=joining_date` |
+| `sort_order` | `String` | `ASC` or `DESC` (default `DESC`) | `?sort_order=ASC` |
+| `page` | `Number` | Page number (default: 1) | `?page=1` |
+| `limit` | `Number` | Items per page (default: 20) | `?limit=10` |
+| `paginate` | `Boolean` | Set `true` to receive full `{ data, pagination, filters }` response wrapper | `?paginate=true` |
+| `all` | `Boolean` | Return all matching records without pagination limit | `?all=true` |
+
+#### Response Headers (Emitted on every GET request)
+- `X-Total-Count`: Total number of matching records
+- `X-Page`: Current page number
+- `X-Limit`: Page size limit
+- `X-Total-Pages`: Total number of pages
+
+#### Success Response - Default (`200 OK`)
 ```json
 [
   {
@@ -185,17 +226,339 @@ Links an existing user login account (`users` table) with an employee record.
     "salary": "45000.00",
     "status": "active",
     "user_id": 2,
-    "school_name": "Greenwood International"
+    "username": "kavitha_r",
+    "user_email": "kavitha.raman@school.edu",
+    "school_name": "Greenwood International",
+    "school_code": "SCH001"
   }
 ]
 ```
 
+#### Success Response - Paginated Format (`?paginate=true`)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "school_id": 1,
+      "employee_code": "EMP-1-2026-0001",
+      "first_name": "Kavitha",
+      "last_name": "Raman",
+      "designation": "SENIOR TEACHER",
+      "department": "SCIENCE",
+      "status": "active"
+    }
+  ],
+  "pagination": {
+    "total": 45,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  },
+  "filters": {
+    "status": "active"
+  }
+}
+```
+
 ---
 
-### 1.5 Get Employee by ID
+#### Quick Reference: All Ready-to-Use GET API URLs
+
+Assuming your base URL is `http://localhost:5000/api/employees` (or `{{BASE_URL}}/api/employees`):
+
+##### 1. Get all employees
+```http
+GET http://localhost:5000/api/employees
+```
+
+##### 2. Get employees with global search
+```http
+GET http://localhost:5000/api/employees?search=John
+```
+or
+```http
+GET http://localhost:5000/api/employees?q=John
+```
+
+##### 3. Filter by school
+```http
+GET http://localhost:5000/api/employees?school_id=1
+```
+Multiple schools:
+```http
+GET http://localhost:5000/api/employees?school_id=1,2,3
+```
+
+##### 4. Filter by status
+```http
+GET http://localhost:5000/api/employees?status=active
+```
+
+##### 5. Filter by designation
+```http
+GET http://localhost:5000/api/employees?designation=Teacher
+```
+Multiple designations:
+```http
+GET http://localhost:5000/api/employees?designation=Teacher,Principal
+```
+
+##### 6. Filter by department
+```http
+GET http://localhost:5000/api/employees?department=SCIENCE
+```
+Multiple departments:
+```http
+GET http://localhost:5000/api/employees?department=SCIENCE,MATHS
+```
+
+##### 7. User assignment filter
+Employees with login accounts:
+```http
+GET http://localhost:5000/api/employees?user_assigned=true
+```
+Employees without login accounts:
+```http
+GET http://localhost:5000/api/employees?user_assigned=false
+```
+
+##### 8. Experience range
+```http
+GET http://localhost:5000/api/employees?min_experience=2&max_experience=10
+```
+
+##### 9. Salary range
+```http
+GET http://localhost:5000/api/employees?min_salary=20000&max_salary=50000
+```
+
+##### 10. Joining date range
+```http
+GET http://localhost:5000/api/employees?joining_date_from=2024-01-01&joining_date_to=2025-12-31
+```
+
+##### 11. Joining year
+```http
+GET http://localhost:5000/api/employees?joining_year=2025
+```
+
+##### 12. Joining month
+```http
+GET http://localhost:5000/api/employees?joining_month=6
+```
+
+##### 13. Date of birth range
+```http
+GET http://localhost:5000/api/employees?dob_from=1990-01-01&dob_to=2000-12-31
+```
+
+##### 14. Gender
+```http
+GET http://localhost:5000/api/employees?gender=Male
+```
+
+##### 15. Blood group
+```http
+GET http://localhost:5000/api/employees?blood_group=O+
+```
+
+##### 16. City
+```http
+GET http://localhost:5000/api/employees?city=Chennai
+```
+
+##### 17. District
+```http
+GET http://localhost:5000/api/employees?district=Krishnagiri
+```
+
+##### 18. State
+```http
+GET http://localhost:5000/api/employees?state=Tamil Nadu
+```
+
+##### 19. Postal code
+```http
+GET http://localhost:5000/api/employees?postal_code=635001
+```
+
+##### 20. Qualification
+```http
+GET http://localhost:5000/api/employees?qualification=B.Ed
+```
+
+##### Sorting
+Sort by name:
+```http
+GET http://localhost:5000/api/employees?sort_by=name&sort_order=ASC
+```
+Sort by salary descending:
+```http
+GET http://localhost:5000/api/employees?sort_by=salary&sort_order=DESC
+```
+Available `sort_by` values: `id`, `name`, `employee_code`, `joining_date`, `salary`, `experience_years`, `department`, `designation`, `status`, `created_at`  
+Available `sort_order` values: `ASC`, `DESC`
+
+##### Pagination
+Standard page and limit:
+```http
+GET http://localhost:5000/api/employees?page=1&limit=10
+```
+With the explicit paginated response envelope:
+```http
+GET http://localhost:5000/api/employees?page=1&limit=10&paginate=true
+```
+
+##### Combined advanced filter
+You can combine parameters freely:
+```http
+GET http://localhost:5000/api/employees?search=John&department=SCIENCE,MATHS&status=active&gender=Male&min_salary=20000&max_salary=50000&min_experience=2&max_experience=10&sort_by=salary&sort_order=DESC&page=1&limit=10&paginate=true
+```
+
+##### Token-based employees
+```http
+GET http://localhost:5000/api/employees/token
+```
+With filters:
+```http
+GET http://localhost:5000/api/employees/token?status=active
+GET http://localhost:5000/api/employees/token?department=SCIENCE
+GET http://localhost:5000/api/employees/token?search=John
+```
+
+##### Filter options
+```http
+GET http://localhost:5000/api/employees/filter-options
+```
+Populates frontend dropdowns:
+- Designations
+- Departments
+- Genders
+- Blood Groups
+- Statuses
+- Salary Range
+- Experience Range
+
+##### Employee statistics
+```http
+GET http://localhost:5000/api/employees/stats
+```
+Dashboard analytics:
+- Total Employees
+- Active Employees
+- Inactive Employees
+- Employees With Login
+- Employees Without Login
+- Department Distribution
+- Gender Distribution
+
+##### Get employee by ID
+```http
+GET http://localhost:5000/api/employees/1
+```
+or
+```http
+GET http://localhost:5000/api/employees/{employee_id}
+```
+
+---
+
+### 1.5 Get Employees Scoped by Token (`/api/employees/token`)
+
+- **Method**: `GET`
+- **Route**: `{{BASE_URL}}/api/employees/token`
+- **Headers**: `Authorization: Bearer {{TOKEN}}`
+- Automatically enforces `school_id` scoping to the logged-in user's school for non-administrators (Administrators can view all or specify `?school_id=...`).
+- Supports all identical query parameters as `/api/employees`.
+
+---
+
+### 1.6 Get Employee Filter Options (`/api/employees/filter-options`)
+
+Fetches distinct options to populate frontend dropdown menus dynamically.
+
+- **Method**: `GET`
+- **Route**: `{{BASE_URL}}/api/employees/filter-options`
+- **Headers**: `Authorization: Bearer {{TOKEN}}`
+- **Success Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "options": {
+    "designations": ["HEAD OF DEPARTMENT", "PRINCIPAL", "SENIOR TEACHER"],
+    "departments": ["ADMINISTRATION", "MATHEMATICS", "SCIENCE"],
+    "genders": ["male", "female", "other"],
+    "blood_groups": ["A+", "B+", "O+", "O-"],
+    "statuses": ["active", "inactive", "resigned", "terminated"],
+    "cities": ["Chennai", "Coimbatore", "Madurai"],
+    "salary_range": {
+      "min": 25000,
+      "max": 95000
+    },
+    "experience_range": {
+      "min": 1,
+      "max": 18
+    }
+  }
+}
+```
+
+---
+
+### 1.7 Get Employee Statistics (`/api/employees/stats`)
+
+- **Method**: `GET`
+- **Route**: `{{BASE_URL}}/api/employees/stats`
+- **Headers**: `Authorization: Bearer {{TOKEN}}`
+- **Success Response (`200 OK`)**:
+```json
+{
+  "success": true,
+  "stats": {
+    "total": 45,
+    "status_counts": {
+      "active": 42,
+      "inactive": 2,
+      "resigned": 1,
+      "terminated": 0
+    },
+    "user_assignment": {
+      "assigned": 38,
+      "unassigned": 7
+    },
+    "gender_counts": {
+      "male": 18,
+      "female": 27,
+      "other": 0
+    },
+    "averages": {
+      "salary": "48500.00",
+      "experience_years": "5.4"
+    },
+    "department_counts": [
+      { "department": "SCIENCE", "count": 16 },
+      { "department": "MATHEMATICS", "count": 12 }
+    ],
+    "designation_counts": [
+      { "designation": "TEACHER", "count": 30 },
+      { "designation": "PRINCIPAL", "count": 1 }
+    ]
+  }
+}
+```
+
+---
+
+### 1.8 Get Employee by ID
 
 - **Method**: `GET`
 - **Route**: `{{BASE_URL}}/api/employees/:id`
+- **Headers**: `Authorization: Bearer {{TOKEN}}`
+- **Description**: Returns detailed employee record, including linked user account, school information, and uploaded employee documents (`documents` array).
 
 ---
 

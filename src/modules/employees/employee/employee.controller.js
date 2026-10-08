@@ -40,10 +40,72 @@ export const getEmployeeById = async (req, res) => {
   }
 };
 
+const sendEmployeeListResponse = (res, result, query) => {
+  // Always attach pagination metadata headers
+  res.set("X-Total-Count", String(result.pagination.total));
+  res.set("X-Page", String(result.pagination.page));
+  res.set("X-Limit", String(result.pagination.limit));
+  res.set("X-Total-Pages", String(result.pagination.totalPages));
+  res.set("X-From", String(result.pagination.from));
+  res.set("X-To", String(result.pagination.to));
+  res.set("X-Count", String(result.pagination.count));
+
+  const shouldPaginate =
+    query.paginate === "true" ||
+    query.format === "paginated" ||
+    query.meta === "true";
+
+  if (shouldPaginate) {
+    return res.json({
+      success: true,
+      data: result.rows,
+      pagination: result.pagination,
+      filter_display: result.filter_display,
+      filters: result.filters,
+    });
+  }
+
+  // Default raw array response for backwards compatibility
+  return res.json(result.rows);
+};
+
 export const getAllEmployee = async (req, res) => {
   try {
-    const result = await EmployeeService.getEmployees();
-    res.json(result);
+    const result = await EmployeeService.getEmployees(req.query);
+    return sendEmployeeListResponse(res, result, req.query);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getAllEmployeeByToken = async (req, res) => {
+  try {
+    const result = await EmployeeService.getEmployeesByToken(req.user, req.query);
+    return sendEmployeeListResponse(res, result, req.query);
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getEmployeeFilterOptions = async (req, res) => {
+  try {
+    const options = await EmployeeService.getEmployeeFilterOptions(
+      req.user,
+      req.query.school_id,
+    );
+    res.json({ success: true, options });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message });
+  }
+};
+
+export const getEmployeeStats = async (req, res) => {
+  try {
+    const stats = await EmployeeService.getEmployeeStats(
+      req.user,
+      req.query.school_id,
+    );
+    res.json({ success: true, stats });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
   }

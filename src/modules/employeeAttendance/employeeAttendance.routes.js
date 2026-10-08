@@ -13,9 +13,9 @@ import {
   checkInAttendance,
   checkOutAttendance,
   getTodayAttendance,
-} from "../modules/employeeAttendance/employeeAttendance.controller.js";
+} from "./employeeAttendance.controller.js";
 
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

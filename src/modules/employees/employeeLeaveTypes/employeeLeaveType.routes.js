@@ -7,8 +7,8 @@ import {
   updateLeaveType,
   deleteLeaveType,
   checkExistingLeaveType,
-} from "../modules/employees/employeeLeaveTypes/employeeLeaveType.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./employeeLeaveType.controller.js";
+import { verifyToken } from "../../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

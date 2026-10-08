@@ -16,9 +16,9 @@ import {
   createUser,
   getAllUsersByToken,
   changePassword,
-} from "../modules/users/user.controller.js";
+} from "./user.controller.js";
 
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

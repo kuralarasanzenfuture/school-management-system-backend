@@ -9,8 +9,8 @@ import {
   getSchoolTree,
   getAllSectionsByToken,
   checkExistingSection,
-} from "../modules/sections/section.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./section.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

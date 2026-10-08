@@ -9,9 +9,9 @@ import {
   getAllSalaryStructureDetailsByToken,
   calculateSalaryByEmployeeId,
   getFullSalaryByEmployeeId,
-} from "../modules/employee_salary_structure_details/employeeSalaryStructureDetail.controller.js";
+} from "./employeeSalaryStructureDetail.controller.js";
 
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

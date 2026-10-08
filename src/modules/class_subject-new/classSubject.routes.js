@@ -1,15 +1,4 @@
 import express from "express";
-// import {
-//   createClassSubject,
-//   getAllClassSubjects,
-//   getClassSubjectById,
-//   updateClassSubject,
-//   deleteClassSubject,
-//   getAllClassSubjectsByToken,
-//   checkExistingClassSubject,
-//   getAllClassSubjectsDetailed,
-//   bulkAssignSubjects,
-// } from "../modules/class_subject/classSubject.controller.js";
 import {
   createClassSubject,
   getAllClassSubjects,
@@ -20,8 +9,8 @@ import {
   checkExistingClassSubject,
   getAllClassSubjectsDetailed,
   bulkAssignSubjects,
-} from "../modules/class_subject-new/classSubject.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./classSubject.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

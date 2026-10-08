@@ -7,8 +7,8 @@ import {
   deleteEmployeeSalaryComponent,
   getAllEmployeeSalaryComponentsByToken,
   checkExistingEmployeeSalaryComponent,
-} from "../modules/employee_salary_component/employeeSalaryComponent.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./employeeSalaryComponent.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

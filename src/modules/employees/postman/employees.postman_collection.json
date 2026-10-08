@@ -90,18 +90,584 @@
           "response": []
         },
         {
-          "name": "1.3 Get All Employees",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{BASE_URL}}/api/employees",
-              "host": ["{{BASE_URL}}"],
-              "path": ["api", "employees"]
+          "name": "1.3 Employee GET APIs & Advanced Filters",
+          "item": [
+            {
+              "name": "1. Get all employees",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"]
+                },
+                "description": "Fetches all employees across the institution."
+              },
+              "response": []
             },
-            "description": "Lists all employees with school details, designation, and user linkages."
-          },
-          "response": []
+            {
+              "name": "2. Get employees with global search (?search=John)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?search=John",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "search", "value": "John" }]
+                },
+                "description": "Multi-field search across name, code, email, mobile, aadhaar, designation, department, qualification."
+              },
+              "response": []
+            },
+            {
+              "name": "2b. Get employees with global search (?q=John)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?q=John",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "q", "value": "John" }]
+                },
+                "description": "Alternative query alias for multi-field search."
+              },
+              "response": []
+            },
+            {
+              "name": "3. Filter by school (?school_id=1)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?school_id={{SCHOOL_ID}}",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "school_id", "value": "{{SCHOOL_ID}}" }]
+                },
+                "description": "Filters employees belonging to a specific school."
+              },
+              "response": []
+            },
+            {
+              "name": "3b. Filter by multiple schools (?school_id=1,2,3)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?school_id=1,2,3",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "school_id", "value": "1,2,3" }]
+                },
+                "description": "Filters employees across multiple comma-separated school IDs."
+              },
+              "response": []
+            },
+            {
+              "name": "4. Filter by status (?status=active)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?status=active",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "status", "value": "active" }]
+                },
+                "description": "Filter by employee status: active, inactive, resigned, terminated."
+              },
+              "response": []
+            },
+            {
+              "name": "5. Filter by designation (?designation=Teacher)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?designation=Teacher",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "designation", "value": "Teacher" }]
+                },
+                "description": "Filter by specific staff designation title."
+              },
+              "response": []
+            },
+            {
+              "name": "5b. Filter by multiple designations (?designation=Teacher,Principal)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?designation=Teacher,Principal",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "designation", "value": "Teacher,Principal" }]
+                },
+                "description": "Filter across multiple comma-separated staff designations."
+              },
+              "response": []
+            },
+            {
+              "name": "6. Filter by department (?department=SCIENCE)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?department=SCIENCE",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "department", "value": "SCIENCE" }]
+                },
+                "description": "Filter by employee department."
+              },
+              "response": []
+            },
+            {
+              "name": "6b. Filter by multiple departments (?department=SCIENCE,MATHS)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?department=SCIENCE,MATHS",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "department", "value": "SCIENCE,MATHS" }]
+                },
+                "description": "Filter by multiple comma-separated departments."
+              },
+              "response": []
+            },
+            {
+              "name": "7. User assignment - Employees with login accounts (?user_assigned=true)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?user_assigned=true",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "user_assigned", "value": "true" }]
+                },
+                "description": "Returns employees who have a linked login user account."
+              },
+              "response": []
+            },
+            {
+              "name": "7b. User assignment - Employees without login accounts (?user_assigned=false)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?user_assigned=false",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "user_assigned", "value": "false" }]
+                },
+                "description": "Returns employees who do not yet have a linked login account."
+              },
+              "response": []
+            },
+            {
+              "name": "8. Experience range (?min_experience=2&max_experience=10)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?min_experience=2&max_experience=10",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "min_experience", "value": "2" },
+                    { "key": "max_experience", "value": "10" }
+                  ]
+                },
+                "description": "Filters employees whose years of experience fall within specified range."
+              },
+              "response": []
+            },
+            {
+              "name": "9. Salary range (?min_salary=20000&max_salary=50000)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?min_salary=20000&max_salary=50000",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "min_salary", "value": "20000" },
+                    { "key": "max_salary", "value": "50000" }
+                  ]
+                },
+                "description": "Filters employees whose basic salary is within specified bounds."
+              },
+              "response": []
+            },
+            {
+              "name": "10. Joining date range (?joining_date_from=2024-01-01&joining_date_to=2025-12-31)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?joining_date_from=2024-01-01&joining_date_to=2025-12-31",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "joining_date_from", "value": "2024-01-01" },
+                    { "key": "joining_date_to", "value": "2025-12-31" }
+                  ]
+                },
+                "description": "Filters employees by joining date window."
+              },
+              "response": []
+            },
+            {
+              "name": "11. Joining year (?joining_year=2025)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?joining_year=2025",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "joining_year", "value": "2025" }]
+                },
+                "description": "Filters employees joining in a specific calendar year."
+              },
+              "response": []
+            },
+            {
+              "name": "12. Joining month (?joining_month=6)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?joining_month=6",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "joining_month", "value": "6" }]
+                },
+                "description": "Filters employees joining in a specific month (1-12)."
+              },
+              "response": []
+            },
+            {
+              "name": "13. Date of birth range (?dob_from=1990-01-01&dob_to=2000-12-31)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?dob_from=1990-01-01&dob_to=2000-12-31",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "dob_from", "value": "1990-01-01" },
+                    { "key": "dob_to", "value": "2000-12-31" }
+                  ]
+                },
+                "description": "Filters employees by date of birth range."
+              },
+              "response": []
+            },
+            {
+              "name": "14. Gender (?gender=Male)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?gender=Male",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "gender", "value": "Male" }]
+                },
+                "description": "Filters employees by gender (Male, Female, Other)."
+              },
+              "response": []
+            },
+            {
+              "name": "15. Blood group (?blood_group=O+)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?blood_group=O%2B",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "blood_group", "value": "O+" }]
+                },
+                "description": "Filters employees by blood group (e.g. O+, A+, B+, AB+)."
+              },
+              "response": []
+            },
+            {
+              "name": "16. City (?city=Chennai)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?city=Chennai",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "city", "value": "Chennai" }]
+                },
+                "description": "Matches current or permanent address city."
+              },
+              "response": []
+            },
+            {
+              "name": "17. District (?district=Krishnagiri)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?district=Krishnagiri",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "district", "value": "Krishnagiri" }]
+                },
+                "description": "Matches current or permanent address district."
+              },
+              "response": []
+            },
+            {
+              "name": "18. State (?state=Tamil Nadu)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?state=Tamil%20Nadu",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "state", "value": "Tamil Nadu" }]
+                },
+                "description": "Matches current or permanent address state."
+              },
+              "response": []
+            },
+            {
+              "name": "19. Postal code (?postal_code=635001)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?postal_code=635001",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "postal_code", "value": "635001" }]
+                },
+                "description": "Matches current or permanent postal code."
+              },
+              "response": []
+            },
+            {
+              "name": "20. Qualification (?qualification=B.Ed)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?qualification=B.Ed",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [{ "key": "qualification", "value": "B.Ed" }]
+                },
+                "description": "Partial match on educational qualifications."
+              },
+              "response": []
+            },
+            {
+              "name": "21. Sort by name (?sort_by=name&sort_order=ASC)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?sort_by=name&sort_order=ASC",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "sort_by", "value": "name" },
+                    { "key": "sort_order", "value": "ASC" }
+                  ]
+                },
+                "description": "Sorts staff alphabetically by name."
+              },
+              "response": []
+            },
+            {
+              "name": "22. Sort by salary descending (?sort_by=salary&sort_order=DESC)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?sort_by=salary&sort_order=DESC",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "sort_by", "value": "salary" },
+                    { "key": "sort_order", "value": "DESC" }
+                  ]
+                },
+                "description": "Sorts staff from highest salary to lowest."
+              },
+              "response": []
+            },
+            {
+              "name": "23. Pagination - Default (?page=1&limit=10)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?page=1&limit=10",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" }
+                  ]
+                },
+                "description": "Returns raw array with X-Total-Count, X-Page, X-Total-Pages headers."
+              },
+              "response": []
+            },
+            {
+              "name": "24. Pagination - Explicit Paginated Response (?page=1&limit=10&paginate=true)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?page=1&limit=10&paginate=true",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "paginate", "value": "true" }
+                  ]
+                },
+                "description": "Returns structured JSON object with data array and pagination metadata."
+              },
+              "response": []
+            },
+            {
+              "name": "25. Combined Advanced Filter",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees?search=John&department=SCIENCE,MATHS&status=active&gender=Male&min_salary=20000&max_salary=50000&min_experience=2&max_experience=10&sort_by=salary&sort_order=DESC&page=1&limit=10&paginate=true",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees"],
+                  "query": [
+                    { "key": "search", "value": "John" },
+                    { "key": "department", "value": "SCIENCE,MATHS" },
+                    { "key": "status", "value": "active" },
+                    { "key": "gender", "value": "Male" },
+                    { "key": "min_salary", "value": "20000" },
+                    { "key": "max_salary", "value": "50000" },
+                    { "key": "min_experience", "value": "2" },
+                    { "key": "max_experience", "value": "10" },
+                    { "key": "sort_by", "value": "salary" },
+                    { "key": "sort_order", "value": "DESC" },
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "10" },
+                    { "key": "paginate", "value": "true" }
+                  ]
+                },
+                "description": "Demonstrates multi-filter combination across search, department, status, gender, ranges, sorting and pagination."
+              },
+              "response": []
+            },
+            {
+              "name": "26. Token-based employees (GET /token)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees/token",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees", "token"]
+                },
+                "description": "Fetches employees strictly scoped to the token user's school."
+              },
+              "response": []
+            },
+            {
+              "name": "27. Token-based with status filter (?status=active)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees/token?status=active",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees", "token"],
+                  "query": [{ "key": "status", "value": "active" }]
+                },
+                "description": "School-scoped employee list filtered by active status."
+              },
+              "response": []
+            },
+            {
+              "name": "28. Token-based with department filter (?department=SCIENCE)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees/token?department=SCIENCE",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees", "token"],
+                  "query": [{ "key": "department", "value": "SCIENCE" }]
+                },
+                "description": "School-scoped employee list filtered by department."
+              },
+              "response": []
+            },
+            {
+              "name": "29. Token-based with search (?search=John)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees/token?search=John",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees", "token"],
+                  "query": [{ "key": "search", "value": "John" }]
+                },
+                "description": "School-scoped multi-field search."
+              },
+              "response": []
+            },
+            {
+              "name": "30. Filter options (GET /filter-options)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees/filter-options",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees", "filter-options"]
+                },
+                "description": "Returns distinct designations, departments, genders, blood groups, statuses, and min/max ranges for frontend dropdowns."
+              },
+              "response": []
+            },
+            {
+              "name": "31. Employee statistics (GET /stats)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{BASE_URL}}/api/employees/stats",
+                  "host": ["{{BASE_URL}}"],
+                  "path": ["api", "employees", "stats"]
+                },
+                "description": "Dashboard statistics: total headcount, status counts, user assignment, department and gender distributions."
+              },
+              "response": []
+            }
+          ]
         },
         {
           "name": "1.4 Get Employee by ID",

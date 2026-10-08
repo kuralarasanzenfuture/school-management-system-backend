@@ -6,8 +6,8 @@ import {
     updateEmployeeDesignation,
     deleteEmployeeDesignation,
     getAllEmployeeDesignationsByToken,
-} from "../modules/employees/designations/employee_designations.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./employee_designations.controller.js";
+import { verifyToken } from "../../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

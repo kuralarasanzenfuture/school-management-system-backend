@@ -1,5 +1,3 @@
-// employeeShift.routes.js
-
 import express from "express";
 import {
   createShift,
@@ -8,8 +6,8 @@ import {
   updateShift,
   deleteShift,
   getAllShiftsByToken,
-} from "../modules/employeeShift/employeeShift.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./employeeShift.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

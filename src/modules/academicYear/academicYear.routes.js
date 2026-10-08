@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 import {
   createAcademicYear,
   deleteAcademicYear,
@@ -7,7 +7,7 @@ import {
   getAllAcademicYears,
   getAllAcademicYearsByToken,
   updateAcademicYear,
-} from "../modules/academicYear/academicYear.controller.js";
+} from "./academicYear.controller.js";
 
 const router = express.Router();
 

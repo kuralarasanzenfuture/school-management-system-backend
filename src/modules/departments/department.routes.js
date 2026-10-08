@@ -1,6 +1,6 @@
 import express from "express";
-import * as DepartmentController from "../modules/departments/department.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import * as DepartmentController from "./department.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

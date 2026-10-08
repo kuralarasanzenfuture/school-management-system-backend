@@ -6,10 +6,10 @@ import {
   updateSchool,
   deleteSchool,
   getAllSchoolsByToken,
-} from "../modules/schools/school.controller.js";
+} from "./school.controller.js";
 
-import { verifyToken } from "../middlewares/auth.middleware.js";
-import { schoolUpload } from "../middlewares/school.upload.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
+import { schoolUpload } from "../../middlewares/school.upload.js";
 
 const router = express.Router();
 

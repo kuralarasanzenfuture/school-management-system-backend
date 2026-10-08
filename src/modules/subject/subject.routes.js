@@ -7,8 +7,8 @@ import {
   deleteSubject,
   getAllSubjectsByToken,
   checkExistingSubject,
-} from "../modules/subject/subject.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./subject.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

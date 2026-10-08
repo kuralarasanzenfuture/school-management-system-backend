@@ -6,8 +6,8 @@ import {
   updateClassSection,
   deleteClassSection,
   getAllClassSectionsByToken,
-} from "../modules/class_sections/class_section.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+} from "./class_section.controller.js";
+import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
