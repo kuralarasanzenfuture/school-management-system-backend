@@ -55,9 +55,12 @@ app.use(
 //     },
 //   }),
 // );
+import { auditMiddleware } from "./middlewares/audit.middleware.js";
+
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(auditMiddleware);
 
 // ------------------------------------------------------------------
 // Static Files

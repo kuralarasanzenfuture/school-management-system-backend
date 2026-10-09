@@ -24,6 +24,7 @@ Complete API reference and testing guide for the **Roles** module.
 | `GET` | `/api/roles` | Get all roles | None | Yes |
 | `PUT` | `/api/roles/:id` | Update role name, description, and status | `application/json` | Yes |
 | `PATCH` | `/api/roles/status/:id` | Toggle role status (`active` / `inactive`) | `application/json` | Yes |
+| `GET` | `/api/roles/check-name` | Check if a role name already exists | Query Params | Yes |
 | `DELETE` | `/api/roles/:id` | Delete role (if no active users assigned) | None | Yes |
 
 ---
@@ -246,6 +247,46 @@ Permanently deletes a role. System safeguards prevent deletion if active users a
   ```json
   { "message": "Role not found" }
   ```
+
+---
+
+## 6. 🔍 Check Role Name Availability
+
+Checks if a role name already exists in the system. Commonly used for real-time form validation on creation or update.
+
+- **Method:** `GET`
+- **URL:** `{{BASE_URL}}/api/roles/check-name?name=TEACHER` or `{{BASE_URL}}/api/roles/check-name/TEACHER`
+- **Query Params / URL Params:**
+  - `name`: Role name to check (e.g., `TEACHER`)
+  - `excludeId` / `exclude_id` *(optional)*: Role ID to exclude (useful when editing an existing role)
+- **Headers:**
+  - `Authorization: Bearer {{TOKEN}}`
+
+### Success Response (`200 OK`) - When Name Exists
+```json
+{
+  "success": true,
+  "available": false,
+  "exists": true,
+  "role": {
+    "id": 3,
+    "name": "TEACHER",
+    "role_code": "TEACHER",
+    "is_system": 1,
+    "status": "active"
+  }
+}
+```
+
+### Success Response (`200 OK`) - When Name Is Available
+```json
+{
+  "success": true,
+  "available": true,
+  "exists": false,
+  "role": null
+}
+```
 
 ---
 

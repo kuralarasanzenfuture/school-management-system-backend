@@ -49,7 +49,9 @@ router.use("/employees-leave-types", employeeLeaveTypeRoutes);
 router.use("/employee-salary-components", employeeSalaryComponentRoutes);
 router.use("/employee-salary-structures", employeeSalaryStructureRoutes);
 router.use("/employee-salary-structures-details", employeeSalaryStructureDetailsRoutes);
-router.use("/employee-salary-structures-with-details", employeeSalaryStructureWithDetailRoutes);
 router.use("/employee-salary-structure-with-details", employeeSalaryStructureWithDetailRoutes);
+
+import auditLogsRoutes from "../modules/auditLogs/auditLogs.routes.js";
+router.use("/audit-logs", auditLogsRoutes);
 
 export default router;
