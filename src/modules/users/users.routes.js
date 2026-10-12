@@ -18,7 +18,7 @@ import {
   changePassword,
 } from "./user.controller.js";
 
-import { verifyToken } from "../../middlewares/auth.middleware.js";
+import { verifyToken, adminOnly } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.post("/refresh-token", refreshToken);
 router.get("/me", verifyToken, getMyProfile);
 
 // 🔐 Admin only (optional)
-router.get("/me/:id", verifyToken, getMyProfile);
+router.get("/me/:id", verifyToken, adminOnly, getMyProfile);
 
 /* =========================
    LOGOUT
@@ -56,22 +56,25 @@ router.get("/check-phone/:phone", checkPhone);
    USER CRUD (PROTECTED)
 ========================= */
 
+// 🔴 ONLY ADMIN CAN CREATE VIA POST /
+router.post("/", verifyToken, adminOnly, createUser);
+
 // 🔴 ONLY ADMIN CAN SEE ALL USERS
-router.get("/", getAllUsers);
+router.get("/", verifyToken, adminOnly, getAllUsers);
 router.get("/token", verifyToken, getAllUsersByToken);
 
-// // 🔴 ADMIN + SELF ACCESS
-router.get("/:id", getUserById);
+// 🔴 ADMIN + SELF ACCESS
+router.get("/:id", verifyToken, getUserById);
 
 // 🔴 ADMIN ONLY
-router.put("/update/:id", updateUser);
+router.put("/update/:id", verifyToken, adminOnly, updateUser);
 
 router.put("/change-password", verifyToken, changePassword);
 
 // 🔴 ADMIN ONLY
-router.patch("/status/:id", updateUserStatus);
+router.patch("/status/:id", verifyToken, adminOnly, updateUserStatus);
 
 // 🔴 ADMIN ONLY
-router.delete("/delete/:id", deleteUser);
+router.delete("/delete/:id", verifyToken, adminOnly, deleteUser);
 
 export default router;

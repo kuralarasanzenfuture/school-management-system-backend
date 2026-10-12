@@ -5,10 +5,32 @@ import { v4 as uuidv4 } from "uuid";
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 
 export const adminOnly = (req, res, next) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin access required" });
+  const roles = Array.isArray(req.user?.roles)
+    ? req.user.roles.map((r) => String(r).toUpperCase())
+    : [String(req.user?.role || "").toUpperCase()];
+
+  if (!roles.includes("ADMIN")) {
+    return res.status(403).json({ success: false, message: "Admin access required" });
   }
   next();
+};
+
+export const authorizeRoles = (...allowedRoles) => {
+  const normalizedAllowed = allowedRoles.map((r) => String(r).toUpperCase());
+  return (req, res, next) => {
+    const userRoles = Array.isArray(req.user?.roles)
+      ? req.user.roles.map((r) => String(r).toUpperCase())
+      : [String(req.user?.role || "").toUpperCase()];
+
+    const hasRole = userRoles.some((r) => normalizedAllowed.includes(r));
+    if (!hasRole) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: You do not have permission to access this resource",
+      });
+    }
+    next();
+  };
 };
 
 // export const verifyToken = async (req, res, next) => {

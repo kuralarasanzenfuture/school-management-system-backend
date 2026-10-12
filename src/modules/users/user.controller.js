@@ -8,14 +8,45 @@ import { setAuthCookies } from "../../utils/cookies.js";
 import { refreshTokenService } from "./refreshToken.service.js";
 import { clearAuthCookies } from "../../utils/clearCookies.js";
 import { validateChangePassword } from "./user.validation.js";
+import { auditService } from "../../audit/audit.service.js";
+import {
+  AUDIT_ACTIONS,
+  AUDIT_MODULES,
+  AUDIT_ENTITIES,
+} from "../../audit/audit.constants.js";
 
 export const createUser = async (req, res) => {
   try {
     const result = await UserService.createUser(req.body);
-    // console.log(result);
-    res.status(201).json(result);
+
+    await auditService.logCreate({
+      req,
+      module: AUDIT_MODULES.USERS,
+      entity_type: AUDIT_ENTITIES.USER,
+      entity_id: result.user_id,
+      entity_name: result.user?.username || req.body?.username,
+      description: `User '${result.user?.username || req.body?.username}' created successfully`,
+      new_data: result.user,
+    });
+
+    res.status(201).json({
+      success: true,
+      ...result,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    if (err.status && err.status !== 500) {
+      await auditService.log({
+        req,
+        action: AUDIT_ACTIONS.CREATE,
+        module: AUDIT_MODULES.USERS,
+        entity_type: AUDIT_ENTITIES.USER,
+        entity_name: req.body?.username,
+        description: `Failed to create user: ${err.message}`,
+        status: "failed",
+        error_message: err.message,
+      });
+    }
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 
@@ -91,37 +122,88 @@ export const getMyProfile = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const data = await UserService.getAllUsers();
-    res.json(data);
+    const result = await UserService.getAllUsers(req.query);
+
+    if (result.total !== undefined) {
+      res.setHeader("X-Total-Count", result.total);
+      res.setHeader("X-Page", result.page);
+      res.setHeader("X-Limit", result.limit);
+    }
+
+    res.json({
+      success: true,
+      data: result.users || result,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 
 export const getAllUsersByToken = async (req, res) => {
   try {
-    const data = await UserService.getAllUsersByToken(req.user);
-    res.json(data);
+    const result = await UserService.getAllUsersByToken(req.user, req.query);
+
+    if (result.total !== undefined) {
+      res.setHeader("X-Total-Count", result.total);
+      res.setHeader("X-Page", result.page);
+      res.setHeader("X-Limit", result.limit);
+    }
+
+    res.json({
+      success: true,
+      data: result.users || result,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 
 export const getUserById = async (req, res) => {
   try {
     const data = await UserService.getUserById(req.params.id);
-    res.json(data);
+    res.json({
+      success: true,
+      data,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 
 export const updateUser = async (req, res) => {
   try {
-    const result = await UserService.updateUser(req.params.id, req.body);
-    res.json(result);
+    const result = await UserService.updateUser(
+      req.params.id,
+      req.body,
+      req.user?.id
+    );
+
+    await auditService.logUpdate({
+      req,
+      module: AUDIT_MODULES.USERS,
+      entity_type: AUDIT_ENTITIES.USER,
+      entity_id: req.params.id,
+      entity_name: result.updatedUser?.username || result.oldUser?.username,
+      description: `User '${result.updatedUser?.username || result.oldUser?.username}' updated successfully`,
+      old_data: result.oldUser,
+      new_data: result.updatedUser,
+    });
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.updatedUser,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 
@@ -129,20 +211,56 @@ export const updateUserStatus = async (req, res) => {
   try {
     const result = await UserService.updateUserStatus(
       req.params.id,
-      req.body.status,
+      req.body.status
     );
-    res.json(result);
+
+    const action =
+      req.body.status === "active"
+        ? AUDIT_ACTIONS.ACTIVATE
+        : AUDIT_ACTIONS.DEACTIVATE;
+
+    await auditService.logAction({
+      req,
+      action,
+      module: AUDIT_MODULES.USERS,
+      entity_type: AUDIT_ENTITIES.USER,
+      entity_id: req.params.id,
+      entity_name: result.updatedUser?.username || result.oldUser?.username,
+      description: `User '${result.updatedUser?.username || result.oldUser?.username}' status changed to ${req.body.status}`,
+      old_data: result.oldUser,
+      new_data: result.updatedUser,
+    });
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: result.updatedUser,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 
 export const deleteUser = async (req, res) => {
   try {
     const result = await UserService.deleteUser(req.params.id);
-    res.json(result);
+
+    await auditService.logDelete({
+      req,
+      module: AUDIT_MODULES.USERS,
+      entity_type: AUDIT_ENTITIES.USER,
+      entity_id: req.params.id,
+      entity_name: result.deletedUser?.username,
+      description: `User '${result.deletedUser?.username}' deleted successfully`,
+      old_data: result.deletedUser,
+    });
+
+    res.json({
+      success: true,
+      message: result.message,
+    });
   } catch (err) {
-    res.status(err.status || 500).json({ message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
 

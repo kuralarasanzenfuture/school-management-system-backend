@@ -12,11 +12,7 @@ router.post("/", DepartmentController.createDepartment);
 // GET
 router.get("/", DepartmentController.getAllDepartments);
 
-router.get(
-  "/token",
-  verifyToken,
-  DepartmentController.getAllDepartmentsByToken,
-);
+router.get("/token", DepartmentController.getAllDepartmentsByToken);
 
 router.get("/check-department", DepartmentController.checkExistingDepartment);
 
@@ -26,6 +22,9 @@ router.get("/:id", DepartmentController.getDepartmentById);
 
 // UPDATE
 router.put("/:id", DepartmentController.updateDepartment);
+
+// STATUS TOGGLE
+router.patch("/status/:id", DepartmentController.updateDepartmentStatus);
 
 // DELETE
 router.delete("/:id", DepartmentController.deleteDepartment);

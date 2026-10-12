@@ -2,31 +2,52 @@ import { getDB } from "../../config/db.js";
 
 export const DepartmentModel = {
   async create(connection, data) {
-    const [result] = await connection.query(
+    const db = connection || getDB();
+    const {
+      school_id,
+      name,
+      description = null,
+      status = "active",
+      created_by = null,
+    } = data;
+
+    const [result] = await db.query(
       `
-      INSERT INTO departments (school_id, name, description, status)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO departments (school_id, name, description, status, created_by)
+      VALUES (?, ?, ?, ?, ?)
       `,
-      [data.school_id, data.name, data.description, data.status],
+      [school_id, name, description, status, created_by],
     );
 
     return result.insertId;
   },
 
-  async findById(id) {
-    const db = getDB();
-    const [[row]] = await db.query(`SELECT * FROM departments WHERE id=?`, [
-      id,
-    ]);
-    return row;
+  async findById(id, connection = null) {
+    const db = connection || getDB();
+    const [[row]] = await db.query(
+      `
+      SELECT
+        d.*,
+        s.name AS school_name,
+        u1.username AS created_by_name,
+        u2.username AS updated_by_name
+      FROM departments d
+      LEFT JOIN schools s ON d.school_id = s.id
+      LEFT JOIN users u1 ON d.created_by = u1.id
+      LEFT JOIN users u2 ON d.updated_by = u2.id
+      WHERE d.id = ?
+      `,
+      [id],
+    );
+    return row || null;
   },
 
-  async findDuplicate(school_id, name, excludeId = null) {
-    const db = getDB();
+  async findDuplicate(school_id, name, excludeId = null, connection = null) {
+    const db = connection || getDB();
 
     let query = `
-      SELECT id FROM departments
-      WHERE school_id=? AND name=?
+      SELECT id, school_id, name FROM departments
+      WHERE school_id = ? AND UPPER(name) = UPPER(?)
     `;
 
     const params = [school_id, name];
@@ -40,39 +61,122 @@ export const DepartmentModel = {
     return rows.length ? rows[0] : null;
   },
 
-  async getAll() {
+  async findAll(filters = {}) {
     const db = getDB();
+    const {
+      school_id,
+      status,
+      search,
+      name,
+      page = 1,
+      limit = 20,
+      sortBy = "id",
+      sortOrder = "DESC",
+      paginate = true,
+    } = filters;
 
-    const [rows] = await db.query(`
-    SELECT
-      d.*,
-      s.name AS school_name
-    FROM departments d
-    LEFT JOIN schools s
-      ON d.school_id = s.id
-    ORDER BY d.id DESC
-  `);
+    const conditions = [];
+    const params = [];
 
-    return rows;
+    if (school_id) {
+      conditions.push("d.school_id = ?");
+      params.push(school_id);
+    }
+
+    if (status) {
+      conditions.push("d.status = ?");
+      params.push(status);
+    }
+
+    if (name) {
+      conditions.push("d.name LIKE ?");
+      params.push(`%${name}%`);
+    }
+
+    if (search) {
+      conditions.push(
+        "(d.name LIKE ? OR d.description LIKE ? OR s.name LIKE ?)",
+      );
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const allowedSortCols = {
+      id: "d.id",
+      name: "d.name",
+      status: "d.status",
+      school_id: "d.school_id",
+      created_at: "d.created_at",
+      updated_at: "d.updated_at",
+    };
+    const sortCol = allowedSortCols[sortBy] || "d.id";
+    const sortDir = sortOrder === "ASC" ? "ASC" : "DESC";
+
+    // Count query
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM departments d
+      LEFT JOIN schools s ON d.school_id = s.id
+      ${whereClause}
+    `;
+    const [[countResult]] = await db.query(countSql, params);
+    const total = Number(countResult?.total) || 0;
+
+    let sql = `
+      SELECT
+        d.*,
+        s.name AS school_name,
+        u1.username AS created_by_name,
+        u2.username AS updated_by_name
+      FROM departments d
+      LEFT JOIN schools s ON d.school_id = s.id
+      LEFT JOIN users u1 ON d.created_by = u1.id
+      LEFT JOIN users u2 ON d.updated_by = u2.id
+      ${whereClause}
+      ORDER BY ${sortCol} ${sortDir}
+    `;
+
+    const queryParams = [...params];
+
+    if (paginate) {
+      const offset = (page - 1) * limit;
+      sql += ` LIMIT ? OFFSET ?`;
+      queryParams.push(limit, offset);
+    }
+
+    const [rows] = await db.query(sql, queryParams);
+
+    return {
+      departments: rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  },
+
+  async getAll() {
+    return await this.findAll({ paginate: false });
   },
 
   async getBySchool(school_id) {
-    const db = getDB();
-    const [rows] = await db.query(
-      `SELECT * FROM departments WHERE school_id=?`,
-      [school_id],
-    );
-    return rows;
+    return await this.findAll({ school_id, paginate: false });
   },
 
   async update(connection, id, fields, values) {
-    await connection.query(
-      `UPDATE departments SET ${fields.join(", ")} WHERE id=?`,
+    const db = connection || getDB();
+    await db.query(
+      `UPDATE departments SET ${fields.join(", ")} WHERE id = ?`,
       [...values, id],
     );
   },
 
   async delete(connection, id) {
-    await connection.query(`DELETE FROM departments WHERE id=?`, [id]);
+    const db = connection || getDB();
+    const [result] = await db.query(`DELETE FROM departments WHERE id = ?`, [id]);
+    return result.affectedRows;
   },
 };

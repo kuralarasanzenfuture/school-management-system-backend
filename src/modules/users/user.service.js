@@ -6,7 +6,11 @@ import {
   UserModel,
 } from "./user.model.js";
 import { RoleModel } from "../roles/role.model.js";
-import { validateCreateUser, validateUpdateUser } from "./user.validation.js";
+import {
+  validateCreateUser,
+  validateUpdateUser,
+  validateUserFilters,
+} from "./user.validation.js";
 import { SchoolModel } from "../schools/school.model.js";
 
 // export const createUser = async (data) => {
@@ -329,9 +333,12 @@ export const createUser = async (data) => {
 
     await connection.commit();
 
+    const createdUser = await getUserById(userId);
+
     return {
       message: "User created successfully",
       user_id: userId,
+      user: createdUser,
     };
   } catch (err) {
     await connection.rollback();
@@ -341,10 +348,88 @@ export const createUser = async (data) => {
   }
 };
 
-export const getAllUsers = async () => {
+export const getAllUsers = async (query = {}) => {
   const db = getDB();
+  const filters = validateUserFilters(query);
 
-  const [rows] = await db.query(`
+  const conditions = [];
+  const params = [];
+
+  if (filters.school_id) {
+    conditions.push("u.school_id = ?");
+    params.push(filters.school_id);
+  }
+
+  if (filters.status) {
+    conditions.push("u.status = ?");
+    params.push(filters.status);
+  }
+
+  if (filters.username) {
+    conditions.push("u.username LIKE ?");
+    params.push(`%${filters.username}%`);
+  }
+
+  if (filters.email) {
+    conditions.push("u.email LIKE ?");
+    params.push(`%${filters.email}%`);
+  }
+
+  if (filters.phone) {
+    conditions.push("u.phone LIKE ?");
+    params.push(`%${filters.phone}%`);
+  }
+
+  if (filters.role_id) {
+    conditions.push("ur.role_id = ?");
+    params.push(filters.role_id);
+  }
+
+  if (filters.role) {
+    conditions.push("UPPER(r.name) = ?");
+    params.push(filters.role);
+  }
+
+  if (filters.search) {
+    conditions.push(
+      "(u.username LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR s.name LIKE ?)"
+    );
+    params.push(
+      `%${filters.search}%`,
+      `%${filters.search}%`,
+      `%${filters.search}%`,
+      `%${filters.search}%`
+    );
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const allowedSortCols = {
+    id: "u.id",
+    username: "u.username",
+    email: "u.email",
+    phone: "u.phone",
+    status: "u.status",
+    school_id: "u.school_id",
+    created_at: "u.created_at",
+    last_login_at: "u.last_login_at",
+  };
+  const sortCol = allowedSortCols[filters.sortBy] || "u.id";
+  const sortDir = filters.sortOrder === "ASC" ? "ASC" : "DESC";
+
+  // Total count
+  const countSql = `
+    SELECT COUNT(DISTINCT u.id) as total
+    FROM users u
+    LEFT JOIN schools s ON u.school_id = s.id
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    ${whereClause}
+  `;
+  const [[countResult]] = await db.query(countSql, params);
+  const total = Number(countResult?.total) || 0;
+
+  let dataSql = `
     SELECT
       u.id,
       u.username,
@@ -366,23 +451,25 @@ export const getAllUsers = async () => {
       ) AS roles
 
     FROM users u
-
-    LEFT JOIN schools s
-      ON u.school_id = s.id
-
-    LEFT JOIN user_roles ur
-      ON u.id = ur.user_id
-
-    LEFT JOIN roles r
-      ON ur.role_id = r.id
-
+    LEFT JOIN schools s ON u.school_id = s.id
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    ${whereClause}
     GROUP BY u.id
+    ORDER BY ${sortCol} ${sortDir}
+  `;
 
-    ORDER BY u.id DESC
-  `);
+  let queryParams = [...params];
 
-  // ✅ Transform roles for ALL users
-  const result = rows.map((user) => ({
+  if (filters.paginate) {
+    const offset = (filters.page - 1) * filters.limit;
+    dataSql += ` LIMIT ? OFFSET ?`;
+    queryParams.push(filters.limit, offset);
+  }
+
+  const [rows] = await db.query(dataSql, queryParams);
+
+  const users = rows.map((user) => ({
     ...user,
     roles: user.roles
       ? user.roles.split(",").map((r) => {
@@ -395,17 +482,30 @@ export const getAllUsers = async () => {
       : [],
   }));
 
-  return result;
+  if (!filters.paginate) {
+    return {
+      users,
+      total: users.length,
+    };
+  }
+
+  return {
+    users,
+    total,
+    page: filters.page,
+    limit: filters.limit,
+    totalPages: Math.ceil(total / filters.limit) || 1,
+  };
 };
 
-export const getAllUsersByToken = async (user) => {
+export const getAllUsersByToken = async (user, query = {}) => {
   const db = getDB();
 
   if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Get fresh user + roles from DB
+  // Get fresh user + roles from DB
   const [[dbUser]] = await db.query(
     `
     SELECT 
@@ -425,78 +525,17 @@ export const getAllUsersByToken = async (user) => {
     throw { status: 404, message: "User not found" };
   }
 
-  // 🔥 Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
-
   const isAdmin = roles.includes("ADMIN");
 
-  let query = `
-    SELECT
-      u.id,
-      u.username,
-      u.email,
-      u.phone,
-      u.status,
-      u.school_id,
-      s.name AS school_name,
-
-      u.is_online,
-      u.last_seen,
-      u.last_login_at,
-
-      u.created_at,
-      u.updated_at,
-
-      GROUP_CONCAT(
-        CONCAT(r.id, ':', r.name)
-      ) AS roles
-
-    FROM users u
-
-    LEFT JOIN schools s
-      ON u.school_id = s.id
-
-    LEFT JOIN user_roles ur
-      ON u.id = ur.user_id
-
-    LEFT JOIN roles r
-      ON ur.role_id = r.id
-  `;
-
-  const values = [];
-
-  // 🔥 NON-ADMIN → restrict by school
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
-
-    query += ` WHERE u.school_id = ?`;
-    values.push(dbUser.school_id);
+    return await getAllUsers({ ...query, school_id: dbUser.school_id });
   }
 
-  query += `
-    GROUP BY u.id
-    ORDER BY u.id DESC
-  `;
-
-  const [rows] = await db.query(query, values);
-
-  // 🔥 Transform roles → array of objects
-  const result = rows.map((user) => ({
-    ...user,
-    roles: user.roles
-      ? user.roles.split(",").map((r) => {
-          const [id, name] = r.split(":");
-          return {
-            id: Number(id),
-            name,
-          };
-        })
-      : [],
-  }));
-
-  return result;
+  return await getAllUsers(query);
 };
 
 export const getUserById = async (id) => {
@@ -1102,6 +1141,11 @@ export const updateUser = async (id, data, currentUserId) => {
   try {
     const validated = validateUpdateUser(data);
 
+    const oldUser = await getUserById(id);
+    if (!oldUser) {
+      throw { status: 404, message: "User not found" };
+    }
+
     await connection.beginTransaction();
 
     // 1️⃣ Check user exists
@@ -1114,18 +1158,20 @@ export const updateUser = async (id, data, currentUserId) => {
       throw { status: 404, message: "User not found" };
     }
 
-    // 2️⃣ Get current user roles
-    const [myRolesRows] = await connection.query(
-      `
-      SELECT r.name
-      FROM roles r
-      JOIN user_roles ur ON ur.role_id = r.id
-      WHERE ur.user_id = ?
-      `,
-      [currentUserId],
-    );
-
-    const isAdmin = myRolesRows.some((r) => r.name === "ADMIN");
+    // 2️⃣ Get current user roles (if currentUserId provided)
+    let isAdmin = true;
+    if (currentUserId) {
+      const [myRolesRows] = await connection.query(
+        `
+        SELECT r.name
+        FROM roles r
+        JOIN user_roles ur ON ur.role_id = r.id
+        WHERE ur.user_id = ?
+        `,
+        [currentUserId],
+      );
+      isAdmin = myRolesRows.some((r) => r.name === "ADMIN");
+    }
 
     // =========================
     // 🔥 SCHOOL VALIDATION
@@ -1294,7 +1340,13 @@ export const updateUser = async (id, data, currentUserId) => {
 
     await connection.commit();
 
-    return { message: "User updated successfully" };
+    const updatedUser = await getUserById(id);
+
+    return {
+      message: "User updated successfully",
+      oldUser,
+      updatedUser,
+    };
   } catch (err) {
     await connection.rollback();
     throw err;
@@ -1308,6 +1360,16 @@ export const updateUserStatus = async (id, status) => {
 
   if (!["active", "inactive"].includes(status)) {
     throw { status: 400, message: "Invalid status" };
+  }
+
+  const oldUser = await getUserById(id);
+  if (!oldUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const isAdmin = oldUser.roles?.some((r) => r.name === "ADMIN");
+  if (isAdmin && status === "inactive") {
+    throw { status: 403, message: "ADMIN user cannot be deactivated" };
   }
 
   const [result] = await db.query(
@@ -1325,7 +1387,13 @@ export const updateUserStatus = async (id, status) => {
     throw { status: 404, message: "User not found" };
   }
 
-  return { message: `User ${status}` };
+  const updatedUser = await getUserById(id);
+
+  return {
+    message: `User ${status}`,
+    oldUser,
+    updatedUser,
+  };
 };
 
 export const deleteUser = async (id) => {
@@ -1333,6 +1401,11 @@ export const deleteUser = async (id) => {
   const connection = await db.getConnection();
 
   try {
+    const deletedUser = await getUserById(id);
+    if (!deletedUser) {
+      throw { status: 404, message: "User not found" };
+    }
+
     await connection.beginTransaction();
 
     // 1️⃣ Get ADMIN role id
@@ -1370,7 +1443,10 @@ export const deleteUser = async (id) => {
 
     await connection.commit();
 
-    return { message: "User deleted successfully" };
+    return {
+      message: "User deleted successfully",
+      deletedUser,
+    };
   } catch (err) {
     await connection.rollback();
     throw err;

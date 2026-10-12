@@ -1,77 +1,24 @@
-// export const validateCreateUser = (data) => {
-//   let { username, email, phone, password, role_id } = data;
+/**
+ * User Validations
+ */
 
-// //   if (!username || !password || !role_id) {
-// //     throw { status: 400, message: "username, password, role_id required" };
-// //   }
-
-//   if (!username) {
-//     throw { status: 400, message: "username is required" };
-//   }
-//   if (!phone) {
-//     throw { status: 400, message: "phone is required" };
-//   }
-
-//   if (!password) {
-//     throw { status: 400, message: "password is required" };
-//   }
-
-//   if (!role_id) {
-//     throw { status: 400, message: "role_id is required" };
-//   }
-
-//   username = username.trim();
-
-//   if (password.length < 6) {
-//     throw { status: 400, message: "Password must be at least 6 characters" };
-//   }
-
-//   return { username, email, phone, password, role_id };
-// };
-
-// export const validateCreateUser = (data) => {
-//   let { username, email, phone, password, roles } = data;
-
-//   if (!username) {
-//     throw { status: 400, message: "username is required" };
-//   }
-//   if (!phone) {
-//     throw { status: 400, message: "phone is required" };
-//   }
-
-//   if (!password) {
-//     throw { status: 400, message: "password is required" };
-//   }
-//   if (!Array.isArray(roles)) {
-//     throw {
-//       status: 400,
-//       message: "roles[] required",
-//     };
-//   }
-
-//   if (roles.length === 0) {
-//     throw {
-//       status: 400,
-//       message: "At least one role required",
-//     };
-//   }
-
-//   return data;
-// };
-
-export const validateCreateUser = (data) => {
+export const validateCreateUser = (data = {}) => {
   let { username, email, phone, password, roles, school_id } = data;
 
-  if (!username || !username.trim()) {
+  if (!username || !String(username).trim()) {
     throw { status: 400, message: "username is required" };
   }
 
-  if (!phone) {
+  if (!phone || !String(phone).trim()) {
     throw { status: 400, message: "phone is required" };
   }
 
   if (!password) {
     throw { status: 400, message: "password is required" };
+  }
+
+  if (String(password).length < 6) {
+    throw { status: 400, message: "Password must be at least 6 characters" };
   }
 
   if (!school_id) {
@@ -82,12 +29,15 @@ export const validateCreateUser = (data) => {
     throw { status: 400, message: "At least one role required" };
   }
 
-  // 🔥 IMPORTANT: normalize
-  username = username.trim();
-  email = email ? email.toLowerCase() : null;
-  phone = phone.trim();
+  // Normalize
+  username = String(username).trim();
+  email = email ? String(email).trim().toLowerCase() : null;
+  phone = String(phone).trim();
 
-  // 🔥 school_id optional but must be number if provided
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw { status: 400, message: "Invalid email format" };
+  }
+
   if (school_id !== undefined && school_id !== null) {
     if (isNaN(Number(school_id))) {
       throw { status: 400, message: "Invalid school_id" };
@@ -104,31 +54,39 @@ export const validateCreateUser = (data) => {
   };
 };
 
-export const validateUpdateUser = (data) => {
+export const validateUpdateUser = (data = {}) => {
   let { username, email, phone, password, roles, status, school_id } = data;
 
   const cleaned = {};
 
   if (username !== undefined) {
-    if (!username.trim()) {
+    if (!String(username).trim()) {
       throw { status: 400, message: "username cannot be empty" };
     }
-    cleaned.username = username.trim();
+    cleaned.username = String(username).trim();
   }
 
   if (email !== undefined) {
-    cleaned.email = email ? email.toLowerCase() : null;
+    if (email) {
+      const normalized = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+        throw { status: 400, message: "Invalid email format" };
+      }
+      cleaned.email = normalized;
+    } else {
+      cleaned.email = null;
+    }
   }
 
   if (phone !== undefined) {
-    if (!phone.trim()) {
+    if (!String(phone).trim()) {
       throw { status: 400, message: "phone cannot be empty" };
     }
-    cleaned.phone = phone.trim();
+    cleaned.phone = String(phone).trim();
   }
 
   if (password !== undefined) {
-    if (password.length < 6) {
+    if (String(password).length < 6) {
       throw {
         status: 400,
         message: "password must be at least 6 characters",
@@ -145,16 +103,16 @@ export const validateUpdateUser = (data) => {
   }
 
   if (status !== undefined) {
-    if (!["active", "inactive"].includes(status)) {
+    const s = String(status).toLowerCase().trim();
+    if (!["active", "inactive"].includes(s)) {
       throw {
         status: 400,
         message: "status must be active or inactive",
       };
     }
-    cleaned.status = status;
+    cleaned.status = s;
   }
 
-  // 🔥 school_id handling
   if (school_id !== undefined) {
     if (school_id !== null && isNaN(Number(school_id))) {
       throw { status: 400, message: "Invalid school_id" };
@@ -169,53 +127,63 @@ export const validateUpdateUser = (data) => {
   return cleaned;
 };
 
-// export const validateUpdateUser = (data) => {
-//   let { username, email, phone, password, roles, status } = data;
+export const validateUserFilters = (query = {}) => {
+  const {
+    username,
+    email,
+    phone,
+    status,
+    role_id,
+    role,
+    school_id,
+    search,
+    page = 1,
+    limit = 20,
+    sortBy = "id",
+    sortOrder = "DESC",
+    paginate = "true",
+  } = query;
 
-//   if (username !== undefined && !username.trim()) {
-//     throw { status: 400, message: "username cannot be empty" };
-//   }
+  const allowedSortCols = [
+    "id",
+    "username",
+    "email",
+    "phone",
+    "status",
+    "school_id",
+    "created_at",
+    "last_login_at",
+  ];
+  const safeSortBy = allowedSortCols.includes(sortBy) ? sortBy : "id";
+  const safeSortOrder =
+    String(sortOrder).toUpperCase() === "ASC" ? "ASC" : "DESC";
 
-//   if (phone !== undefined && !phone.trim()) {
-//     throw { status: 400, message: "phone cannot be empty" };
-//   }
+  let safeStatus = null;
+  if (status) {
+    const s = String(status).toLowerCase().trim();
+    if (["active", "inactive"].includes(s)) {
+      safeStatus = s;
+    }
+  }
 
-//   if (password !== undefined && password.length < 6) {
-//     throw {
-//       status: 400,
-//       message: "password must be at least 6 characters",
-//     };
-//   }
+  return {
+    username: username ? String(username).trim() : null,
+    email: email ? String(email).trim().toLowerCase() : null,
+    phone: phone ? String(phone).trim() : null,
+    status: safeStatus,
+    role_id: role_id ? Number(role_id) : null,
+    role: role ? String(role).trim().toUpperCase() : null,
+    school_id: school_id ? Number(school_id) : null,
+    search: search ? String(search).trim() : null,
+    page: Math.max(1, Number(page) || 1),
+    limit: Math.max(1, Math.min(100, Number(limit) || 20)),
+    sortBy: safeSortBy,
+    sortOrder: safeSortOrder,
+    paginate: String(paginate).toLowerCase() !== "false",
+  };
+};
 
-//   if (roles !== undefined) {
-//     if (!Array.isArray(roles)) {
-//       throw {
-//         status: 400,
-//         message: "roles must be an array",
-//       };
-//     }
-
-//     if (roles.length === 0) {
-//       throw {
-//         status: 400,
-//         message: "At least one role required",
-//       };
-//     }
-//   }
-
-//   if (status !== undefined) {
-//     if (!["active", "inactive"].includes(status)) {
-//       throw {
-//         status: 400,
-//         message: "status must be active or inactive",
-//       };
-//     }
-//   }
-
-//   return data;
-// };
-
-export const validateLoginUser = (data) => {
+export const validateLoginUser = (data = {}) => {
   let { login_id, password } = data;
 
   if (!login_id) {
@@ -226,12 +194,12 @@ export const validateLoginUser = (data) => {
     throw { status: 400, message: "password is required" };
   }
 
-  login_id = login_id.trim().toLowerCase();
+  login_id = String(login_id).trim().toLowerCase();
 
   return { login_id, password };
 };
 
-export const validateChangePassword = (body) => {
+export const validateChangePassword = (body = {}) => {
   const errors = [];
 
   if (!body.currentPassword) {
@@ -242,7 +210,7 @@ export const validateChangePassword = (body) => {
     errors.push("New password is required");
   }
 
-  if (body.newPassword && body.newPassword.length < 6) {
+  if (body.newPassword && String(body.newPassword).length < 6) {
     errors.push("New password must be at least 6 characters");
   }
 

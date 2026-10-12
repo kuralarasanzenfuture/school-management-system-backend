@@ -3,9 +3,10 @@ import { DepartmentModel } from "./department.model.js";
 import {
   validateCreateDepartment,
   validateUpdateDepartment,
+  validateDepartmentFilters,
 } from "./department.validation.js";
 
-export const createDepartment = async (data) => {
+export const createDepartment = async (data, currentUser = null) => {
   const db = getDB();
   const connection = await db.getConnection();
 
@@ -14,9 +15,9 @@ export const createDepartment = async (data) => {
 
     await connection.beginTransaction();
 
-    // ✅ Check school exists
+    // Check school exists
     const [[school]] = await connection.query(
-      `SELECT id FROM schools WHERE id=?`,
+      `SELECT id FROM schools WHERE id = ?`,
       [validated.school_id],
     );
 
@@ -24,26 +25,35 @@ export const createDepartment = async (data) => {
       throw { status: 404, message: "School not found" };
     }
 
-    // 🔴 Duplicate inside same school
+    // Check duplicate inside same school
     const duplicate = await DepartmentModel.findDuplicate(
       validated.school_id,
       validated.name,
+      null,
+      connection,
     );
 
     if (duplicate) {
       throw {
         status: 409,
-        message: "Department already exists in this school",
+        message: `Department '${validated.name}' already exists in this school`,
       };
     }
 
-    const id = await DepartmentModel.create(connection, validated);
+    const payload = {
+      ...validated,
+      created_by: currentUser?.id || null,
+    };
+
+    const id = await DepartmentModel.create(connection, payload);
+    const createdDepartment = await DepartmentModel.findById(id, connection);
 
     await connection.commit();
 
     return {
       message: "Department created",
       id,
+      department: createdDepartment,
     };
   } catch (err) {
     await connection.rollback();
@@ -53,32 +63,36 @@ export const createDepartment = async (data) => {
   }
 };
 
-export const updateDepartment = async (id, data) => {
+export const updateDepartment = async (id, data, currentUser = null) => {
   const db = getDB();
   const connection = await db.getConnection();
 
   try {
     const validated = validateUpdateDepartment(data);
 
-    await connection.beginTransaction();
-
-    const dept = await DepartmentModel.findById(id);
-    if (!dept) {
+    const oldDepartment = await DepartmentModel.findById(id);
+    if (!oldDepartment) {
       throw { status: 404, message: "Department not found" };
     }
 
-    // 🔴 duplicate check
-    if (validated.name) {
+    await connection.beginTransaction();
+
+    const targetSchoolId = validated.school_id || oldDepartment.school_id;
+
+    // Duplicate check if name or school_id changed
+    if (validated.name || validated.school_id) {
+      const checkName = validated.name || oldDepartment.name;
       const duplicate = await DepartmentModel.findDuplicate(
-        dept.school_id,
-        validated.name,
+        targetSchoolId,
+        checkName,
         id,
+        connection,
       );
 
       if (duplicate) {
         throw {
           status: 409,
-          message: "Department name already exists",
+          message: `Department '${checkName}' already exists in this school`,
         };
       }
     }
@@ -86,28 +100,41 @@ export const updateDepartment = async (id, data) => {
     const fields = [];
     const values = [];
 
+    if (validated.school_id !== undefined) {
+      fields.push("school_id = ?");
+      values.push(validated.school_id);
+    }
+
     if (validated.name !== undefined) {
-      fields.push("name=?");
+      fields.push("name = ?");
       values.push(validated.name);
     }
 
     if (validated.description !== undefined) {
-      fields.push("description=?");
+      fields.push("description = ?");
       values.push(validated.description);
     }
 
     if (validated.status !== undefined) {
-      fields.push("status=?");
+      fields.push("status = ?");
       values.push(validated.status);
     }
 
-    if (fields.length) {
-      await DepartmentModel.update(connection, id, fields, values);
-    }
+    // Always update updated_by
+    fields.push("updated_by = ?");
+    values.push(currentUser?.id || null);
+
+    await DepartmentModel.update(connection, id, fields, values);
+
+    const updatedDepartment = await DepartmentModel.findById(id, connection);
 
     await connection.commit();
 
-    return { message: "Department updated" };
+    return {
+      message: "Department updated",
+      oldDepartment,
+      updatedDepartment,
+    };
   } catch (err) {
     await connection.rollback();
     throw err;
@@ -116,18 +143,64 @@ export const updateDepartment = async (id, data) => {
   }
 };
 
-export const getAllDepartments = async () => {
-  return await DepartmentModel.getAll();
+export const updateDepartmentStatus = async (id, status, currentUser = null) => {
+  if (!status) {
+    throw { status: 400, message: "status is required" };
+  }
+
+  const normalized = String(status).toLowerCase().trim();
+  if (!["active", "inactive"].includes(normalized)) {
+    throw { status: 400, message: "Status must be 'active' or 'inactive'" };
+  }
+
+  const oldDepartment = await DepartmentModel.findById(id);
+  if (!oldDepartment) {
+    throw { status: 404, message: "Department not found" };
+  }
+
+  const db = getDB();
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    await DepartmentModel.update(
+      connection,
+      id,
+      ["status = ?", "updated_by = ?"],
+      [normalized, currentUser?.id || null],
+    );
+
+    const updatedDepartment = await DepartmentModel.findById(id, connection);
+
+    await connection.commit();
+
+    return {
+      message: `Department status updated to ${normalized}`,
+      oldDepartment,
+      updatedDepartment,
+    };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 };
 
-export const getAllDepartmentsByToken = async (user) => {
+export const getAllDepartments = async (query = {}) => {
+  const filters = validateDepartmentFilters(query);
+  return await DepartmentModel.findAll(filters);
+};
+
+export const getAllDepartmentsByToken = async (user, query = {}) => {
   const db = getDB();
 
   if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // Get fresh user + roles
+  // Get user + school
   const [[dbUser]] = await db.query(
     `
     SELECT 
@@ -147,53 +220,23 @@ export const getAllDepartmentsByToken = async (user) => {
     throw { status: 404, message: "User not found" };
   }
 
-  // Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
   const isAdmin = roles.includes("ADMIN");
 
-  let query = `
-    SELECT
-      d.*,
-      s.name AS school_name
-    FROM departments d
-    LEFT JOIN schools s
-      ON d.school_id = s.id
-  `;
+  const filters = validateDepartmentFilters(query);
 
-  const values = [];
-
-  // NON-ADMIN → filter by school
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
-
-    query += ` WHERE d.school_id = ?`;
-    values.push(dbUser.school_id);
+    filters.school_id = dbUser.school_id;
   }
 
-  query += ` ORDER BY d.id DESC`;
-
-  const [rows] = await db.query(query, values);
-
-  return rows;
+  return await DepartmentModel.findAll(filters);
 };
 
 export const getDepartmentById = async (id) => {
-  const db = getDB();
-
-  const [[department]] = await db.query(
-    `
-    SELECT
-      d.*,
-      s.name AS school_name
-    FROM departments d
-    LEFT JOIN schools s
-      ON d.school_id = s.id
-    WHERE d.id = ?
-    `,
-    [id],
-  );
+  const department = await DepartmentModel.findById(id);
 
   if (!department) {
     throw {
@@ -205,8 +248,9 @@ export const getDepartmentById = async (id) => {
   return department;
 };
 
-export const getDepartmentsBySchool = async (school_id) => {
-  return await DepartmentModel.getBySchool(school_id);
+export const getDepartmentsBySchool = async (school_id, query = {}) => {
+  const filters = validateDepartmentFilters({ ...query, school_id });
+  return await DepartmentModel.findAll(filters);
 };
 
 export const deleteDepartment = async (id) => {
@@ -214,18 +258,21 @@ export const deleteDepartment = async (id) => {
   const connection = await db.getConnection();
 
   try {
-    await connection.beginTransaction();
-
-    const dept = await DepartmentModel.findById(id);
-    if (!dept) {
+    const department = await DepartmentModel.findById(id);
+    if (!department) {
       throw { status: 404, message: "Department not found" };
     }
+
+    await connection.beginTransaction();
 
     await DepartmentModel.delete(connection, id);
 
     await connection.commit();
 
-    return { message: "Department deleted" };
+    return {
+      message: "Department deleted",
+      deletedDepartment: department,
+    };
   } catch (err) {
     await connection.rollback();
     throw err;
@@ -234,10 +281,10 @@ export const deleteDepartment = async (id) => {
   }
 };
 
-export const checkExistingDepartment = async (data) => {
+export const checkExistingDepartment = async (data = {}) => {
   const db = getDB();
 
-  let { school_id, name } = data;
+  let { school_id, name, id } = data;
 
   if (!school_id) {
     throw { status: 400, message: "school_id is required" };
@@ -248,22 +295,30 @@ export const checkExistingDepartment = async (data) => {
   }
 
   school_id = Number(school_id);
-  name = name.trim();
+  name = name.trim().toUpperCase();
+  const excludeId = id || data.exclude_id || data.excludeId;
 
-  const [[existing]] = await db.query(
-    `
+  let sql = `
     SELECT
       d.id,
       d.school_id,
       d.name,
-      d.description
+      d.description,
+      d.status
     FROM departments d
     WHERE d.school_id = ?
       AND UPPER(d.name) = UPPER(?)
-    LIMIT 1
-    `,
-    [school_id, name],
-  );
+  `;
+  const params = [school_id, name];
+
+  if (excludeId) {
+    sql += ` AND d.id != ?`;
+    params.push(excludeId);
+  }
+
+  sql += ` LIMIT 1`;
+
+  const [[existing]] = await db.query(sql, params);
 
   return {
     available: !existing,

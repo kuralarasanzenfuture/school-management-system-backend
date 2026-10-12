@@ -27,25 +27,27 @@ export const seedRoles = async () => {
       name: "PRINCIPAL",
       role_code: "PRINCIPAL",
       description: "Manages school operations, staff, students, and reports.",
-      is_system: 1,
+      is_system: 0,
     },
     {
       name: "TEACHER",
       role_code: "TEACHER",
-      description: "Manages classes, attendance, marks, and student performance.",
-      is_system: 1,
+      description:
+        "Manages classes, attendance, marks, and student performance.",
+      is_system: 0,
     },
     {
       name: "STUDENT",
       role_code: "STUDENT",
-      description: "Can access personal profile, attendance, marks, and timetable.",
-      is_system: 1,
+      description:
+        "Can access personal profile, attendance, marks, and timetable.",
+      is_system: 0,
     },
     {
       name: "ACCOUNTANT",
       role_code: "ACCOUNTANT",
       description: "Manages fees, payments, expenses, and financial reports.",
-      is_system: 1,
+      is_system: 0,
     },
   ];
 
@@ -59,7 +61,7 @@ export const seedRoles = async () => {
         description = VALUES(description),
         is_system = VALUES(is_system)
       `,
-      [role.name, role.role_code, role.description, role.is_system]
+      [role.name, role.role_code, role.description, role.is_system],
     );
   }
 

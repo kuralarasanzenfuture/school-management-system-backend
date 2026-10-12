@@ -40,12 +40,12 @@ Comprehensive API documentation for the **Users and Authentication Module** in t
 
 | Method | Endpoint | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/users` | List all users with assigned roles | Bearer Token |
+| `GET` | `/api/users` | List all users with assigned roles | Bearer Token (Admin Only) |
 | `GET` | `/api/users/token` | List users scoped to authenticated user's school | Bearer Token |
 | `GET` | `/api/users/:id` | Get user by ID | Bearer Token |
-| `PUT` | `/api/users/update/:id` | Update user details and roles | Bearer Token |
-| `PATCH` | `/api/users/status/:id` | Update user status (`active`/`inactive`) | Bearer Token |
-| `DELETE` | `/api/users/delete/:id` | Soft delete user by ID | Bearer Token |
+| `PUT` | `/api/users/update/:id` | Update user details and roles | Bearer Token (Admin Only) |
+| `PATCH` | `/api/users/status/:id` | Update user status (`active`/`inactive`) | Bearer Token (Admin Only) |
+| `DELETE` | `/api/users/delete/:id` | Soft delete user by ID | Bearer Token (Admin Only) |
 
 ---
 
@@ -211,21 +211,42 @@ Updates password and increments token version to revoke previous tokens.
 ### 7. Get All Users
 
 - **Method**: `GET`
-- **Route**: `{{BASE_URL}}/api/users`
+- **Route**: `{{BASE_URL}}/api/users?search=admin&status=active&page=1&limit=20`
+- **Query Parameters**:
+  - `search` *(optional)*: Search term matching `username`, `email`, `phone`, or `school_name`
+  - `status` *(optional)*: Filter by `active` or `inactive`
+  - `school_id` *(optional)*: Filter by School ID
+  - `role_id` *(optional)*: Filter by Role ID
+  - `role` *(optional)*: Filter by Role Name (e.g. `TEACHER`, `ADMIN`)
+  - `page` *(optional)*: Page number (default: 1)
+  - `limit` *(optional)*: Items per page (default: 20, max: 100)
+  - `sortBy` *(optional)*: Sort column (`id`, `username`, `email`, `phone`, `status`, `school_id`, `created_at`, `last_login_at`)
+  - `sortOrder` *(optional)*: Sort direction (`ASC` or `DESC`, default: `DESC`)
+- **Headers**:
+  - `Authorization`: `Bearer {{TOKEN}}` (Admin Only)
 - **Success Response (`200 OK`)**:
 ```json
-[
-  {
-    "id": 1,
-    "username": "admin",
-    "email": "admin@school.edu",
-    "phone": "9876543210",
-    "status": "active",
-    "school_id": 1,
-    "school_name": "Greenwood International",
-    "roles": ["ADMIN"]
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "username": "admin",
+      "email": "admin@school.edu",
+      "phone": "9876543210",
+      "status": "active",
+      "school_id": 1,
+      "school_name": "Greenwood International",
+      "roles": [
+        { "id": 1, "name": "ADMIN" }
+      ]
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20,
+  "totalPages": 1
+}
 ```
 
 ---
