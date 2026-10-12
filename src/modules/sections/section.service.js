@@ -3,34 +3,57 @@ import { SectionModel } from "./section.model.js";
 import {
   validateCreateSection,
   validateUpdateSection,
+  validateSectionFilters,
 } from "./section.validation.js";
 
-export const createSection = async (data) => {
+export const createSection = async (data, currentUser = null) => {
   const db = getDB();
   const conn = await db.getConnection();
 
   try {
     const validated = validateCreateSection(data);
 
-    // ❌ duplicate check
+    await conn.beginTransaction();
+
+    // Check class exists
+    const [[cls]] = await conn.query(
+      `SELECT id, school_id, name FROM classes WHERE id = ?`,
+      [validated.class_id],
+    );
+
+    if (!cls) {
+      throw { status: 404, message: "Class not found" };
+    }
+
+    // Duplicate check inside same class
     const exists = await SectionModel.findDuplicate(
       validated.class_id,
       validated.name,
+      null,
+      conn,
     );
 
     if (exists) {
-      throw { status: 409, message: "Section already exists" };
+      throw {
+        status: 409,
+        message: `Section '${validated.name}' already exists in class '${cls.name}'`,
+      };
     }
 
-    await conn.beginTransaction();
+    const payload = {
+      ...validated,
+      created_by: currentUser?.id || null,
+    };
 
-    const id = await SectionModel.create(conn, validated);
+    const id = await SectionModel.create(conn, payload);
+    const createdSection = await SectionModel.findById(id, conn);
 
     await conn.commit();
 
     return {
       message: "Section created",
       id,
+      section: createdSection,
     };
   } catch (err) {
     await conn.rollback();
@@ -40,7 +63,7 @@ export const createSection = async (data) => {
   }
 };
 
-export const updateSection = async (id, data) => {
+export const updateSection = async (id, data, currentUser = null) => {
   const db = getDB();
   const conn = await db.getConnection();
 
@@ -52,48 +75,76 @@ export const updateSection = async (id, data) => {
       throw { status: 404, message: "Section not found" };
     }
 
-    // ❌ duplicate check
-    if (validated.name) {
+    await conn.beginTransaction();
+
+    const targetClassId = validated.class_id || existing.class_id;
+
+    if (validated.class_id) {
+      const [[cls]] = await conn.query(
+        `SELECT id, name FROM classes WHERE id = ?`,
+        [validated.class_id],
+      );
+      if (!cls) {
+        throw { status: 404, message: "Target class not found" };
+      }
+    }
+
+    // Duplicate check if name or class_id changed
+    if (validated.name || validated.class_id) {
+      const checkName = validated.name || existing.name;
       const dup = await SectionModel.findDuplicate(
-        existing.class_id,
-        validated.name,
+        targetClassId,
+        checkName,
         id,
+        conn,
       );
 
       if (dup) {
-        throw { status: 409, message: "Section already exists" };
+        throw {
+          status: 409,
+          message: `Section '${checkName}' already exists in this class`,
+        };
       }
     }
 
     const fields = [];
     const values = [];
 
-    if (validated.name) {
-      fields.push("name=?");
+    if (validated.class_id !== undefined) {
+      fields.push("class_id = ?");
+      values.push(validated.class_id);
+    }
+
+    if (validated.name !== undefined) {
+      fields.push("name = ?");
       values.push(validated.name);
     }
 
     if (validated.capacity !== undefined) {
-      fields.push("capacity=?");
+      fields.push("capacity = ?");
       values.push(validated.capacity);
     }
 
-    if (validated.status) {
-      fields.push("status=?");
+    if (validated.status !== undefined) {
+      fields.push("status = ?");
       values.push(validated.status);
     }
 
-    if (!fields.length) {
-      throw { status: 400, message: "Nothing to update" };
-    }
-
-    await conn.beginTransaction();
+    // Always update updated_by
+    fields.push("updated_by = ?");
+    values.push(currentUser?.id || null);
 
     await SectionModel.update(conn, id, fields, values);
 
+    const updatedSection = await SectionModel.findById(id, conn);
+
     await conn.commit();
 
-    return { message: "Section updated" };
+    return {
+      message: "Section updated",
+      oldSection: existing,
+      updatedSection,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -102,22 +153,64 @@ export const updateSection = async (id, data) => {
   }
 };
 
-// export const getAllSections = async () => {
-//   return await SectionModel.getAll();
-// };
+export const updateSectionStatus = async (id, status, currentUser = null) => {
+  if (!status) {
+    throw { status: 400, message: "status is required" };
+  }
 
-export const getAllSections = async (filters) => {
-  return await SectionModel.getAll(filters);
+  const normalized = String(status).toLowerCase().trim();
+  if (!["active", "inactive"].includes(normalized)) {
+    throw { status: 400, message: "Status must be 'active' or 'inactive'" };
+  }
+
+  const existing = await SectionModel.findById(id);
+  if (!existing) {
+    throw { status: 404, message: "Section not found" };
+  }
+
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    await SectionModel.update(
+      conn,
+      id,
+      ["status = ?", "updated_by = ?"],
+      [normalized, currentUser?.id || null],
+    );
+
+    const updatedSection = await SectionModel.findById(id, conn);
+
+    await conn.commit();
+
+    return {
+      message: `Section status updated to ${normalized}`,
+      oldSection: existing,
+      updatedSection,
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 };
 
-export const getAllSectionsByToken = async (user) => {
+export const getAllSections = async (query = {}) => {
+  const filters = validateSectionFilters(query);
+  return await SectionModel.findAll(filters);
+};
+
+export const getAllSectionsByToken = async (user, query = {}) => {
   const db = getDB();
 
   if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Get fresh user + roles
+  // Get user + roles
   const [[dbUser]] = await db.query(
     `
     SELECT 
@@ -137,58 +230,36 @@ export const getAllSectionsByToken = async (user) => {
     throw { status: 404, message: "User not found" };
   }
 
-  // 🔥 Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
-
   const isAdmin = roles.includes("ADMIN");
 
-  let query = `
-    SELECT 
-      s.id,
-      s.name AS section_name,
-      s.capacity,
-      s.status,
+  const filters = validateSectionFilters(query);
 
-      c.id AS class_id,
-      c.name AS class_name,
-
-      sc.id AS school_id,
-      sc.name AS school_name,
-
-      CONCAT(c.name, '-', s.name) AS class_section
-
-    FROM sections s
-    JOIN classes c ON s.class_id = c.id
-    JOIN schools sc ON c.school_id = sc.id
-    WHERE 1=1
-  `;
-
-  const values = [];
-
-  // 🔥 NON-ADMIN → filter by school
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
-
-    query += ` AND c.school_id = ?`;
-    values.push(dbUser.school_id);
+    filters.school_id = dbUser.school_id;
   }
 
-  query += ` ORDER BY s.id DESC`;
-
-  const [rows] = await db.query(query, values);
-
-  return rows;
+  return await SectionModel.findAll(filters);
 };
 
-export const getSchoolTree = async () => {
-  const rows = await SectionModel.getAllTreeData();
+export const getAllSectionsByClassId = async (class_id, query = {}) => {
+  if (!class_id) {
+    throw { status: 400, message: "class_id required" };
+  }
+
+  const filters = validateSectionFilters({ ...query, class_id });
+  return await SectionModel.findAll(filters);
+};
+
+export const getSchoolTree = async (school_id = null) => {
+  const rows = await SectionModel.getAllTreeData(school_id);
 
   const schoolsMap = {};
 
   for (const row of rows) {
-    // 🔹 SCHOOL
     if (!schoolsMap[row.school_id]) {
       schoolsMap[row.school_id] = {
         id: row.school_id,
@@ -199,7 +270,6 @@ export const getSchoolTree = async () => {
 
     const school = schoolsMap[row.school_id];
 
-    // 🔹 CLASS
     if (row.class_id) {
       if (!school.classes[row.class_id]) {
         school.classes[row.class_id] = {
@@ -211,7 +281,6 @@ export const getSchoolTree = async () => {
 
       const cls = school.classes[row.class_id];
 
-      // 🔹 SECTION
       if (row.section_id) {
         cls.sections.push({
           id: row.section_id,
@@ -221,22 +290,11 @@ export const getSchoolTree = async () => {
     }
   }
 
-  // 🔥 Convert object → array
-  const result = Object.values(schoolsMap).map((school) => ({
+  return Object.values(schoolsMap).map((school) => ({
     id: school.id,
     name: school.name,
     classes: Object.values(school.classes),
   }));
-
-  return result;
-};
-
-export const getAllSectionsByClassId = async (class_id) => {
-  if (!class_id) {
-    throw { status: 400, message: "class_id required" };
-  }
-
-  return await SectionModel.getAllClassById(class_id);
 };
 
 export const getSectionById = async (id) => {
@@ -259,25 +317,49 @@ export const deleteSection = async (id) => {
       throw { status: 404, message: "Section not found" };
     }
 
+    // Safety checks against referencing records
+    const refs = await SectionModel.checkReferences(id, conn);
+
+    if (refs.classSections > 0) {
+      throw {
+        status: 400,
+        message: `Cannot delete section '${existing.name}'. It is currently referenced by ${refs.classSections} class section(s). Please remove or reassign associated records first.`,
+      };
+    }
+
     await conn.beginTransaction();
 
     await SectionModel.delete(conn, id);
 
     await conn.commit();
 
-    return { message: "Section deleted" };
+    return {
+      message: "Section deleted",
+      deletedSection: existing,
+    };
   } catch (err) {
     await conn.rollback();
+    if (
+      err.code === "ER_ROW_IS_REFERENCED_2" ||
+      err.errno === 1451 ||
+      (err.message && err.message.includes("foreign key constraint fails"))
+    ) {
+      throw {
+        status: 400,
+        message:
+          "Cannot delete this section because it is linked to existing records. Please remove or reassign associated records first.",
+      };
+    }
     throw err;
   } finally {
     conn.release();
   }
 };
 
-export const checkExistingSection = async (data) => {
+export const checkExistingSection = async (data = {}) => {
   const db = getDB();
 
-  const { class_id, name } = data;
+  let { class_id, name, id } = data;
 
   if (!class_id) {
     throw { status: 400, message: "class_id is required" };
@@ -287,24 +369,101 @@ export const checkExistingSection = async (data) => {
     throw { status: 400, message: "name is required" };
   }
 
-  const [[existing]] = await db.query(
-    `
+  class_id = Number(class_id);
+  name = name.trim().toUpperCase();
+  const excludeId = id || data.exclude_id || data.excludeId;
+
+  let sql = `
     SELECT
       s.id,
       s.class_id,
       c.name AS class_name,
       s.name AS section_name,
       s.capacity,
-      s.status
+      s.status,
+      s.created_by,
+      s.updated_by
     FROM sections s
-    JOIN classes c
-      ON c.id = s.class_id
+    JOIN classes c ON c.id = s.class_id
     WHERE s.class_id = ?
       AND UPPER(s.name) = UPPER(?)
-    LIMIT 1
+  `;
+  const params = [class_id, name];
+
+  if (excludeId) {
+    sql += ` AND s.id != ?`;
+    params.push(excludeId);
+  }
+
+  sql += ` LIMIT 1`;
+
+  const [[existing]] = await db.query(sql, params);
+
+  return {
+    available: !existing,
+    exists: !!existing,
+    section: existing || null,
+  };
+};
+
+export const checkExistingSectionByToken = async (user, data = {}) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  let { class_id, name } = data;
+
+  if (!class_id) {
+    throw { status: 400, message: "class_id is required" };
+  }
+
+  if (!name?.trim()) {
+    throw { status: 400, message: "name is required" };
+  }
+
+  // Get user + school
+  const [[dbUser]] = await db.query(
+    `
+    SELECT id, school_id
+    FROM users
+    WHERE id = ?
     `,
-    [Number(class_id), name.trim()],
+    [user.id],
   );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const excludeId = data.id || data.exclude_id || data.excludeId;
+
+  let sql = `
+    SELECT
+      s.id,
+      s.class_id,
+      c.name AS class_name,
+      s.name AS section_name,
+      s.capacity,
+      s.status,
+      s.created_by,
+      s.updated_by
+    FROM sections s
+    JOIN classes c ON c.id = s.class_id
+    WHERE s.class_id = ?
+      AND UPPER(s.name) = UPPER(?)
+  `;
+  const params = [Number(class_id), name.trim()];
+
+  if (excludeId) {
+    sql += ` AND s.id != ?`;
+    params.push(excludeId);
+  }
+
+  sql += ` LIMIT 1`;
+
+  const [[existing]] = await db.query(sql, params);
 
   return {
     available: !existing,

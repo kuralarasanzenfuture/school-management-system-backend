@@ -17,13 +17,14 @@ export const seedClassSections = async () => {
   for (const school of schools) {
     const schoolId = school.id;
 
-    // Current academic year
+    // Active academic year
     const [years] = await db.query(
       `
       SELECT id
       FROM academic_years
       WHERE school_id = ?
-        AND is_current = TRUE
+        AND status = 'active'
+      ORDER BY start_date DESC
       LIMIT 1
       `,
       [schoolId],

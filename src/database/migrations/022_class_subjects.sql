@@ -27,11 +27,15 @@ CREATE TABLE
         employee_id BIGINT UNSIGNED NULL,
         is_optional BOOLEAN DEFAULT FALSE,
         weekly_periods INT DEFAULT 0,
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_class_subject (class_section_id, subject_id),
         FOREIGN KEY (class_section_id) REFERENCES class_sections (id) ON DELETE CASCADE,
         FOREIGN KEY (subject_id) REFERENCES subjects (id) ON DELETE CASCADE,
         FOREIGN KEY (subject_group_id) REFERENCES subject_groups (id) ON DELETE SET NULL,
-        FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE SET NULL
+        FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
     );

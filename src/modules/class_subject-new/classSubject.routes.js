@@ -16,14 +16,16 @@ const router = express.Router();
 
 router.use(verifyToken);
 
+// CREATE & BULK
 router.post("/", createClassSubject);
-
-router.get("/check-class-subject", checkExistingClassSubject);
-router.get("/token", verifyToken, getAllClassSubjectsByToken);
-
-router.get("/detailed", verifyToken, getAllClassSubjectsDetailed);
 router.post("/bulk-assign-subjects", bulkAssignSubjects);
 
+// CHECK & TOKEN GETs
+router.get("/check-class-subject", checkExistingClassSubject);
+router.get("/token", getAllClassSubjectsByToken);
+router.get("/detailed", getAllClassSubjectsDetailed);
+
+// STANDARD GET / UPDATE / DELETE
 router.get("/", getAllClassSubjects);
 router.get("/:id", getClassSubjectById);
 

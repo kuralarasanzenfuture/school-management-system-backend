@@ -1,18 +1,16 @@
-CREATE TABLE IF NOT EXISTS sections (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    class_id BIGINT UNSIGNED NOT NULL,
-
-    name VARCHAR(20) NOT NULL, -- A, B, C
-
-    capacity INT DEFAULT NULL,
-
-    status ENUM('active','inactive') DEFAULT 'active',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE KEY uq_section (class_id, name),
-
-    FOREIGN KEY (class_id)
-    REFERENCES classes(id)
-    ON DELETE CASCADE
-);
+CREATE TABLE
+    IF NOT EXISTS sections (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        class_id BIGINT UNSIGNED NOT NULL,
+        name VARCHAR(20) NOT NULL, -- A, B, C
+        capacity INT DEFAULT NULL,
+        status ENUM ('active', 'inactive') DEFAULT 'active',
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_section (class_id, name),
+        FOREIGN KEY (class_id) REFERENCES classes (id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
+    );

@@ -14,22 +14,22 @@ export const seedAcademicYears = async () => {
     name: "2026-2027",
     start_date: "2026-06-01",
     end_date: "2027-05-31",
-    is_current: true,
     status: "active",
   };
 
   for (const school of schools) {
-    // Ensure only one current academic year per school
-    await db.query(
-      `
-      UPDATE academic_years
-      SET is_current = FALSE
-      WHERE school_id = ?
-      `,
-      [school.id]
-    );
+    // Optional: If you want to ensure only one active academic year per school,
+    // you can update existing active years to 'inactive' first:
+    /*
+    if (academicYear.status === 'active') {
+      await db.query(
+        `UPDATE academic_years SET status = 'inactive' WHERE school_id = ? AND status = 'active'`,
+        [school.id]
+      );
+    }
+    */
 
-    // Insert or update the current academic year
+    // Insert or update the academic year (Fixed placeholder count to match 5 columns)
     await db.query(
       `
       INSERT INTO academic_years
@@ -38,14 +38,12 @@ export const seedAcademicYears = async () => {
         name,
         start_date,
         end_date,
-        is_current,
         status
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         start_date = VALUES(start_date),
         end_date = VALUES(end_date),
-        is_current = VALUES(is_current),
         status = VALUES(status)
       `,
       [
@@ -53,9 +51,8 @@ export const seedAcademicYears = async () => {
         academicYear.name,
         academicYear.start_date,
         academicYear.end_date,
-        academicYear.is_current,
         academicYear.status,
-      ]
+      ],
     );
   }
 

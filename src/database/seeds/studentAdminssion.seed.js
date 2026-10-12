@@ -605,7 +605,8 @@ export const seedStudentAdmissions = async () => {
     // 2. Get current active academic year for this specific school
     const [academicYears] = await db.query(
       `SELECT id, name FROM academic_years 
-       WHERE school_id = ? AND is_current = TRUE AND status = 'active' 
+       WHERE school_id = ? AND status = 'active'
+       ORDER BY start_date DESC
        LIMIT 1`,
       [schoolId],
     );
