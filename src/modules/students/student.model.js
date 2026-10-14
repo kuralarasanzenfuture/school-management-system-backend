@@ -130,8 +130,10 @@ export const StudentModel = {
       data.emergency_contact,
       data.emergency_relationship,
 
-      data.status,
-    ]);
+        data.status,
+        data.created_by || null,
+        data.updated_by || null,
+      ]);
     const [result] = await conn.query(
       `INSERT INTO students (
     school_id, student_code, first_name, middle_name, last_name,
@@ -146,13 +148,13 @@ export const StudentModel = {
     father_name, mother_name, father_occupation, mother_occupation,
     parent_mobile, alternate_mobile, parent_email,
     emergency_contact, emergency_relationship,
-    status
+    status, created_by, updated_by
   ) VALUES (
   ?,?,?,?,?,?,?,?,?,?,
   ?,?,?,?,?,?,?,?,?,?,
   ?,?,?,?,?,?,?,?,?,?,
   ?,?,?,?,?,?,?,?,?,?,
-  ?,?,?
+  ?,?,?,?,?
 )`,
       [
         data.school_id,
@@ -203,22 +205,220 @@ export const StudentModel = {
         data.emergency_relationship,
 
         data.status,
+        data.created_by || null,
+        data.updated_by || null,
       ],
     );
 
     return result.insertId;
   },
 
-  findById: async (id) => {
-    const db = getDB();
-    const [[row]] = await db.query(`SELECT * FROM students WHERE id=?`, [id]);
-    return row;
+  findById: async (id, connection = null) => {
+    const db = connection || getDB();
+    const [[row]] = await db.query(
+      `
+      SELECT 
+        st.*,
+        s.name AS school_name
+      FROM students st
+      JOIN schools s ON st.school_id = s.id
+      WHERE st.id = ?
+      `,
+      [id],
+    );
+    return row || null;
   },
 
   getAll: async () => {
     const db = getDB();
-    const [rows] = await db.query(`SELECT * FROM students ORDER BY id DESC`);
+    const [rows] = await db.query(
+      `
+      SELECT 
+        st.*,
+        s.name AS school_name
+      FROM students st
+      JOIN schools s ON st.school_id = s.id
+      ORDER BY st.id DESC
+      `,
+    );
     return rows;
+  },
+
+  findAll: async (filters = {}) => {
+    const db = getDB();
+    const {
+      school_id,
+      status,
+      gender,
+      blood_group,
+      student_code,
+      name,
+      first_name,
+      last_name,
+      email,
+      mobile_no,
+      aadhaar_no,
+      search,
+      page = 1,
+      limit = 20,
+      sortBy = "id",
+      sortOrder = "DESC",
+      paginate = true,
+    } = filters;
+
+    const conditions = [];
+    const params = [];
+
+    if (school_id) {
+      conditions.push("st.school_id = ?");
+      params.push(school_id);
+    }
+
+    if (status) {
+      if (status === "none") {
+        conditions.push("1 = 0");
+      } else if (Array.isArray(status)) {
+        if (status.length === 1) {
+          conditions.push("st.status = ?");
+          params.push(status[0]);
+        } else if (status.length > 1) {
+          conditions.push(`st.status IN (${status.map(() => "?").join(", ")})`);
+          params.push(...status);
+        }
+      } else {
+        conditions.push("st.status = ?");
+        params.push(status);
+      }
+    }
+
+    if (gender) {
+      conditions.push("st.gender = ?");
+      params.push(gender);
+    }
+
+    if (blood_group) {
+      conditions.push("st.blood_group = ?");
+      params.push(blood_group);
+    }
+
+    if (student_code) {
+      conditions.push("st.student_code LIKE ?");
+      params.push(`%${student_code}%`);
+    }
+
+    if (first_name) {
+      conditions.push("st.first_name LIKE ?");
+      params.push(`%${first_name}%`);
+    }
+
+    if (last_name) {
+      conditions.push("st.last_name LIKE ?");
+      params.push(`%${last_name}%`);
+    }
+
+    if (name) {
+      conditions.push(
+        "(st.first_name LIKE ? OR st.last_name LIKE ? OR CONCAT(st.first_name, ' ', st.last_name) LIKE ?)",
+      );
+      params.push(`%${name}%`, `%${name}%`, `%${name}%`);
+    }
+
+    if (email) {
+      conditions.push("st.email LIKE ?");
+      params.push(`%${email}%`);
+    }
+
+    if (mobile_no) {
+      conditions.push("st.mobile_no LIKE ?");
+      params.push(`%${mobile_no}%`);
+    }
+
+    if (aadhaar_no) {
+      conditions.push("st.aadhaar_no LIKE ?");
+      params.push(`%${aadhaar_no}%`);
+    }
+
+    if (search) {
+      conditions.push(
+        `(
+          st.first_name LIKE ? OR
+          st.last_name LIKE ? OR
+          CONCAT(st.first_name, ' ', st.last_name) LIKE ? OR
+          st.student_code LIKE ? OR
+          st.email LIKE ? OR
+          st.mobile_no LIKE ? OR
+          st.aadhaar_no LIKE ? OR
+          s.name LIKE ?
+        )`,
+      );
+      params.push(
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+      );
+    }
+
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const allowedSortCols = {
+      id: "st.id",
+      student_code: "st.student_code",
+      first_name: "st.first_name",
+      last_name: "st.last_name",
+      gender: "st.gender",
+      status: "st.status",
+      date_of_birth: "st.date_of_birth",
+      school_id: "st.school_id",
+      school_name: "s.name",
+      created_at: "st.created_at",
+      updated_at: "st.updated_at",
+    };
+    const sortCol = allowedSortCols[sortBy] || "st.id";
+    const sortDir = sortOrder === "ASC" ? "ASC" : "DESC";
+
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM students st
+      JOIN schools s ON st.school_id = s.id
+      ${whereClause}
+    `;
+    const [[countResult]] = await db.query(countSql, params);
+    const total = Number(countResult?.total) || 0;
+
+    let sql = `
+      SELECT 
+        st.*,
+        s.name AS school_name
+      FROM students st
+      JOIN schools s ON st.school_id = s.id
+      ${whereClause}
+      ORDER BY ${sortCol} ${sortDir}
+    `;
+
+    const queryParams = [...params];
+
+    if (paginate) {
+      const offset = (page - 1) * limit;
+      sql += ` LIMIT ? OFFSET ?`;
+      queryParams.push(limit, offset);
+    }
+
+    const [rows] = await db.query(sql, queryParams);
+
+    return {
+      students: rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   },
 
   update: async (conn, id, data) => {
@@ -236,7 +436,32 @@ export const StudentModel = {
     await conn.query(query, [...values, id]);
   },
 
+  updateStatus: async (conn, id, status, updated_by = null) => {
+    const db = conn || getDB();
+    if (updated_by) {
+      await db.query(
+        `UPDATE students SET status = ?, updated_by = ? WHERE id = ?`,
+        [status, updated_by, id],
+      );
+    } else {
+      await db.query(`UPDATE students SET status = ? WHERE id = ?`, [status, id]);
+    }
+  },
+
   delete: async (conn, id) => {
     await conn.query(`DELETE FROM students WHERE id=?`, [id]);
+  },
+
+  checkReferences: async (id, connection = null) => {
+    const db = connection || getDB();
+    const [[admissionsCount]] = await db.query(
+      `SELECT COUNT(*) as count FROM student_admissions WHERE student_id = ?`,
+      [id],
+    );
+    const admissions = Number(admissionsCount?.count) || 0;
+    return {
+      admissions,
+      total: admissions,
+    };
   },
 };

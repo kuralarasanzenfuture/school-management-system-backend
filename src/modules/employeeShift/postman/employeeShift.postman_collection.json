@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "emp-shift-001-postman-collection",
     "name": "Employee Shift Module - School Management System",
-    "description": "Complete Postman collection for testing Employee Shifts: create shift with start/end times and grace minutes (automatic working hours calculation), list all shifts, token-scoped shifts listing, get shift by ID, update shift, and delete shift.",
+    "description": "Complete Postman collection for testing Employee Shifts: CRUD operations, midnight shifts, advanced filtering, token-scoped lookups, sorting, pagination metadata, status toggling, and audit logging.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -23,129 +23,505 @@
   ],
   "item": [
     {
-      "name": "1. Create Shift (Standard Morning Shift)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"MORNING SHIFT\",\n  \"start_time\": \"08:30:00\",\n  \"end_time\": \"16:30:00\",\n  \"grace_minutes\": 15,\n  \"status\": \"active\"\n}"
+      "name": "1. Shift Lifecycle (CRUD & Status)",
+      "item": [
+        {
+          "name": "1. Create Shift (Day / Standard Morning)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"name\": \"MORNING SHIFT\",\n  \"shift_type\": \"day\",\n  \"start_time\": \"08:30:00\",\n  \"end_time\": \"16:30:00\",\n  \"grace_minutes\": 15,\n  \"is_default\": true,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"]
+            },
+            "description": "Creates a standard day shift. Working hours (8.00) are automatically calculated and logged in audit logs."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts"]
+        {
+          "name": "2. Create Shift (Night Shift / Crosses Midnight)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"name\": \"NIGHT SECURITY SHIFT\",\n  \"shift_type\": \"night\",\n  \"start_time\": \"22:00:00\",\n  \"end_time\": \"06:00:00\",\n  \"crosses_midnight\": true,\n  \"grace_minutes\": 10,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"]
+            },
+            "description": "Creates a night shift crossing midnight with automated calculation (8.00 hrs)."
+          },
+          "response": []
         },
-        "description": "Creates a new employee shift. System automatically computes `working_hours` (8.00) based on start_time and end_time."
-      },
-      "response": []
+        {
+          "name": "3. Get Shift by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+            },
+            "description": "Fetches single shift details by primary key ID along with joined school details."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update Shift by ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"REGULAR MORNING SHIFT\",\n  \"start_time\": \"08:00:00\",\n  \"end_time\": \"16:00:00\",\n  \"grace_minutes\": 10,\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+            },
+            "description": "Updates shift attributes with automated diff audit logging."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Update Shift Status (Toggle Active/Inactive)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/status/{{SHIFT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "status", "{{SHIFT_ID}}"]
+            },
+            "description": "Toggles shift active/inactive status and logs ACTIVATE / DEACTIVATE audit action."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Delete Shift by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+            },
+            "description": "Deletes shift record and records DELETE audit log snapshot."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "2. Create Shift (Afternoon / Evening Shift)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"AFTERNOON SHIFT\",\n  \"start_time\": \"12:00:00\",\n  \"end_time\": \"20:00:00\",\n  \"grace_minutes\": 10,\n  \"status\": \"active\"\n}"
+      "name": "2. Advanced Filter & Search APIs",
+      "item": [
+        {
+          "name": "1. Get all shifts (Base list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"]
+            },
+            "description": "Lists all employee shifts across institutions."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts"]
+        {
+          "name": "2. Filter by Global Search (?search=Morning)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?search=Morning",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "search", "value": "Morning", "description": "Search across shift name and school name" }
+              ]
+            },
+            "description": "Searches shifts matching 'Morning'."
+          },
+          "response": []
         },
-        "description": "Creates an afternoon work shift with custom grace period."
-      },
-      "response": []
+        {
+          "name": "3. Filter by Query Search (?q=Night)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?q=Night",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "q", "value": "Night", "description": "Shorthand search parameter" }
+              ]
+            },
+            "description": "Shorthand query search across shifts."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Filter by Single School ID (?school_id=1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?school_id={{SCHOOL_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "Filter by target school ID" }
+              ]
+            },
+            "description": "Filters shifts belonging to a specific school."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Filter by Multi-School IDs (?school_id=1,2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?school_id=1,2",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "school_id", "value": "1,2", "description": "Comma-separated school IDs" }
+              ]
+            },
+            "description": "Filters shifts spanning multiple institutions."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Filter by Status Active (?status=active)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?status=active",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "status", "value": "active", "description": "Filter active shifts" }
+              ]
+            },
+            "description": "Filters shifts with active status."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Filter by Status Inactive (?status=inactive)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?status=inactive",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "status", "value": "inactive", "description": "Filter inactive shifts" }
+              ]
+            },
+            "description": "Filters inactive shifts."
+          },
+          "response": []
+        },
+        {
+          "name": "8. Filter by Shift Type Day (?shift_type=day)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?shift_type=day",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "shift_type", "value": "day", "description": "Shift types: day, evening, night, flexible" }
+              ]
+            },
+            "description": "Filters daytime shifts."
+          },
+          "response": []
+        },
+        {
+          "name": "9. Filter by Shift Type Night (?shift_type=night)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?shift_type=night",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "shift_type", "value": "night", "description": "Shift type night" }
+              ]
+            },
+            "description": "Filters overnight / night shifts."
+          },
+          "response": []
+        },
+        {
+          "name": "10. Filter by Default Shift (?is_default=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?is_default=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "is_default", "value": "true", "description": "Filter institution default shifts" }
+              ]
+            },
+            "description": "Fetches only default assigned shifts."
+          },
+          "response": []
+        },
+        {
+          "name": "11. Filter by Name (?name=MORNING)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?name=MORNING",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "name", "value": "MORNING", "description": "Filter by shift name" }
+              ]
+            },
+            "description": "Filters shifts matching name substring."
+          },
+          "response": []
+        },
+        {
+          "name": "12. Sort by Name Ascending (?sort_by=name&sort_order=ASC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?sort_by=name&sort_order=ASC",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "sort_by", "value": "name" },
+                { "key": "sort_order", "value": "ASC" }
+              ]
+            },
+            "description": "Alphabetical sorting by shift name."
+          },
+          "response": []
+        },
+        {
+          "name": "13. Sort by Working Hours Descending (?sort_by=working_hours&sort_order=DESC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?sort_by=working_hours&sort_order=DESC",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "sort_by", "value": "working_hours" },
+                { "key": "sort_order", "value": "DESC" }
+              ]
+            },
+            "description": "Sorts shifts by longest working hours first."
+          },
+          "response": []
+        },
+        {
+          "name": "14. Pagination Page 1 Limit 10 (?page=1&limit=10)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?page=1&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Fetches page 1 with 10 records. Pagination headers attached."
+          },
+          "response": []
+        },
+        {
+          "name": "15. Paginated Response with Metadata Envelope (?paginate=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?page=1&limit=10&paginate=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "paginate", "value": "true", "description": "Returns full pagination, filter_display, and total count metadata" }
+              ]
+            },
+            "description": "Returns structured JSON response with pagination object and active filter display."
+          },
+          "response": []
+        },
+        {
+          "name": "16. Combined Multi-Filter Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts?search=Shift&status=active&shift_type=day&school_id={{SCHOOL_ID}}&sort_by=name&sort_order=ASC&page=1&limit=10&paginate=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts"],
+              "query": [
+                { "key": "search", "value": "Shift" },
+                { "key": "status", "value": "active" },
+                { "key": "shift_type", "value": "day" },
+                { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+                { "key": "sort_by", "value": "name" },
+                { "key": "sort_order", "value": "ASC" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "paginate", "value": "true" }
+              ]
+            },
+            "description": "Comprehensive combined query testing multi-dimensional filtering."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "3. Get All Shifts",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts"]
+      "name": "3. Token-Scoped GET APIs (School Bound)",
+      "item": [
+        {
+          "name": "1. Get all shifts by token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/token",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "token"]
+            },
+            "description": "Fetches shifts strictly bound to the authenticated user's school."
+          },
+          "response": []
         },
-        "description": "Lists all employee shifts across the system."
-      },
-      "response": []
-    },
-    {
-      "name": "4. Get All Shifts by Token",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts/token",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts", "token"]
+        {
+          "name": "2. Get shifts by token with status filter (?status=active)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/token?status=active",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "token"],
+              "query": [
+                { "key": "status", "value": "active" }
+              ]
+            },
+            "description": "Fetches active shifts within the user's school."
+          },
+          "response": []
         },
-        "description": "Lists shifts automatically filtered by the logged-in user's assigned school."
-      },
-      "response": []
-    },
-    {
-      "name": "5. Get Shift by ID",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
+        {
+          "name": "3. Get shifts by token with shift_type filter (?shift_type=day)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/token?shift_type=day",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "token"],
+              "query": [
+                { "key": "shift_type", "value": "day" }
+              ]
+            },
+            "description": "Fetches daytime shifts within the user's school."
+          },
+          "response": []
         },
-        "description": "Fetches single shift details by primary key ID."
-      },
-      "response": []
-    },
-    {
-      "name": "6. Update Shift by ID",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"PRIMARY MORNING SHIFT\",\n  \"start_time\": \"08:00:00\",\n  \"end_time\": \"16:00:00\",\n  \"grace_minutes\": 10,\n  \"status\": \"active\"\n}"
+        {
+          "name": "4. Get shifts by token with search (?search=Morning)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/token?search=Morning",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "token"],
+              "query": [
+                { "key": "search", "value": "Morning" }
+              ]
+            },
+            "description": "Searches shifts within user's school."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
-        },
-        "description": "Updates shift details. Re-calculates working_hours automatically if times are modified."
-      },
-      "response": []
-    },
-    {
-      "name": "7. Delete Shift by ID",
-      "request": {
-        "method": "DELETE",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employee-shifts/{{SHIFT_ID}}",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employee-shifts", "{{SHIFT_ID}}"]
-        },
-        "description": "Deletes an employee shift by ID."
-      },
-      "response": []
+        {
+          "name": "5. Get shifts by token with pagination (?page=1&limit=10&paginate=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employee-shifts/token?page=1&limit=10&paginate=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employee-shifts", "token"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "paginate", "value": "true" }
+              ]
+            },
+            "description": "Token-scoped listing with pagination metadata."
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

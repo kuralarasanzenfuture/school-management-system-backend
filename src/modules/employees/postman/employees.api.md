@@ -602,6 +602,8 @@ Fetches distinct options to populate frontend dropdown menus dynamically.
 
 ### 2.1 Create Designation
 
+Creates a new staff designation. Name is automatically normalized to uppercase.
+
 - **Method**: `POST`
 - **Route**: `{{BASE_URL}}/api/employees-designations`
 - **Request Body**:
@@ -613,37 +615,252 @@ Fetches distinct options to populate frontend dropdown menus dynamically.
   "status": "active"
 }
 ```
-- **Success Response (`201 Created`)**:
+
+#### Success Response (`201 Created`)
 ```json
 {
+  "success": true,
   "message": "Designation created successfully",
-  "id": 1
+  "id": 1,
+  "designation": {
+    "id": 1,
+    "school_id": 1,
+    "name": "SENIOR TEACHER",
+    "description": "High school grade educator and department lead",
+    "status": "active",
+    "created_by": 2,
+    "updated_by": 2,
+    "created_at": "2026-10-13T10:00:00.000Z",
+    "updated_at": "2026-10-13T10:00:00.000Z"
+  }
 }
 ```
 
 ---
 
-### 2.2 Get All Designations
+### 2.2 Get All Designations (Advanced Filtering, Search & Pagination)
 
 - **Method**: `GET`
 - **Route**: `{{BASE_URL}}/api/employees-designations`
-- **Query Parameters**:
-  - `school_id` (optional): Filter by school ID.
-  - `status` (optional): `active` or `inactive`.
+- **Headers**: `Authorization: Bearer {{TOKEN}}`
+
+#### Supported Query Parameters
+
+| Parameter | Type | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `search` / `q` | `String` | Multi-field search across designation name, description, and school name | `?search=Teacher` |
+| `school_id` | `Number / String` | Filter by school ID or comma-separated list of schools | `?school_id=1,2` |
+| `name` | `String` | Case-insensitive substring match on designation title | `?name=SENIOR` |
+| `status` | `String` | Filter by status: `active`, `inactive`, or comma-separated `active,inactive` | `?status=active` |
+| `sort_by` | `String` | Sort key: `id`, `name`, `status`, `school_id`, `description`, `created_at`, `updated_at` (default: `id`) | `?sort_by=name` |
+| `sort_order` | `String` | `ASC` or `DESC` (default: `DESC`) | `?sort_order=ASC` |
+| `page` | `Number` | Page number (default: 1) | `?page=1` |
+| `limit` | `Number` | Records per page (default: 20, max: 500) | `?limit=10` |
+| `paginate` | `Boolean` | When `true`, returns structured JSON envelope with pagination & filter metadata | `?paginate=true` |
+
+#### Response Headers (Emitted on every GET request)
+- `X-Total-Count`: Total number of matching records
+- `X-Page`: Current page number
+- `X-Limit`: Page size limit
+- `X-Total-Pages`: Total number of pages
+- `X-From`: 1-based start index of records in the current page
+- `X-To`: 1-based end index of records in the current page
+- `X-Count`: Count of records returned in the current response
+
+#### Success Response - Default Raw Array (`200 OK`)
+```json
+[
+  {
+    "id": 1,
+    "school_id": 1,
+    "name": "SENIOR TEACHER",
+    "description": "High school grade educator and department lead",
+    "status": "active",
+    "created_by": 2,
+    "updated_by": 2,
+    "created_at": "2026-10-13T10:00:00.000Z",
+    "updated_at": "2026-10-13T10:00:00.000Z",
+    "school_name": "Greenwood International",
+    "school_code": "SCH001"
+  }
+]
+```
+
+#### Success Response - Paginated Envelope (`?paginate=true`)
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "school_id": 1,
+      "name": "SENIOR TEACHER",
+      "description": "High school grade educator and department lead",
+      "status": "active",
+      "created_by": 2,
+      "updated_by": 2,
+      "created_at": "2026-10-13T10:00:00.000Z",
+      "updated_at": "2026-10-13T10:00:00.000Z",
+      "school_name": "Greenwood International",
+      "school_code": "SCH001"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 1,
+  "pagination": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "hasPrevPage": false,
+    "hasNextPage": false,
+    "prevPage": null,
+    "nextPage": null,
+    "from": 1,
+    "to": 1,
+    "count": 1
+  },
+  "filter_display": {
+    "search": "Teacher",
+    "status": "active"
+  },
+  "filters": {
+    "page": 1,
+    "limit": 10,
+    "sort_by": "id",
+    "sort_order": "DESC",
+    "search": "Teacher",
+    "status": "active"
+  }
+}
+```
 
 ---
 
-### 2.3 Get All Designations by Token
+### 2.3 Get All Designations by Token (School Bound)
+
+Fetches designations automatically scoped to the logged-in user's school.
 
 - **Method**: `GET`
 - **Route**: `{{BASE_URL}}/api/employees-designations/token`
+- **Query Parameters**: Supports all filters (`search`, `status`, `name`, `sort_by`, `page`, `limit`, `paginate`), with `school_id` locked to the token's school.
 
 ---
 
-### 2.4 Update & Delete Designation
+### 2.4 Get Designation by ID
 
-- **PUT**: `{{BASE_URL}}/api/employees-designations/:id`
-- **DELETE**: `{{BASE_URL}}/api/employees-designations/:id`
+Fetches details of a designation by primary key ID along with school info.
+
+- **Method**: `GET`
+- **Route**: `{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}`
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "school_id": 1,
+    "name": "SENIOR TEACHER",
+    "description": "High school grade educator and department lead",
+    "status": "active",
+    "school_name": "Greenwood International",
+    "school_code": "SCH001"
+  }
+}
+```
+
+---
+
+### 2.5 Update Designation by ID
+
+Updates designation title, description, or status with before/after audit tracking.
+
+- **Method**: `PUT`
+- **Route**: `{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}`
+- **Request Body**:
+```json
+{
+  "name": "LEAD SENIOR TEACHER",
+  "description": "Department head and senior educator",
+  "status": "active"
+}
+```
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Designation updated successfully",
+  "old_data": {
+    "id": 1,
+    "name": "SENIOR TEACHER",
+    "status": "active"
+  },
+  "new_data": {
+    "id": 1,
+    "name": "LEAD SENIOR TEACHER",
+    "status": "active"
+  }
+}
+```
+
+---
+
+### 2.6 Update Designation Status (Toggle Active/Inactive)
+
+Dedicated status toggle endpoint logging `ACTIVATE` or `DEACTIVATE` audit events.
+
+- **Method**: `PATCH`
+- **Route**: `{{BASE_URL}}/api/employees-designations/status/{{DESIGNATION_ID}}`
+- **Request Body**:
+```json
+{
+  "status": "inactive"
+}
+```
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Designation status updated successfully to 'inactive'",
+  "oldDesignation": {
+    "id": 1,
+    "name": "LEAD SENIOR TEACHER",
+    "status": "active"
+  },
+  "updatedDesignation": {
+    "id": 1,
+    "name": "LEAD SENIOR TEACHER",
+    "status": "inactive"
+  }
+}
+```
+
+---
+
+### 2.7 Delete Designation by ID
+
+Deletes a designation. Blocked with `400 Bad Request` if employees are currently assigned.
+
+- **Method**: `DELETE`
+- **Route**: `{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}`
+
+#### Success Response (`200 OK`)
+```json
+{
+  "success": true,
+  "message": "Designation deleted successfully",
+  "deletedDesignation": {
+    "id": 1,
+    "name": "LEAD SENIOR TEACHER",
+    "status": "inactive"
+  }
+}
+```
 
 ---
 

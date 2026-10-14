@@ -7,6 +7,8 @@ import { EmployeeDocumentModel } from "./employee.model.js";
 import {
   validateAssignUser,
   validateCreateEmployee,
+  validateEmployeeFilters,
+  validateEmployeeStatus,
   validateUnassignUser,
   validateUpdateEmployee,
 } from "./employee.validation.js";
@@ -97,6 +99,7 @@ export const createEmployee = async (req) => {
 
     /* ✅ EMP CODE */
     data.employee_code = await generateEmployeeCode(conn, data.school_id);
+    data.created_by = req.user?.id || null;
 
     /* ✅ FILE HANDLING */
     if (req.files) {
@@ -137,13 +140,17 @@ export const createEmployee = async (req) => {
     }
 
     const employee_id = await EmployeeModel.create(conn, data);
+    const createdEmployee = await EmployeeModel.findById(conn, employee_id);
 
     await conn.commit();
 
     return {
+      success: true,
       message: "Employee created successfully",
       employee_id,
       employee_code: data.employee_code,
+      data: createdEmployee,
+      employee: createdEmployee,
     };
   } catch (err) {
     await conn.rollback();
@@ -232,6 +239,8 @@ export const updateEmployee = async (id, req) => {
       throw { status: 400, message: "Nothing to update" };
     }
 
+    data.updated_by = req.user?.id || null;
+
     // Track changes
     const changes = {};
 
@@ -259,10 +268,13 @@ export const updateEmployee = async (id, req) => {
     });
 
     return {
+      success: true,
       message: "Employee updated successfully",
       employee_id: id,
       old_data: existing,
       new_data: updated,
+      oldEmployee: existing,
+      updatedEmployee: updated,
       changes,
     };
   } catch (err) {
@@ -296,7 +308,11 @@ export const deleteEmployee = async (id) => {
       deleteUploadedFile(existing[field]);
     });
 
-    return { message: "Employee deleted successfully" };
+    return {
+      success: true,
+      message: "Employee deleted successfully",
+      deletedEmployee: existing,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -693,10 +709,11 @@ export const buildFilterDisplay = (filters = {}) => {
   return display;
 };
 
-export const getEmployees = async (filters = {}) => {
+export const getEmployees = async (query = {}) => {
   const db = getDB();
 
   try {
+    const filters = validateEmployeeFilters(query);
     const { whereClause, values } = buildEmployeeFilterClauses(filters);
     const total = await EmployeeModel.countWithFilters(db, {
       whereClause,
@@ -781,7 +798,7 @@ export const getEmployees = async (filters = {}) => {
   }
 };
 
-export const getEmployeesByToken = async (user, filters = {}) => {
+export const getEmployeesByToken = async (user, query = {}) => {
   if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
   }
@@ -811,10 +828,11 @@ export const getEmployeesByToken = async (user, filters = {}) => {
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
   const isAdmin =
     roles.includes("ADMIN") ||
+    roles.includes("SUPER_ADMIN") ||
     user.roles?.includes("ADMIN") ||
     user.role === "admin";
 
-  const scopedFilters = { ...filters };
+  const scopedFilters = { ...query };
 
   // Non-admins are locked to their own school
   if (!isAdmin) {
@@ -835,8 +853,16 @@ export const getEmployeeFilterOptions = async (
   let targetSchoolId = schoolId;
 
   if (user) {
-    const roles = user.roles || (user.role ? [user.role] : []);
-    const isAdmin = roles.includes("ADMIN") || roles.includes("admin");
+    const roles = Array.isArray(user.roles)
+      ? user.roles
+      : typeof user.roles === "string"
+        ? user.roles.split(",")
+        : user.role
+          ? [user.role]
+          : [];
+    const isAdmin =
+      roles.some((r) => String(r).toUpperCase().includes("ADMIN")) ||
+      roles.includes("SUPER_ADMIN");
     if (!isAdmin && user.school_id) {
       targetSchoolId = user.school_id;
     }
@@ -850,8 +876,16 @@ export const getEmployeeStats = async (user = null, schoolId = null) => {
   let targetSchoolId = schoolId;
 
   if (user) {
-    const roles = user.roles || (user.role ? [user.role] : []);
-    const isAdmin = roles.includes("ADMIN") || roles.includes("admin");
+    const roles = Array.isArray(user.roles)
+      ? user.roles
+      : typeof user.roles === "string"
+        ? user.roles.split(",")
+        : user.role
+          ? [user.role]
+          : [];
+    const isAdmin =
+      roles.some((r) => String(r).toUpperCase().includes("ADMIN")) ||
+      roles.includes("SUPER_ADMIN");
     if (!isAdmin && user.school_id) {
       targetSchoolId = user.school_id;
     }
@@ -910,10 +944,16 @@ export const assignUserToEmployee = async (data) => {
     // 🔥 6. Assign
     await EmployeeModel.assignUser(conn, employee_id, user_id);
 
+    const updatedEmployee = await EmployeeModel.findById(conn, employee_id);
+
     await conn.commit();
 
     return {
+      success: true,
       message: "User assigned to employee successfully",
+      employee,
+      user,
+      updatedEmployee,
     };
   } catch (err) {
     await conn.rollback();
@@ -947,9 +987,54 @@ export const unassignUserFromEmployee = async (data) => {
 
     await EmployeeModel.unassignUser(conn, employee_id);
 
+    const updatedEmployee = await EmployeeModel.findById(conn, employee_id);
+
     await conn.commit();
 
-    return { message: "User unassigned successfully" };
+    return {
+      success: true,
+      message: "User unassigned successfully",
+      employee,
+      updatedEmployee,
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+export const updateEmployeeStatus = async (id, status, req) => {
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    if (!id) throw { status: 400, message: "ID required" };
+    const validatedStatus = validateEmployeeStatus(status);
+
+    await conn.beginTransaction();
+
+    const existing = await EmployeeModel.findById(conn, id);
+    if (!existing) {
+      throw { status: 404, message: "Employee not found" };
+    }
+
+    await EmployeeModel.update(conn, id, {
+      status: validatedStatus,
+      updated_by: req?.user?.id || null,
+    });
+
+    const updated = await EmployeeModel.findById(conn, id);
+
+    await conn.commit();
+
+    return {
+      success: true,
+      message: `Employee status updated to '${validatedStatus}'`,
+      oldEmployee: existing,
+      updatedEmployee: updated,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;

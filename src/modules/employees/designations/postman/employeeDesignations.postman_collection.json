@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "emp-desig-001-postman-collection",
     "name": "Employee Designations Module - School Management System",
-    "description": "Postman collection for Employee Designations: CRUD operations, token-scoped listings, and status filtering.",
+    "description": "Comprehensive Postman collection for Employee Designations: CRUD operations, advanced multi-dimensional filtering, token-scoped listings, sorting, pagination metadata envelope, status toggling, and audit logging.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -23,110 +23,413 @@
   ],
   "item": [
     {
-      "name": "1. Create Designation",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"school_id\": 1,\n  \"name\": \"SENIOR TEACHER\",\n  \"description\": \"Senior high school faculty\",\n  \"status\": \"active\"\n}"
+      "name": "1. Designation Lifecycle (CRUD & Status)",
+      "item": [
+        {
+          "name": "1. Create Designation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"school_id\": {{SCHOOL_ID}},\n  \"name\": \"SENIOR TEACHER\",\n  \"description\": \"Senior high school faculty and curriculum mentor\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"]
+            },
+            "description": "Creates a new staff designation. Name is normalized to uppercase and logged in audit log."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{BASE_URL}}/api/employees-designations",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employees-designations"]
+        {
+          "name": "2. Get Designation by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Fetches designation details by primary key ID along with school name and code."
+          },
+          "response": []
         },
-        "description": "Creates a new designation."
-      },
-      "response": []
+        {
+          "name": "3. Update Designation by ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"LEAD SENIOR TEACHER\",\n  \"description\": \"Department head and senior educator\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Updates designation details with before/after audit diff tracking."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Update Designation Status (Toggle Active/Inactive)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/status/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "status", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Toggles designation active/inactive status and records ACTIVATE/DEACTIVATE audit log."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Delete Designation by ID",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+            },
+            "description": "Deletes designation by ID. Checks for employee assignments to prevent orphan records."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "2. Get All Designations",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employees-designations?school_id={{SCHOOL_ID}}&status=active",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employees-designations"],
-          "query": [
-            { "key": "school_id", "value": "{{SCHOOL_ID}}" },
-            { "key": "status", "value": "active" }
-          ]
+      "name": "2. Advanced Filter & Search APIs",
+      "item": [
+        {
+          "name": "1. Get all designations (Base list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"]
+            },
+            "description": "Fetches all staff designations across schools."
+          },
+          "response": []
         },
-        "description": "Lists all designations."
-      },
-      "response": []
+        {
+          "name": "2. Filter by Global Search (?search=Teacher)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?search=Teacher",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "search", "value": "Teacher", "description": "Search across designation name, description, and school name" }
+              ]
+            },
+            "description": "Global text search matching designation details."
+          },
+          "response": []
+        },
+        {
+          "name": "3. Filter by Query Search (?q=Principal)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?q=Principal",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "q", "value": "Principal", "description": "Shorthand search parameter" }
+              ]
+            },
+            "description": "Shorthand query search across designations."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Filter by School ID (?school_id=1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?school_id={{SCHOOL_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "school_id", "value": "{{SCHOOL_ID}}", "description": "Filter by target school ID" }
+              ]
+            },
+            "description": "Filters designations belonging to a specific school."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Filter by Multi-School IDs (?school_id=1,2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?school_id=1,2",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "school_id", "value": "1,2", "description": "Comma-separated school IDs" }
+              ]
+            },
+            "description": "Filters designations across multiple schools."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Filter by Status Active (?status=active)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?status=active",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "status", "value": "active", "description": "Filter active designations" }
+              ]
+            },
+            "description": "Filters active designations."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Filter by Status Inactive (?status=inactive)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?status=inactive",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "status", "value": "inactive", "description": "Filter inactive designations" }
+              ]
+            },
+            "description": "Filters inactive designations."
+          },
+          "response": []
+        },
+        {
+          "name": "8. Filter by Name Substring (?name=SENIOR)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?name=SENIOR",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "name", "value": "SENIOR", "description": "Filter by designation name" }
+              ]
+            },
+            "description": "Filters designations matching name substring."
+          },
+          "response": []
+        },
+        {
+          "name": "9. Sort by Name Ascending (?sort_by=name&sort_order=ASC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?sort_by=name&sort_order=ASC",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "sort_by", "value": "name" },
+                { "key": "sort_order", "value": "ASC" }
+              ]
+            },
+            "description": "Alphabetical sorting by designation title."
+          },
+          "response": []
+        },
+        {
+          "name": "10. Sort by ID Descending (?sort_by=id&sort_order=DESC)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?sort_by=id&sort_order=DESC",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "sort_by", "value": "id" },
+                { "key": "sort_order", "value": "DESC" }
+              ]
+            },
+            "description": "Sorts newly created designations first."
+          },
+          "response": []
+        },
+        {
+          "name": "11. Pagination Page 1 Limit 10 (?page=1&limit=10)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?page=1&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Fetches page 1 with 10 records. Attaches pagination HTTP headers."
+          },
+          "response": []
+        },
+        {
+          "name": "12. Paginated Response with Metadata Envelope (?paginate=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?page=1&limit=10&paginate=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "paginate", "value": "true", "description": "Returns full pagination, filter_display, and total count metadata" }
+              ]
+            },
+            "description": "Returns structured JSON envelope with pagination object and active filter breakdown."
+          },
+          "response": []
+        },
+        {
+          "name": "13. Combined Multi-Filter Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations?search=Teacher&status=active&school_id={{SCHOOL_ID}}&sort_by=name&sort_order=ASC&page=1&limit=10&paginate=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations"],
+              "query": [
+                { "key": "search", "value": "Teacher" },
+                { "key": "status", "value": "active" },
+                { "key": "school_id", "value": "{{SCHOOL_ID}}" },
+                { "key": "sort_by", "value": "name" },
+                { "key": "sort_order", "value": "ASC" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "paginate", "value": "true" }
+              ]
+            },
+            "description": "Combined query testing search, status, school scoping, sort, and pagination."
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "name": "3. Get All Designations by Token",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employees-designations/token",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employees-designations", "token"]
+      "name": "3. Token-Scoped GET APIs (School Bound)",
+      "item": [
+        {
+          "name": "1. Get all designations by token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/token",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "token"]
+            },
+            "description": "Fetches designations strictly bound to the authenticated user's school."
+          },
+          "response": []
         },
-        "description": "Lists designations scoped to token school."
-      },
-      "response": []
-    },
-    {
-      "name": "4. Get Designation by ID",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
+        {
+          "name": "2. Get designations by token with status filter (?status=active)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/token?status=active",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "token"],
+              "query": [
+                { "key": "status", "value": "active" }
+              ]
+            },
+            "description": "Fetches active designations within user's school."
+          },
+          "response": []
         },
-        "description": "Fetches designation by ID."
-      },
-      "response": []
-    },
-    {
-      "name": "5. Update Designation by ID",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"LEAD SENIOR TEACHER\",\n  \"description\": \"Department head and senior educator\",\n  \"status\": \"active\"\n}"
+        {
+          "name": "3. Get designations by token with search (?search=Teacher)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/token?search=Teacher",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "token"],
+              "query": [
+                { "key": "search", "value": "Teacher" }
+              ]
+            },
+            "description": "Searches designations within user's school."
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
-        },
-        "description": "Updates designation details."
-      },
-      "response": []
-    },
-    {
-      "name": "6. Delete Designation by ID",
-      "request": {
-        "method": "DELETE",
-        "header": [],
-        "url": {
-          "raw": "{{BASE_URL}}/api/employees-designations/{{DESIGNATION_ID}}",
-          "host": ["{{BASE_URL}}"],
-          "path": ["api", "employees-designations", "{{DESIGNATION_ID}}"]
-        },
-        "description": "Deletes designation by ID."
-      },
-      "response": []
+        {
+          "name": "4. Get designations by token with pagination (?page=1&limit=10&paginate=true)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/api/employees-designations/token?page=1&limit=10&paginate=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "employees-designations", "token"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "paginate", "value": "true" }
+              ]
+            },
+            "description": "Token-scoped listing with pagination metadata envelope."
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

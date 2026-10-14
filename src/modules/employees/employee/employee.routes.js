@@ -7,6 +7,7 @@ import {
   getEmployeeStats,
   getEmployeeById,
   updateEmployee,
+  updateEmployeeStatus,
   deleteEmployee,
   assignUserToEmployee,
   unassignUserFromEmployee,
@@ -18,20 +19,32 @@ const router = express.Router();
 
 router.use(verifyToken);
 
+/* =================================================================
+   CREATE & USER LINKING
+================================================================= */
 router.post("/", employeeUpload, createEmployee);
 router.post("/assign-user", assignUserToEmployee);
 router.post("/unassign-user", unassignUserFromEmployee);
 
-// Specialized GET routes must be declared before /:id
-router.get("/token", verifyToken, getAllEmployeeByToken);
+/* =================================================================
+   FILTER OPTIONS, STATS & SCHOOL-SCOPED LIST
+   (Declared before /:id wildcard route)
+================================================================= */
+router.get("/token", getAllEmployeeByToken);
 router.get("/filter-options", getEmployeeFilterOptions);
 router.get("/stats", getEmployeeStats);
 
-// Main list and detail routes
+/* =================================================================
+   MAIN LIST (WITH ADVANCED FILTERS) & DETAIL
+================================================================= */
 router.get("/", getAllEmployee);
 router.get("/:id", getEmployeeById);
 
+/* =================================================================
+   UPDATE, STATUS TOGGLE & DELETE
+================================================================= */
 router.put("/:id", employeeUpload, updateEmployee);
+router.patch("/status/:id", updateEmployeeStatus);
 router.delete("/:id", deleteEmployee);
 
 export default router;

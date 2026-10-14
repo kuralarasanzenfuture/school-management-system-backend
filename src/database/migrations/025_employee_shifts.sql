@@ -31,6 +31,8 @@ CREATE TABLE
         working_hours DECIMAL(5, 2) NOT NULL,
         is_default BOOLEAN DEFAULT FALSE,
         status ENUM ('active', 'inactive') DEFAULT 'active',
+        created_by BIGINT UNSIGNED,
+        updated_by BIGINT UNSIGNED,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_shift (school_id, name),
@@ -43,5 +45,7 @@ CREATE TABLE
             )
             OR (crosses_midnight = TRUE)
         ),
+        FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE
     );

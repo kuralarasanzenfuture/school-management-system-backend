@@ -643,3 +643,115 @@ export const validateUpdateStudent = (data) => {
 
   return cleaned;
 };
+
+export const validateStudentStatus = (status) => {
+  if (!status) {
+    throw { status: 400, message: "Status is required" };
+  }
+  const cleanStatus = String(status).toLowerCase().trim();
+  if (!["active", "graduated", "transferred", "dropped"].includes(cleanStatus)) {
+    throw {
+      status: 400,
+      message: "Status must be 'active', 'graduated', 'transferred', or 'dropped'",
+    };
+  }
+  return cleanStatus;
+};
+
+export const validateStudentFilters = (query = {}) => {
+  const {
+    school_id,
+    status,
+    gender,
+    blood_group,
+    student_code,
+    name,
+    first_name,
+    last_name,
+    email,
+    mobile_no,
+    aadhaar_no,
+    search,
+    page = 1,
+    limit = 20,
+    sortBy = "id",
+    sortOrder = "DESC",
+    paginate = "true",
+  } = query;
+
+  const allowedSortCols = [
+    "id",
+    "student_code",
+    "first_name",
+    "last_name",
+    "gender",
+    "status",
+    "date_of_birth",
+    "school_id",
+    "school_name",
+    "created_at",
+    "updated_at",
+  ];
+  const safeSortBy = allowedSortCols.includes(sortBy) ? sortBy : "id";
+  const safeSortOrder =
+    String(sortOrder).toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+  const validStatuses = ["active", "graduated", "transferred", "dropped", "none"];
+  let safeStatus = null;
+  if (status) {
+    if (Array.isArray(status)) {
+      const filtered = status
+        .map((s) => String(s).toLowerCase().trim())
+        .filter((s) => validStatuses.includes(s));
+      if (filtered.length === 1) safeStatus = filtered[0];
+      else if (filtered.length > 1) safeStatus = filtered;
+    } else {
+      const s = String(status).toLowerCase().trim();
+      if (s.includes(",")) {
+        const parts = s
+          .split(",")
+          .map((p) => p.trim())
+          .filter((p) => validStatuses.includes(p));
+        if (parts.length === 1) safeStatus = parts[0];
+        else if (parts.length > 1) safeStatus = parts;
+      } else if (validStatuses.includes(s)) {
+        safeStatus = s;
+      }
+    }
+  }
+
+  let safeGender = null;
+  if (gender) {
+    const g = String(gender).toLowerCase().trim();
+    if (["male", "female", "other"].includes(g)) {
+      safeGender = g;
+    }
+  }
+
+  return {
+    school_id:
+      school_id !== undefined &&
+      school_id !== null &&
+      school_id !== "" &&
+      !isNaN(Number(school_id)) &&
+      Number(school_id) > 0
+        ? Number(school_id)
+        : null,
+    status: safeStatus,
+    gender: safeGender,
+    blood_group: blood_group ? String(blood_group).trim().toUpperCase() : null,
+    student_code: student_code ? String(student_code).trim() : null,
+    name: name ? String(name).trim() : null,
+    first_name: first_name ? String(first_name).trim() : null,
+    last_name: last_name ? String(last_name).trim() : null,
+    email: email ? String(email).trim().toLowerCase() : null,
+    mobile_no: mobile_no ? String(mobile_no).trim() : null,
+    aadhaar_no: aadhaar_no ? String(aadhaar_no).trim() : null,
+    search: search ? String(search).trim() : null,
+    page: Math.max(1, Number(page) || 1),
+    limit: Math.max(1, Math.min(100, Number(limit) || 20)),
+    sortBy: safeSortBy,
+    sortOrder: safeSortOrder,
+    paginate: String(paginate).toLowerCase() !== "false",
+  };
+};

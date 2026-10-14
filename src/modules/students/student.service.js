@@ -5,6 +5,8 @@ import { deleteUploadedFile, deleteUploadedFiles } from "../../utils/fileStorage
 import {
   validateCreateStudent,
   validateUpdateStudent,
+  validateStudentStatus,
+  validateStudentFilters,
 } from "./student.validation.js";
 
 const FILE_FOLDERS = {
@@ -336,6 +338,8 @@ export const createStudent = async (req) => {
     }
 
     const data = validateCreateStudent(req.body);
+    data.created_by = req.user?.id || null;
+    data.updated_by = req.user?.id || null;
 
     await conn.beginTransaction();
 
@@ -421,6 +425,7 @@ export const createStudent = async (req) => {
     console.log("Student Data:", data);
 
     const id = await StudentModel.create(conn, data);
+    const createdStudent = await StudentModel.findById(id, conn);
 
     await conn.commit();
 
@@ -428,6 +433,7 @@ export const createStudent = async (req) => {
       success: true,
       message: "Student created successfully",
       id,
+      student: createdStudent,
       student_code: data.student_code,
     };
   } catch (err) {
@@ -448,18 +454,19 @@ export const createStudent = async (req) => {
 /* =========================================
    🔥 GET ALL STUDENTS
 ========================================= */
-export const getAllStudents = async () => {
-  return await StudentModel.getAll();
+export const getAllStudents = async (query = {}) => {
+  const filters = validateStudentFilters(query);
+  return await StudentModel.findAll(filters);
 };
 
-export const getAllStudentsByToken = async (user) => {
+export const getAllStudentsByToken = async (user, query = {}) => {
   const db = getDB();
 
   if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Get fresh user + roles from DB
+  // Get fresh user + roles from DB
   const [[dbUser]] = await db.query(
     `
     SELECT 
@@ -479,33 +486,21 @@ export const getAllStudentsByToken = async (user) => {
     throw { status: 404, message: "User not found" };
   }
 
-  // 🔥 Normalize roles
+  // Normalize roles
   const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
-
   const isAdmin = roles.includes("ADMIN");
 
-  let query = `
-    SELECT *
-    FROM students
-  `;
+  const filters = validateStudentFilters(query);
 
-  const values = [];
-
-  // 🔥 NON-ADMIN → restrict by school
+  // NON-ADMIN → restrict by school
   if (!isAdmin) {
     if (!dbUser.school_id) {
       throw { status: 400, message: "User has no school assigned" };
     }
-
-    query += ` WHERE school_id = ?`;
-    values.push(dbUser.school_id);
+    filters.school_id = dbUser.school_id;
   }
 
-  query += ` ORDER BY id DESC`;
-
-  const [rows] = await db.query(query, values);
-
-  return rows;
+  return await StudentModel.findAll(filters);
 };
 
 /* =========================================
@@ -552,6 +547,7 @@ export const updateStudent = async (id, req) => {
 
     // 🔴 VALIDATE (use update validator, not create)
     data = validateUpdateStudent(data);
+    data.updated_by = req.user?.id || null;
 
     await conn.beginTransaction();
 
@@ -662,6 +658,8 @@ export const updateStudent = async (id, req) => {
 
     await StudentModel.update(conn, id, data);
 
+    const updatedStudent = await StudentModel.findById(id, conn);
+
     await conn.commit();
 
     STUDENT_FILE_FIELDS.forEach((field) => {
@@ -671,14 +669,55 @@ export const updateStudent = async (id, req) => {
     });
 
     return {
+      success: true,
       message: "Student updated successfully",
+      oldStudent: existing,
+      updatedStudent,
     };
   } catch (err) {
     await conn.rollback();
 
-    // 🔥 rollback file cleanup
+    // Rollback file cleanup
     deleteUploadedFiles(uploadedFiles);
 
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+/* =========================================
+   🔥 UPDATE STUDENT STATUS
+========================================= */
+export const updateStudentStatus = async (id, status, req = null) => {
+  const updated_by = req?.user?.id || null;
+  const cleanStatus = validateStudentStatus(status);
+
+  const existing = await StudentModel.findById(id);
+  if (!existing) {
+    throw { status: 404, message: "Student not found" };
+  }
+
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    await StudentModel.updateStatus(conn, id, cleanStatus, updated_by);
+
+    const updatedStudent = await StudentModel.findById(id, conn);
+
+    await conn.commit();
+
+    return {
+      success: true,
+      message: `Student status updated to ${cleanStatus}`,
+      oldStudent: existing,
+      updatedStudent,
+    };
+  } catch (err) {
+    await conn.rollback();
     throw err;
   } finally {
     conn.release();
@@ -695,12 +734,22 @@ export const deleteStudent = async (id) => {
   try {
     if (!id) throw { status: 400, message: "ID required" };
 
-    await conn.beginTransaction();
-
     const existing = await StudentModel.findById(id);
     if (!existing) {
       throw { status: 404, message: "Student not found" };
     }
+
+    // Safety checks against referencing records
+    const refs = await StudentModel.checkReferences(id, conn);
+
+    if (refs.admissions > 0) {
+      throw {
+        status: 400,
+        message: `Cannot delete student '${existing.first_name} ${existing.last_name}' (${existing.student_code}). It is currently linked to ${refs.admissions} admission record(s). Please remove or reassign associated admission records first.`,
+      };
+    }
+
+    await conn.beginTransaction();
 
     await StudentModel.delete(conn, id);
 
@@ -710,9 +759,24 @@ export const deleteStudent = async (id) => {
       getStoredFilePaths(existing[field]).forEach(deleteUploadedFile);
     });
 
-    return { message: "Student deleted successfully" };
+    return {
+      success: true,
+      message: "Student deleted successfully",
+      deletedStudent: existing,
+    };
   } catch (err) {
     await conn.rollback();
+    if (
+      err.code === "ER_ROW_IS_REFERENCED_2" ||
+      err.errno === 1451 ||
+      (err.message && err.message.includes("foreign key constraint fails"))
+    ) {
+      throw {
+        status: 400,
+        message:
+          "Cannot delete this student because they are linked to existing records. Please remove or reassign associated records first.",
+      };
+    }
     throw err;
   } finally {
     conn.release();

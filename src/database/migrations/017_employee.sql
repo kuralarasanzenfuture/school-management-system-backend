@@ -61,8 +61,12 @@ CREATE TABLE
         experience_certificate_url VARCHAR(500),
         signature_url VARCHAR(500),
         status ENUM ('active', 'inactive', 'resigned', 'terminated') DEFAULT 'active',
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
     );
