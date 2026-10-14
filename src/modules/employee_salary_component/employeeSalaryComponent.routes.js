@@ -4,6 +4,7 @@ import {
   getAllEmployeeSalaryComponents,
   getEmployeeSalaryComponentById,
   updateEmployeeSalaryComponent,
+  updateEmployeeSalaryComponentStatus,
   deleteEmployeeSalaryComponent,
   getAllEmployeeSalaryComponentsByToken,
   checkExistingEmployeeSalaryComponent,
@@ -14,23 +15,25 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// CREATE
+/* =================================================================
+   CREATE
+================================================================= */
 router.post("/", createEmployeeSalaryComponent);
 
-// DUPLICATE CHECK
+/* =================================================================
+   GET APIS (WITH ADVANCED FILTERS)
+   Specialized sub-routes placed before /:id to prevent ID conflicts
+================================================================= */
 router.get("/check-existing", checkExistingEmployeeSalaryComponent);
-
-// TOKEN BASED
-router.get("/token", verifyToken, getAllEmployeeSalaryComponentsByToken);
-
-// READ
+router.get("/token", getAllEmployeeSalaryComponentsByToken);
 router.get("/", getAllEmployeeSalaryComponents);
 router.get("/:id", getEmployeeSalaryComponentById);
 
-// UPDATE
+/* =================================================================
+   UPDATE, STATUS TOGGLE & DELETE
+================================================================= */
 router.put("/:id", updateEmployeeSalaryComponent);
-
-// DELETE
+router.patch("/status/:id", updateEmployeeSalaryComponentStatus);
 router.delete("/:id", deleteEmployeeSalaryComponent);
 
 export default router;
