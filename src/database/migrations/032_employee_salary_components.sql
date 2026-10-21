@@ -8,11 +8,15 @@ CREATE TABLE
         calculation_type ENUM ('fixed', 'percentage') DEFAULT 'fixed',
         -- is_taxable BOOLEAN DEFAULT FALSE,
         status ENUM ('active', 'inactive') DEFAULT 'active',
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_component_code (school_id, code),
         UNIQUE KEY uq_component_name (school_id, name),
-        FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE
+        FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES employees (id) ON DELETE SET NULL
     );
 
 --     CREATE TABLE employee_salary_components (

@@ -28,9 +28,13 @@ CREATE TABLE
         reason TEXT,
         attachment_url VARCHAR(500),
         status ENUM ('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
         FOREIGN KEY (leave_type_id) REFERENCES employee_leave_types (id) ON DELETE CASCADE,
-        FOREIGN KEY (academic_year_id) REFERENCES academic_years (id) ON DELETE CASCADE
+        FOREIGN KEY (academic_year_id) REFERENCES academic_years (id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES employees (id) ON DELETE SET NULL
     );

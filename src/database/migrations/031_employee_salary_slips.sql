@@ -18,7 +18,11 @@ CREATE TABLE
         emailed_at DATETIME NULL,
         downloaded_count INT DEFAULT 0,
         status ENUM ('generated', 'sent', 'cancelled') DEFAULT 'generated',
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (payroll_id) REFERENCES employee_payroll (id) ON DELETE CASCADE
+        FOREIGN KEY (payroll_id) REFERENCES employee_payroll (id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES employees (id) ON DELETE SET NULL
     );

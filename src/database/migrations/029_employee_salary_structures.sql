@@ -59,6 +59,7 @@ CREATE TABLE
         status ENUM ('active', 'inactive') DEFAULT 'active',
         remarks TEXT,
         created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_employee (employee_id),
@@ -66,5 +67,6 @@ CREATE TABLE
         INDEX idx_effective_from (effective_from),
         FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
         FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
-        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES employees (id) ON DELETE SET NULL
     );

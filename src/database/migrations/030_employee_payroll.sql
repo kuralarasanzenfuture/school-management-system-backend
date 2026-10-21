@@ -50,11 +50,14 @@ CREATE TABLE
         payment_method ENUM ('cash', 'bank_transfer', 'upi', 'cheque') NULL,
         transaction_reference VARCHAR(255),
         remarks TEXT,
-        generated_by BIGINT UNSIGNED NULL,
-        generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_payroll (employee_id, payroll_year, payroll_month),
-        FOREIGN KEY (school_id) REFERENCES schools (id),
-        FOREIGN KEY (employee_id) REFERENCES employees (id),
-        FOREIGN KEY (salary_structure_id) REFERENCES employee_salary_structures (id),
-        FOREIGN KEY (generated_by) REFERENCES employees (id)
+        FOREIGN KEY (school_id) REFERENCES schools (id) ON DELETE CASCADE,
+        FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE,
+        FOREIGN KEY (salary_structure_id) REFERENCES employee_salary_structures (id) ON DELETE RESTRICT,
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES employees (id) ON DELETE SET NULL
     );

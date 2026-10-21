@@ -10,7 +10,6 @@ import {
   calculateSalaryByEmployeeId,
   getFullSalaryByEmployeeId,
 } from "./employeeSalaryStructureDetail.controller.js";
-
 import { verifyToken } from "../../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -18,17 +17,13 @@ const router = express.Router();
 router.use(verifyToken);
 
 router.post("/", createSalaryStructureDetail);
-
-// 🔥 bulk (real-world usage)
 router.post("/bulk", bulkUpsertSalaryStructureDetails);
 
-router.get("/token", verifyToken, getAllSalaryStructureDetailsByToken);
-
+router.get("/token", getAllSalaryStructureDetailsByToken);
 router.get(
   "/salary-calculatebyemployee/:employee_id",
   calculateSalaryByEmployeeId,
 );
-
 router.get("/full-salary-by-employee/:employee_id", getFullSalaryByEmployeeId);
 
 router.get("/", getAllSalaryStructureDetails);

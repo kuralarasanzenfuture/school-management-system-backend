@@ -18,7 +18,7 @@
 --         FOREIGN KEY (marked_by) REFERENCES employees (id)
 --     );
 CREATE TABLE
-    student_attendance (
+    IF NOT EXISTS student_attendance (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         attendance_session_id BIGINT UNSIGNED NOT NULL,
         admission_id BIGINT UNSIGNED NOT NULL,

@@ -53,6 +53,8 @@ export const AUDIT_MODULES = Object.freeze({
   EMPLOYEE_LEAVE_TYPES: "employee_leave_types",
   EMPLOYEE_PAYROLL: "employee_payroll",
   EMPLOYEE_SALARY_COMPONENTS: "employee_salary_components",
+  EMPLOYEE_SALARY_STRUCTURES: "employee_salary_structures",
+  EMPLOYEE_SALARY_STRUCTURE_DETAILS: "employee_salary_structure_details",
   SUBJECTS: "subjects",
   SUBJECT_GROUPS: "subject_groups",
   AUTH: "auth",
@@ -74,6 +76,8 @@ export const AUDIT_ENTITIES = Object.freeze({
   EMPLOYEE_SHIFT: "employee_shift",
   EMPLOYEE_LEAVE_TYPE: "employee_leave_type",
   EMPLOYEE_SALARY_COMPONENT: "employee_salary_component",
+  EMPLOYEE_SALARY_STRUCTURE: "employee_salary_structure",
+  EMPLOYEE_SALARY_STRUCTURE_DETAIL: "employee_salary_structure_detail",
   SUBJECT: "subject",
   SUBJECT_GROUP: "subject_group",
 });

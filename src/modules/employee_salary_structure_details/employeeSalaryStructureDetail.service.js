@@ -3,9 +3,240 @@ import { SalaryStructureDetailsModel } from "./employeeSalaryStructureDetail.mod
 import {
   validateCreate,
   validateUpdate,
+  validateSalaryStructureDetailFilters,
 } from "./employeeSalaryStructureDetail.validation.js";
 
-export const createSalaryStructureDetail = async (data) => {
+const ALLOWED_SORT_FIELDS = {
+  id: "d.id",
+  salary_structure_id: "d.salary_structure_id",
+  component_id: "d.component_id",
+  calculation_type: "d.calculation_type",
+  amount: "d.amount",
+  percentage: "d.percentage",
+  based_on: "d.based_on",
+  created_at: "d.created_at",
+  component_name: "c.name",
+  structure_name: "s.structure_name",
+  school_name: "sc.name",
+  employee_name: "e.first_name",
+};
+
+/* =================================================================
+   BUILD FILTER CLAUSES
+================================================================= */
+export const buildSalaryStructureDetailFilterClauses = (filters = {}) => {
+  const conditions = [];
+  const values = [];
+
+  // 1. Salary Structure ID (exact, comma-separated, or array)
+  if (
+    filters.salary_structure_id !== undefined &&
+    filters.salary_structure_id !== null &&
+    filters.salary_structure_id !== ""
+  ) {
+    if (Array.isArray(filters.salary_structure_id)) {
+      conditions.push(
+        `d.salary_structure_id IN (${filters.salary_structure_id.map(() => "?").join(",")})`,
+      );
+      values.push(...filters.salary_structure_id);
+    } else if (String(filters.salary_structure_id).includes(",")) {
+      const ids = String(filters.salary_structure_id)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      conditions.push(
+        `d.salary_structure_id IN (${ids.map(() => "?").join(",")})`,
+      );
+      values.push(...ids);
+    } else {
+      conditions.push("d.salary_structure_id = ?");
+      values.push(filters.salary_structure_id);
+    }
+  }
+
+  // 2. Component ID (exact, comma-separated, or array)
+  if (
+    filters.component_id !== undefined &&
+    filters.component_id !== null &&
+    filters.component_id !== ""
+  ) {
+    if (Array.isArray(filters.component_id)) {
+      conditions.push(
+        `d.component_id IN (${filters.component_id.map(() => "?").join(",")})`,
+      );
+      values.push(...filters.component_id);
+    } else if (String(filters.component_id).includes(",")) {
+      const ids = String(filters.component_id)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      conditions.push(`d.component_id IN (${ids.map(() => "?").join(",")})`);
+      values.push(...ids);
+    } else {
+      conditions.push("d.component_id = ?");
+      values.push(filters.component_id);
+    }
+  }
+
+  // 3. School ID (exact, comma-separated, or array from joined structure)
+  if (
+    filters.school_id !== undefined &&
+    filters.school_id !== null &&
+    filters.school_id !== ""
+  ) {
+    if (Array.isArray(filters.school_id)) {
+      conditions.push(
+        `s.school_id IN (${filters.school_id.map(() => "?").join(",")})`,
+      );
+      values.push(...filters.school_id);
+    } else if (String(filters.school_id).includes(",")) {
+      const ids = String(filters.school_id)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      conditions.push(`s.school_id IN (${ids.map(() => "?").join(",")})`);
+      values.push(...ids);
+    } else {
+      conditions.push("s.school_id = ?");
+      values.push(filters.school_id);
+    }
+  }
+
+  // 4. Employee ID (exact, comma-separated, or array from joined structure)
+  if (
+    filters.employee_id !== undefined &&
+    filters.employee_id !== null &&
+    filters.employee_id !== ""
+  ) {
+    if (Array.isArray(filters.employee_id)) {
+      conditions.push(
+        `s.employee_id IN (${filters.employee_id.map(() => "?").join(",")})`,
+      );
+      values.push(...filters.employee_id);
+    } else if (String(filters.employee_id).includes(",")) {
+      const ids = String(filters.employee_id)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      conditions.push(`s.employee_id IN (${ids.map(() => "?").join(",")})`);
+      values.push(...ids);
+    } else {
+      conditions.push("s.employee_id = ?");
+      values.push(filters.employee_id);
+    }
+  }
+
+  // 5. Calculation Type (fixed, percentage)
+  if (filters.calculation_type) {
+    const types = String(filters.calculation_type)
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    if (types.length === 1) {
+      conditions.push("d.calculation_type = ?");
+      values.push(types[0]);
+    } else if (types.length > 1) {
+      conditions.push(
+        `d.calculation_type IN (${types.map(() => "?").join(",")})`,
+      );
+      values.push(...types);
+    }
+  }
+
+  // 6. Based On (basic, gross)
+  if (filters.based_on) {
+    const basedOnTypes = String(filters.based_on)
+      .split(",")
+      .map((b) => b.trim().toLowerCase())
+      .filter(Boolean);
+    if (basedOnTypes.length === 1) {
+      conditions.push("d.based_on = ?");
+      values.push(basedOnTypes[0]);
+    } else if (basedOnTypes.length > 1) {
+      conditions.push(
+        `d.based_on IN (${basedOnTypes.map(() => "?").join(",")})`,
+      );
+      values.push(...basedOnTypes);
+    }
+  }
+
+  // 7. Component Type (earning, deduction)
+  if (filters.component_type) {
+    const cTypes = String(filters.component_type)
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    if (cTypes.length === 1) {
+      conditions.push("c.component_type = ?");
+      values.push(cTypes[0]);
+    } else if (cTypes.length > 1) {
+      conditions.push(
+        `c.component_type IN (${cTypes.map(() => "?").join(",")})`,
+      );
+      values.push(...cTypes);
+    }
+  }
+
+  // 8. Global Search
+  const searchTerm = filters.search || filters.q;
+  if (searchTerm && String(searchTerm).trim()) {
+    const term = `%${String(searchTerm).trim()}%`;
+    conditions.push(`(
+      c.name LIKE ? OR
+      c.code LIKE ? OR
+      s.structure_name LIKE ? OR
+      e.first_name LIKE ? OR
+      e.last_name LIKE ? OR
+      e.employee_code LIKE ? OR
+      sc.name LIKE ?
+    )`);
+    values.push(term, term, term, term, term, term, term);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return { whereClause, values };
+};
+
+/* =================================================================
+   BUILD FILTER DISPLAY HELPER
+================================================================= */
+export const buildFilterDisplay = (filters = {}) => {
+  const display = {};
+  if (filters.search || filters.q) {
+    display.search = String(filters.search || filters.q).trim();
+  }
+  if (filters.salary_structure_id) {
+    display.salary_structure_id = filters.salary_structure_id;
+  }
+  if (filters.component_id) {
+    display.component_id = filters.component_id;
+  }
+  if (filters.calculation_type) {
+    display.calculation_type = filters.calculation_type;
+  }
+  if (filters.based_on) {
+    display.based_on = filters.based_on;
+  }
+  if (filters.component_type) {
+    display.component_type = filters.component_type;
+  }
+  if (filters.school_id) {
+    display.school_id = filters.school_id;
+  }
+  if (filters.employee_id) {
+    display.employee_id = filters.employee_id;
+  }
+  if (filters.sort_by || filters.sortBy) {
+    display.sorted_by = `${filters.sort_by || filters.sortBy} (${String(filters.sort_order || filters.sortOrder || "DESC").toUpperCase()})`;
+  }
+  return display;
+};
+
+/* =================================================================
+   CREATE SALARY STRUCTURE DETAIL
+================================================================= */
+export const createSalaryStructureDetail = async (data, user = null) => {
   const db = getDB();
   const conn = await db.getConnection();
 
@@ -16,7 +247,7 @@ export const createSalaryStructureDetail = async (data) => {
 
     // 🔒 1. Lock parent structure
     const [[structure]] = await conn.query(
-      `SELECT id, school_id 
+      `SELECT id, school_id, structure_name, employee_id 
        FROM employee_salary_structures 
        WHERE id=? 
        FOR UPDATE`,
@@ -29,7 +260,7 @@ export const createSalaryStructureDetail = async (data) => {
 
     // 🔒 2. Validate component exists
     const [[component]] = await conn.query(
-      `SELECT id 
+      `SELECT id, name, code, component_type 
        FROM employee_salary_components 
        WHERE id=?`,
       [validated.component_id],
@@ -53,7 +284,7 @@ export const createSalaryStructureDetail = async (data) => {
       };
     }
 
-    // 🔴 4. Business validation (critical)
+    // 🔴 4. Business validation
     if (validated.calculation_type === "percentage") {
       if (validated.percentage > 100) {
         throw {
@@ -85,10 +316,17 @@ export const createSalaryStructureDetail = async (data) => {
 
     // ✅ 5. Insert
     const id = await SalaryStructureDetailsModel.create(conn, validated);
+    const created = await SalaryStructureDetailsModel.findById(conn, id);
 
     await conn.commit();
 
-    return { message: "Created successfully", id };
+    return {
+      success: true,
+      message: "Created successfully",
+      id,
+      data: created,
+      detail: created,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -97,7 +335,10 @@ export const createSalaryStructureDetail = async (data) => {
   }
 };
 
-export const bulkUpsertSalaryStructureDetails = async (data) => {
+/* =================================================================
+   BULK UPSERT SALARY STRUCTURE DETAILS
+================================================================= */
+export const bulkUpsertSalaryStructureDetails = async (data, user = null) => {
   const db = getDB();
   const conn = await db.getConnection();
 
@@ -120,7 +361,10 @@ export const bulkUpsertSalaryStructureDetails = async (data) => {
 
     // 🔥 1. Check salary structure exists (LOCK)
     const [[structure]] = await conn.query(
-      `SELECT id FROM employee_salary_structures WHERE id=? FOR UPDATE`,
+      `SELECT id, school_id, structure_name, employee_id 
+       FROM employee_salary_structures 
+       WHERE id=? 
+       FOR UPDATE`,
       [salary_structure_id],
     );
 
@@ -140,7 +384,7 @@ export const bulkUpsertSalaryStructureDetails = async (data) => {
       seen.add(item.component_id);
     }
 
-    // 🔥 3. Pre-fetch existing components (OPTIMIZED)
+    // 🔥 3. Pre-fetch existing components
     const [existingRows] = await conn.query(
       `SELECT id, component_id 
        FROM employee_salary_structure_details
@@ -159,7 +403,6 @@ export const bulkUpsertSalaryStructureDetails = async (data) => {
         salary_structure_id,
       });
 
-      // 🔴 Extra business validation
       if (validated.calculation_type === "percentage") {
         if (validated.percentage > 100) {
           throw {
@@ -210,9 +453,34 @@ export const bulkUpsertSalaryStructureDetails = async (data) => {
       }
     }
 
+    // Fetch all current details for response
+    const [allDetails] = await conn.query(
+      `
+      SELECT 
+        d.*,
+        c.name AS component_name,
+        c.code AS component_code,
+        c.component_type
+      FROM employee_salary_structure_details d
+      JOIN employee_salary_components c ON d.component_id = c.id
+      WHERE d.salary_structure_id = ?
+      ORDER BY d.id ASC
+      `,
+      [salary_structure_id],
+    );
+
     await conn.commit();
 
-    return { message: "Bulk upsert success" };
+    return {
+      success: true,
+      message: "Bulk upsert success",
+      salary_structure_id: Number(salary_structure_id),
+      school_id: structure.school_id,
+      structure_name: structure.structure_name,
+      count: components.length,
+      data: allDetails,
+      details: allDetails,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -221,127 +489,150 @@ export const bulkUpsertSalaryStructureDetails = async (data) => {
   }
 };
 
-export const getAllSalaryStructureDetails = async () => {
+/* =================================================================
+   GET ALL SALARY STRUCTURE DETAILS (FILTERS & PAGINATION)
+================================================================= */
+export const getAllSalaryStructureDetails = async (query = {}) => {
   const db = getDB();
 
-  const [rows] = await db.query(`
-    SELECT 
-      d.*,
+  const filters = validateSalaryStructureDetailFilters(query);
+  const { whereClause, values } =
+    buildSalaryStructureDetailFilterClauses(filters);
+  const total = await SalaryStructureDetailsModel.countWithFilters(db, {
+    whereClause,
+    values: [...values],
+  });
 
-      s.structure_name,
-      s.employee_id,
+  const sortBy = String(filters.sort_by || filters.sortBy || "id").toLowerCase();
+  const sortOrder = String(
+    filters.sort_order || filters.sortOrder || filters.order || "DESC",
+  ).toUpperCase();
+  const validOrder = sortOrder === "ASC" ? "ASC" : "DESC";
 
-      c.name AS component_name,
-      c.component_type AS component_type
+  let orderClause = "ORDER BY d.id DESC";
+  if (ALLOWED_SORT_FIELDS[sortBy]) {
+    orderClause = `ORDER BY ${ALLOWED_SORT_FIELDS[sortBy]} ${validOrder}`;
+  }
 
-    FROM employee_salary_structure_details d
+  const isAll =
+    filters.all === "true" ||
+    filters.all === true ||
+    filters.limit === "all" ||
+    Number(filters.limit) === -1;
 
-    JOIN employee_salary_structures s 
-      ON d.salary_structure_id = s.id
+  const page = Math.max(1, Number(filters.page) || 1);
+  const limit = isAll
+    ? null
+    : Math.max(1, Math.min(Number(filters.limit) || 20, 500));
+  const offset = isAll
+    ? 0
+    : filters.offset !== undefined
+      ? Math.max(0, Number(filters.offset))
+      : (page - 1) * limit;
 
-    JOIN employee_salary_components c 
-      ON d.component_id = c.id
+  let limitClause = "";
+  const queryValues = [...values];
+  if (!isAll && limit !== null) {
+    limitClause = "LIMIT ? OFFSET ?";
+    queryValues.push(limit, offset);
+  }
 
-    ORDER BY d.id DESC
-  `);
+  const rows = await SalaryStructureDetailsModel.findWithFilters(db, {
+    whereClause,
+    values: queryValues,
+    orderClause,
+    limitClause,
+  });
 
-  return rows;
+  const totalPages = isAll ? 1 : Math.ceil(total / (limit || 1));
+  const from = total === 0 ? 0 : offset + 1;
+  const to = total === 0 ? 0 : Math.min(offset + rows.length, total);
+  const count = rows.length;
+
+  const filterDisplay = buildFilterDisplay(filters);
+
+  return {
+    rows,
+    pagination: {
+      total,
+      page: isAll ? 1 : page,
+      limit: isAll ? total : limit,
+      total_pages: totalPages === 0 ? 1 : totalPages,
+      totalPages: totalPages === 0 ? 1 : totalPages,
+      from,
+      to,
+      count,
+      has_next: isAll ? false : page < totalPages,
+      hasNextPage: isAll ? false : page < totalPages,
+      has_prev: isAll ? false : page > 1,
+      hasPrevPage: isAll ? false : page > 1,
+    },
+    filter_display: filterDisplay,
+    filters,
+  };
 };
 
-export const getAllSalaryStructureDetailsByToken = async (user) => {
-  const db = getDB();
-
-  if (!user) {
+/* =================================================================
+   GET SALARY STRUCTURE DETAILS BY TOKEN (SCHOOL-SCOPED)
+================================================================= */
+export const getAllSalaryStructureDetailsByToken = async (user, query = {}) => {
+  if (!user?.id) {
     throw { status: 401, message: "Unauthorized" };
   }
 
-  // 🔥 Handle all role formats
-  const isAdmin =
-    user.role === "ADMIN" ||
-    user.roles?.includes("ADMIN") ||
-    user.roles?.some((r) => r.name === "ADMIN");
-
-  let query = `
-    SELECT 
-      d.*,
-
-      s.structure_name,
-      s.employee_id,
-
-      e.first_name,
-      e.last_name,
-      e.designation,
-
-      c.name AS component_name,
-      c.component_type AS component_type,
-
-      sc.name AS school_name
-
-    FROM employee_salary_structure_details d
-
-    JOIN employee_salary_structures s 
-      ON d.salary_structure_id = s.id
-
-    JOIN employees e 
-      ON s.employee_id = e.id
-
-    JOIN employee_salary_components c 
-      ON d.component_id = c.id
-
-    JOIN schools sc 
-      ON s.school_id = sc.id
-  `;
-
-  const values = [];
-
-  // 🔥 NON-ADMIN restriction
-  if (!isAdmin) {
-    if (!user.school_id) {
-      throw { status: 400, message: "No school assigned" };
-    }
-
-    query += ` WHERE s.school_id = ?`;
-    values.push(user.school_id);
-  }
-
-  // ✅ always last
-  query += ` ORDER BY d.id DESC`;
-
-  const [rows] = await db.query(query, values);
-
-  return rows;
-};
-
-export const getSalaryStructureDetailById = async (id) => {
   const db = getDB();
 
+  // Fresh user check with role & school resolution
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+  const isAdmin =
+    roles.includes("ADMIN") ||
+    roles.includes("SUPER_ADMIN") ||
+    user.roles?.includes("ADMIN") ||
+    user.role === "admin" ||
+    user.role === "ADMIN";
+
+  const scopedFilters = { ...query };
+
+  // Non-admins are locked to their own school
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "No school assigned to user" };
+    }
+    scopedFilters.school_id = dbUser.school_id;
+  }
+
+  return await getAllSalaryStructureDetails(scopedFilters);
+};
+
+/* =================================================================
+   GET SALARY STRUCTURE DETAIL BY ID
+================================================================= */
+export const getSalaryStructureDetailById = async (id) => {
   if (!id) {
     throw { status: 400, message: "id required" };
   }
 
-  const [[row]] = await db.query(
-    `
-    SELECT 
-      d.*,
-
-      s.structure_name,
-      s.employee_id,
-
-      c.name AS component_name,
-      c.component_type AS component_type
-
-    FROM employee_salary_structure_details d
-
-    JOIN employee_salary_structures s 
-      ON d.salary_structure_id = s.id
-
-    JOIN employee_salary_components c 
-      ON d.component_id = c.id
-
-    WHERE d.id = ?
-    `,
-    [id],
-  );
+  const db = getDB();
+  const row = await SalaryStructureDetailsModel.findById(db, id);
 
   if (!row) {
     throw { status: 404, message: "Detail not found" };
@@ -350,7 +641,10 @@ export const getSalaryStructureDetailById = async (id) => {
   return row;
 };
 
-export const updateSalaryStructureDetail = async (id, data) => {
+/* =================================================================
+   UPDATE SALARY STRUCTURE DETAIL
+================================================================= */
+export const updateSalaryStructureDetail = async (id, data, user = null) => {
   const db = getDB();
   const conn = await db.getConnection();
 
@@ -371,7 +665,10 @@ export const updateSalaryStructureDetail = async (id, data) => {
     }
 
     // 🔥 Check duplicate if component_id changed
-    if (validated.component_id) {
+    if (
+      validated.component_id &&
+      validated.component_id !== existing.component_id
+    ) {
       const dup = await SalaryStructureDetailsModel.findDuplicate(
         conn,
         existing.salary_structure_id,
@@ -401,7 +698,7 @@ export const updateSalaryStructureDetail = async (id, data) => {
     // 🔴 strict logic validation
     if (calcType === "fixed") {
       if (!amount || amount <= 0) {
-        throw { status: 400, message: "Valid amount required" };
+        throw { status: 400, message: "Valid amount required for fixed type" };
       }
       validated.percentage = null; // cleanup
     }
@@ -421,24 +718,20 @@ export const updateSalaryStructureDetail = async (id, data) => {
       validated.amount = null; // cleanup
     }
 
-    // 🔧 dynamic update
-    const fields = [];
-    const values = [];
-
-    Object.entries(validated).forEach(([key, val]) => {
-      fields.push(`${key}=?`);
-      values.push(val);
-    });
-
-    if (!fields.length) {
-      throw { status: 400, message: "Nothing to update" };
-    }
-
-    await SalaryStructureDetailsModel.update(conn, id, fields, values);
+    await SalaryStructureDetailsModel.update(conn, id, validated);
+    const updated = await SalaryStructureDetailsModel.findById(conn, id);
 
     await conn.commit();
 
-    return { message: "Updated successfully" };
+    return {
+      success: true,
+      message: "Updated successfully",
+      id: Number(id),
+      old_data: existing,
+      new_data: updated,
+      data: updated,
+      detail: updated,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -447,7 +740,10 @@ export const updateSalaryStructureDetail = async (id, data) => {
   }
 };
 
-export const deleteSalaryStructureDetail = async (id) => {
+/* =================================================================
+   DELETE SALARY STRUCTURE DETAIL
+================================================================= */
+export const deleteSalaryStructureDetail = async (id, user = null) => {
   const db = getDB();
   const conn = await db.getConnection();
 
@@ -468,7 +764,13 @@ export const deleteSalaryStructureDetail = async (id) => {
 
     await conn.commit();
 
-    return { message: "Deleted successfully" };
+    return {
+      success: true,
+      message: "Deleted successfully",
+      id: Number(id),
+      deletedDetail: existing,
+      data: existing,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -477,6 +779,9 @@ export const deleteSalaryStructureDetail = async (id) => {
   }
 };
 
+/* =================================================================
+   CALCULATE SALARY BY EMPLOYEE ID
+================================================================= */
 export const calculateSalary = async (employee_id) => {
   const db = getDB();
 
@@ -504,7 +809,7 @@ export const calculateSalary = async (employee_id) => {
     SELECT 
       d.*,
       c.name,
-      c.type
+      c.component_type AS type
     FROM employee_salary_structure_details d
     JOIN employee_salary_components c 
       ON d.component_id = c.id
@@ -548,7 +853,7 @@ export const calculateSalary = async (employee_id) => {
       if (comp.based_on === "basic") {
         value = (basic * comp.percentage) / 100;
       } else if (comp.based_on === "gross") {
-        // ⚠️ skip now, calculate later
+        // skip now, calculate in pass 2
         continue;
       }
     }
@@ -597,19 +902,18 @@ export const calculateSalary = async (employee_id) => {
   return {
     employee_id,
     structure_id: structure.id,
-
     basic,
-
     earnings,
     gross,
-
     deductions,
     total_deductions: totalDeductions,
-
     net_salary: net,
   };
 };
 
+/* =================================================================
+   GET FULL SALARY BY EMPLOYEE ID
+================================================================= */
 export const getFullSalaryByEmployee = async (employee_id) => {
   const db = getDB();
 
@@ -733,37 +1037,24 @@ export const getFullSalaryByEmployee = async (employee_id) => {
 
   const [[employee]] = await db.query(
     `
-  SELECT 
-    e.id,
-    e.employee_code,
-    CONCAT(e.first_name, ' ', IFNULL(e.last_name, '')) AS full_name,
-    e.department,
-    e.designation,
-    e.status,
-    s.name AS school_name
-  FROM employees e
-  JOIN schools s ON e.school_id = s.id
-  WHERE e.id = ?
-  `,
+    SELECT 
+      e.id,
+      e.employee_code,
+      CONCAT(e.first_name, ' ', IFNULL(e.last_name, '')) AS full_name,
+      e.department,
+      e.designation,
+      e.status,
+      s.name AS school_name
+    FROM employees e
+    JOIN schools s ON e.school_id = s.id
+    WHERE e.id = ?
+    `,
     [employee_id],
   );
 
   if (!employee) {
     throw { status: 404, message: "Employee not found" };
   }
-
-  const cleanComponents = components.map((c) => ({
-    name: c.name,
-    type: c.component_type,
-    calculation_type: c.calculation_type,
-    amount: c.amount,
-    percentage: c.percentage,
-    based_on: c.based_on,
-  }));
-
-  // =========================
-  // ✅ FINAL RESPONSE
-  // =========================
 
   return {
     employee: {
@@ -775,7 +1066,6 @@ export const getFullSalaryByEmployee = async (employee_id) => {
       status: employee.status,
       school: employee.school_name,
     },
-
     structure: {
       id: structure.id,
       name: structure.structure_name,
@@ -783,10 +1073,7 @@ export const getFullSalaryByEmployee = async (employee_id) => {
       effective_to: structure.effective_to,
       status: structure.status,
     },
-
-    // components: cleanComponents,
     components,
-
     breakdown: {
       basic,
       earnings,

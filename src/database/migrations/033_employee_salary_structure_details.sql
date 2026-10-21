@@ -7,8 +7,13 @@ CREATE TABLE IF NOT EXISTS
         amount DECIMAL(12, 2) DEFAULT NULL,
         percentage DECIMAL(6, 2) DEFAULT NULL,
         based_on ENUM ('basic', 'gross') DEFAULT 'basic',
+        created_by BIGINT UNSIGNED NULL,
+        updated_by BIGINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_structure_component (salary_structure_id, component_id),
-        FOREIGN KEY (salary_structure_id) REFERENCES employee_salary_structures (id) ON DELETE CASCADE,
-        FOREIGN KEY (component_id) REFERENCES employee_salary_components (id) ON DELETE CASCADE
+        FOREIGN KEY (salary_structure_id) REFERENCES employee_salary_structures (id) ON DELETE RESTRICT,
+        FOREIGN KEY (component_id) REFERENCES employee_salary_components (id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES employees (id) ON DELETE SET NULL,
+        FOREIGN KEY (updated_by) REFERENCES employees (id) ON DELETE SET NULL
     );
