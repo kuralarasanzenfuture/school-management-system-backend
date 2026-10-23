@@ -782,3 +782,71 @@ export const deleteStudent = async (id) => {
     conn.release();
   }
 };
+
+
+/* =========================================
+   GET NON-ADMISSION (UNADMITTED) STUDENTS
+========================================= */
+export const getNonAdmissionStudents = async (query = {}) => {
+  const filters = {
+    ...query,
+    school_id: query.school_id ? Number(query.school_id) : null,
+    academic_year_id: query.academic_year_id ? Number(query.academic_year_id) : null,
+    status: query.status || "active",
+    search: query.search?.trim() || null,
+    paginate: query.paginate === "true",
+    page: Number(query.page) || 1,
+    limit: Number(query.limit) || 100,
+  };
+  return await StudentModel.findUnadmitted(filters);
+};
+
+export const getNonAdmissionStudentsByToken = async (user, query = {}) => {
+  const db = getDB();
+
+  if (!user?.id) {
+    throw { status: 401, message: "Unauthorized" };
+  }
+
+  const [[dbUser]] = await db.query(
+    `
+    SELECT 
+      u.id,
+      u.school_id,
+      GROUP_CONCAT(r.name) AS roles
+    FROM users u
+    LEFT JOIN user_roles ur ON u.id = ur.user_id
+    LEFT JOIN roles r ON ur.role_id = r.id
+    WHERE u.id = ?
+    GROUP BY u.id
+    `,
+    [user.id],
+  );
+
+  if (!dbUser) {
+    throw { status: 404, message: "User not found" };
+  }
+
+  const roles = dbUser.roles ? dbUser.roles.split(",").filter(Boolean) : [];
+  const isAdmin = roles.includes("ADMIN");
+
+  const filters = {
+    ...query,
+    school_id: query.school_id ? Number(query.school_id) : null,
+    academic_year_id: query.academic_year_id ? Number(query.academic_year_id) : null,
+    status: query.status || "active",
+    search: query.search?.trim() || null,
+    paginate: query.paginate === "true",
+    page: Number(query.page) || 1,
+    limit: Number(query.limit) || 100,
+  };
+
+  if (!isAdmin) {
+    if (!dbUser.school_id) {
+      throw { status: 400, message: "User has no school assigned" };
+    }
+    filters.school_id = dbUser.school_id;
+  }
+
+  return await StudentModel.findUnadmitted(filters);
+};

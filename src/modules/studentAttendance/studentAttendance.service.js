@@ -2,121 +2,13 @@ import { getDB } from "../../config/db.js";
 import { validateAttendance } from "./studentAttendance.validation.js";
 import { StudentAttendanceModel as Model } from "./studentAttendance.model.js";
 
-// export const markAttendance = async (user, body) => {
-//   const db = getDB();
-//   const conn = await db.getConnection();
-
-//   try {
-//     const data = validateAttendance(body);
-
-//     await conn.beginTransaction();
-
-//     /* 🔴 1. Employee check */
-//     const [[employee]] = await conn.query(
-//       `SELECT id, school_id FROM employees WHERE user_id=?`,
-//       [user.id],
-//     );
-
-//     if (!employee) throw { status: 403, message: "Employee required" };
-
-//     /* 🔴 2. Class section check */
-//     const [[classInfo]] = await conn.query(
-//       `SELECT school_id, academic_year_id
-//        FROM class_sections WHERE id=?`,
-//       [data.class_section_id],
-//     );
-
-//     if (!classInfo) throw { status: 404, message: "Class section not found" };
-
-//     /* 🔴 3. Admission validation (VERY IMPORTANT) */
-//     const ids = data.students.map((s) => s.admission_id);
-
-//     if (!ids.length) {
-//       throw { status: 400, message: "No students provided" };
-//     }
-
-//     const placeholders = ids.map(() => "?").join(",");
-
-//     const [validAdmissions] = await conn.query(
-//       `
-//   SELECT id
-//   FROM student_admissions
-//   WHERE id IN (${placeholders})
-//     AND class_id = (
-//       SELECT class_id FROM class_sections WHERE id=?
-//     )
-//     AND academic_year_id = ?
-//     AND status = 'active'
-//   `,
-//       [...ids, data.class_section_id, classInfo.academic_year_id],
-//     );
-
-//     const validSet = new Set(validAdmissions.map((r) => r.id));
-
-//     const invalidIds = ids.filter((id) => !validSet.has(id));
-
-//     if (invalidIds.length) {
-//       throw {
-//         status: 400,
-//         message: `Invalid admission_ids: ${invalidIds.join(", ")}`,
-//       };
-//     }
-
-//     /* 🔴 4. Session */
-//     let session = await Model.findSession(
-//       conn,
-//       classInfo.school_id,
-//       classInfo.academic_year_id,
-//       data.class_section_id,
-//       data.attendance_date,
-//       data.period_no,
-//     );
-
-//     let sessionId;
-
-//     if (!session) {
-//       sessionId = await Model.createSession(conn, {
-//         school_id: classInfo.school_id,
-//         academic_year_id: classInfo.academic_year_id,
-//         class_section_id: data.class_section_id,
-//         attendance_date: data.attendance_date,
-//         attendance_type: data.attendance_type,
-//         period_no: data.period_no,
-//         remarks: data.remarks,
-//         taken_by: employee.id,
-//       });
-//     } else {
-//       if (session.is_locked) {
-//         throw { status: 400, message: "Session locked" };
-//       }
-//       sessionId = session.id;
-//     }
-
-//     /* 🔥 5. BULK UPSERT (FIXED) */
-//     const values = data.students.map((s) => [
-//       sessionId,
-//       s.admission_id,
-//       s.status,
-//       s.remarks,
-//       employee.id,
-//     ]);
-
-//     await Model.bulkUpsert(conn, values);
-
-//     await conn.commit();
-
-//     return {
-//       message: "Attendance saved",
-//       attendance_session_id: sessionId,
-//     };
-//   } catch (err) {
-//     await conn.rollback();
-//     throw err;
-//   } finally {
-//     conn.release();
-//   }
-// };
-
+/* ===========================================================
+   MARK ATTENDANCE
+   - Resolves & cross-validates admission_id and student_id
+     against student_admissions table
+   - period_no: 0 for daily attendance, >0 for period attendance
+   - Populates created_by and updated_by audit columns
+=========================================================== */
 export const markAttendance = async (user, body) => {
   const db = getDB();
   const conn = await db.getConnection();
@@ -126,26 +18,20 @@ export const markAttendance = async (user, body) => {
 
     await conn.beginTransaction();
 
-    /* 🔴 1. EMPLOYEE CHECK */
+    /* 1. USER VALIDATION */
     if (!user || !user.id) {
       throw { status: 401, message: "Invalid user token" };
     }
 
-    const [[employee]] = await conn.query(
-      `SELECT id, school_id FROM employees WHERE user_id=?`,
-      [user.id],
-    );
-
-    if (!employee) {
-      throw { status: 403, message: "Employee required" };
-    }
-
-    /* 🔴 2. CLASS SECTION CHECK */
+    /* 2. CLASS SECTION CHECK */
     const [[classInfo]] = await conn.query(
       `
-      SELECT school_id, academic_year_id, class_id
-      FROM class_sections
-      WHERE id=?
+      SELECT cs.id, cs.school_id, cs.academic_year_id, cs.class_id, cs.section_id,
+             c.name AS class_name, s.name AS section_name
+      FROM class_sections cs
+      JOIN classes c ON cs.class_id = c.id
+      JOIN sections s ON cs.section_id = s.id
+      WHERE cs.id = ?
       `,
       [data.class_section_id],
     );
@@ -154,54 +40,90 @@ export const markAttendance = async (user, body) => {
       throw { status: 404, message: "Class section not found" };
     }
 
-    /* 🔴 3. STRICT TYPE VALIDATION */
-    if (data.attendance_type === "daily" && data.period_no !== null) {
+    /* 3. RETRIEVE & CROSS-VALIDATE STUDENT_ID AND ADMISSION_ID FROM ADMISSIONS */
+    const candidateIds = new Set();
+    data.students.forEach((s) => {
+      if (s.admission_id) candidateIds.add(Number(s.admission_id));
+      if (s.student_id) candidateIds.add(Number(s.student_id));
+    });
+
+    const ids = Array.from(candidateIds);
+    let validAdmissions = [];
+
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => "?").join(",");
+      const [rows] = await conn.query(
+        `
+        SELECT sa.id AS admission_id, sa.student_id, ssa.roll_no, sa.class_id, sa.academic_year_id
+        FROM student_admissions sa
+        LEFT JOIN student_section_allocations ssa ON sa.id = ssa.admission_id
+          AND ssa.class_section_id = ?
+          AND ssa.status = 'active'
+          AND (ssa.effective_to IS NULL OR ssa.effective_to >= ?)
+        WHERE (sa.id IN (${placeholders}) OR sa.student_id IN (${placeholders}))
+          AND sa.class_id = ?
+          AND sa.academic_year_id = ?
+        `,
+        [data.class_section_id, data.attendance_date, ...ids, ...ids, classInfo.class_id, classInfo.academic_year_id],
+      );
+      validAdmissions = rows;
+    }
+
+    const byAdmissionId = new Map();
+    const byStudentId = new Map();
+
+    for (const row of validAdmissions) {
+      byAdmissionId.set(Number(row.admission_id), row);
+      byStudentId.set(Number(row.student_id), row);
+    }
+
+    const resolvedStudents = [];
+    const invalidStudents = [];
+
+    for (let i = 0; i < data.students.length; i++) {
+      const s = data.students[i];
+      let matchedRow = null;
+
+      const inputAdmId = s.admission_id ? Number(s.admission_id) : null;
+      const inputStId = s.student_id ? Number(s.student_id) : null;
+
+      // 1. Try matching by input admission_id directly
+      if (inputAdmId && byAdmissionId.has(inputAdmId)) {
+        matchedRow = byAdmissionId.get(inputAdmId);
+      }
+      // 2. Try matching by input student_id directly
+      else if (inputStId && byStudentId.has(inputStId)) {
+        matchedRow = byStudentId.get(inputStId);
+      }
+      // 3. Fallback: check if inputAdmId was actually student_id
+      else if (inputAdmId && byStudentId.has(inputAdmId)) {
+        matchedRow = byStudentId.get(inputAdmId);
+      }
+      // 4. Fallback: check if inputStId was actually admission_id
+      else if (inputStId && byAdmissionId.has(inputStId)) {
+        matchedRow = byAdmissionId.get(inputStId);
+      }
+
+      if (!matchedRow) {
+        invalidStudents.push(`[admission_id: ${s.admission_id || "N/A"}, student_id: ${s.student_id || "N/A"}]`);
+      } else {
+        resolvedStudents.push({
+          admission_id: matchedRow.admission_id,
+          student_id: matchedRow.student_id,
+          status: s.status,
+          remarks: s.remarks || null,
+        });
+      }
+    }
+
+    if (invalidStudents.length > 0) {
       throw {
         status: 400,
-        message: "Daily attendance must not have period_no",
+        message: `Active admission record not found for student(s): ${invalidStudents.join(", ")} in class '${classInfo.class_name}' section '${classInfo.section_name}'`,
       };
     }
 
-    if (data.attendance_type === "period" && !data.period_no) {
-      throw {
-        status: 400,
-        message: "period_no required for period attendance",
-      };
-    }
-
-    /* 🔴 4. VALIDATE ADMISSIONS */
-    const ids = data.students.map((s) => s.admission_id);
-
-    if (!ids.length) {
-      throw { status: 400, message: "No students provided" };
-    }
-
-    const placeholders = ids.map(() => "?").join(",");
-
-    const [validAdmissions] = await conn.query(
-      `
-      SELECT id 
-      FROM student_admissions
-      WHERE id IN (${placeholders})
-      AND class_id = ?
-      AND academic_year_id = ?
-      AND status = 'active'
-      `,
-      [...ids, classInfo.class_id, classInfo.academic_year_id],
-    );
-
-    const validSet = new Set(validAdmissions.map((r) => r.id));
-
-    const invalidIds = ids.filter((id) => !validSet.has(id));
-
-    if (invalidIds.length) {
-      throw {
-        status: 400,
-        message: `Invalid admission_ids: ${invalidIds.join(", ")}`,
-      };
-    }
-
-    /* 🔴 5. SESSION FIND / CREATE */
+    /* 4. ATTENDANCE SESSION (FIND OR CREATE) */
     let session = await Model.findSession(
       conn,
       classInfo.school_id,
@@ -209,10 +131,11 @@ export const markAttendance = async (user, body) => {
       data.class_section_id,
       data.attendance_date,
       data.attendance_type,
-      data.period_no,
+      data.period_no, // 0 for daily, >0 for period
     );
 
     let sessionId;
+    let isNewSession = false;
 
     if (!session) {
       sessionId = await Model.createSession(conn, {
@@ -221,24 +144,64 @@ export const markAttendance = async (user, body) => {
         class_section_id: data.class_section_id,
         attendance_date: data.attendance_date,
         attendance_type: data.attendance_type,
-        period_no: data.period_no,
-        remarks: data.remarks,
-        taken_by: employee.id,
+        period_no: data.period_no, // 0 for daily, >0 for period
+        remarks: data.remarks || null,
+        created_by: user.id,
+        updated_by: user.id,
+        is_locked: false,
       });
+      isNewSession = true;
     } else {
       if (session.is_locked) {
         throw { status: 400, message: "Attendance session is locked" };
       }
+
+      // Check if student attendance records are already taken for this session
+      const [[attCount]] = await conn.query(
+        `SELECT COUNT(*) AS count FROM student_attendance WHERE attendance_session_id = ?`,
+        [session.id],
+      );
+
+      const alreadyTaken = Number(attCount?.count || 0) > 0;
+
+      // If already taken and allow_update flag is not passed, throw 409 Conflict with clear message
+      if (alreadyTaken && !data.allow_update) {
+        const periodDesc =
+          data.attendance_type === "period"
+            ? `Period ${data.period_no}`
+            : "Daily Attendance";
+
+        throw {
+          status: 409,
+          message: `Attendance has already been taken for Class '${classInfo.class_name}' Section '${classInfo.section_name}' on ${data.attendance_date} (${periodDesc}). Set 'allow_update': true to update existing records.`,
+          already_taken: true,
+          attendance_session_id: session.id,
+          class_section_id: data.class_section_id,
+          attendance_date: data.attendance_date,
+          attendance_type: data.attendance_type,
+          period_no: data.period_no,
+        };
+      }
+
       sessionId = session.id;
+
+      await conn.query(
+        `UPDATE student_attendance_sessions 
+         SET updated_by = ?, remarks = COALESCE(?, remarks) 
+         WHERE id = ?`,
+        [user.id, data.remarks || null, sessionId],
+      );
     }
 
-    /* 🔴 6. BULK UPSERT */
-    const values = data.students.map((s) => [
+    /* 5. BULK UPSERT WITH STUDENT_ID AND AUDIT FIELDS */
+    const values = resolvedStudents.map((s) => [
       sessionId,
       s.admission_id,
+      s.student_id,
       s.status,
       s.remarks,
-      employee.id,
+      user.id, // created_by
+      user.id, // updated_by
     ]);
 
     await Model.bulkUpsert(conn, values);
@@ -246,11 +209,17 @@ export const markAttendance = async (user, body) => {
     await conn.commit();
 
     return {
-      message: "Attendance saved successfully",
+      success: true,
+      message: isNewSession
+        ? "Attendance saved successfully"
+        : "Attendance has already been taken for this session. Records updated successfully.",
+      already_taken: !isNewSession,
       attendance_session_id: sessionId,
+      school_id: classInfo.school_id,
       attendance_type: data.attendance_type,
       period_no: data.period_no,
-      total_students: data.students.length,
+      total_students: resolvedStudents.length,
+      is_new_session: isNewSession,
     };
   } catch (err) {
     await conn.rollback();
@@ -260,6 +229,9 @@ export const markAttendance = async (user, body) => {
   }
 };
 
+/* ===========================================================
+   GET ALL ATTENDANCE
+=========================================================== */
 export const getAllAttendance = async (filters = {}) => {
   const db = getDB();
 
@@ -268,6 +240,10 @@ export const getAllAttendance = async (filters = {}) => {
       sa.id,
       sa.attendance_status,
       sa.remarks,
+      sa.created_by,
+      sa.updated_by,
+      sa.created_at,
+      sa.updated_at,
 
       sas.id AS session_id,
       sas.attendance_date,
@@ -284,10 +260,12 @@ export const getAllAttendance = async (filters = {}) => {
       st.last_name,
 
       adm.id AS admission_id,
-      adm.roll_no,
+      ssa.roll_no,
 
+      u_creator.username AS created_by_name,
+      u_updater.username AS updated_by_name,
       emp.id AS marked_by_id,
-      emp.first_name AS marked_by_name,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name,
 
       sc.id AS school_id,
       sc.name AS school_name
@@ -301,10 +279,16 @@ export const getAllAttendance = async (filters = {}) => {
       ON sa.admission_id = adm.id
 
     JOIN students st 
-      ON adm.student_id = st.id
+      ON sa.student_id = st.id
 
     JOIN class_sections cs 
       ON sas.class_section_id = cs.id
+
+    LEFT JOIN student_section_allocations ssa
+      ON adm.id = ssa.admission_id
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+      AND (ssa.effective_to IS NULL OR ssa.effective_to >= sas.attendance_date)
 
     JOIN classes c 
       ON cs.class_id = c.id
@@ -315,15 +299,45 @@ export const getAllAttendance = async (filters = {}) => {
     JOIN schools sc 
       ON sas.school_id = sc.id
 
-    JOIN employees emp 
-      ON sa.marked_by = emp.id
+    LEFT JOIN users u_creator 
+      ON sa.created_by = u_creator.id
+
+    LEFT JOIN users u_updater 
+      ON sa.updated_by = u_updater.id
+
+    LEFT JOIN employees emp 
+      ON emp.user_id = u_creator.id
 
     WHERE 1=1
   `;
 
   const values = [];
 
-  // 🔍 FILTERS
+  if (filters.school_id) {
+    query += ` AND sas.school_id = ?`;
+    values.push(filters.school_id);
+  }
+
+  if (filters.class_id) {
+    query += ` AND cs.class_id = ?`;
+    values.push(filters.class_id);
+  }
+
+  if (filters.academic_year_id) {
+    query += ` AND sas.academic_year_id = ?`;
+    values.push(filters.academic_year_id);
+  }
+
+  if (filters.attendance_type) {
+    query += ` AND sas.attendance_type = ?`;
+    values.push(filters.attendance_type);
+  }
+
+  if (filters.period_no !== undefined && filters.period_no !== null && filters.period_no !== "") {
+    query += ` AND sas.period_no = ?`;
+    values.push(Number(filters.period_no));
+  }
+
   if (filters.date) {
     query += ` AND sas.attendance_date = ?`;
     values.push(filters.date);
@@ -334,23 +348,26 @@ export const getAllAttendance = async (filters = {}) => {
     values.push(filters.class_section_id);
   }
 
-  if (filters.student_id) {
-    query += ` AND st.id = ?`;
-    values.push(filters.student_id);
-  }
-
-  if (filters.school_id) {
-    query += ` AND sas.school_id = ?`;
-    values.push(filters.school_id);
+  if (filters.student_id && filters.admission_id) {
+    query += ` AND sa.student_id = ? AND sa.admission_id = ?`;
+    values.push(filters.student_id, filters.admission_id);
+  } else if (filters.student_id) {
+    query += ` AND (sa.student_id = ? OR sa.admission_id = ?)`;
+    values.push(filters.student_id, filters.student_id);
+  } else if (filters.admission_id) {
+    query += ` AND (sa.admission_id = ? OR sa.student_id = ?)`;
+    values.push(filters.admission_id, filters.admission_id);
   }
 
   query += ` ORDER BY sas.attendance_date DESC, sa.id DESC`;
 
   const [rows] = await db.query(query, values);
-
   return rows;
 };
 
+/* ===========================================================
+   GET ALL BY TOKEN (SCOPED TO USER'S SCHOOL)
+=========================================================== */
 export const getAllAttendanceByToken = async (user, filters = {}) => {
   const db = getDB();
 
@@ -368,6 +385,10 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
       sa.id,
       sa.attendance_status,
       sa.remarks,
+      sa.created_by,
+      sa.updated_by,
+      sa.created_at,
+      sa.updated_at,
 
       sas.id AS session_id,
       sas.attendance_date,
@@ -386,10 +407,13 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
       st.first_name,
       st.last_name,
 
-      adm.roll_no,
+      adm.id AS admission_id,
+      ssa.roll_no,
 
+      u_creator.username AS created_by_name,
+      u_updater.username AS updated_by_name,
       emp.id AS marked_by_id,
-      emp.first_name AS marked_by_name
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name
 
     FROM student_attendance sa
 
@@ -403,10 +427,16 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
       ON sa.admission_id = adm.id
 
     JOIN students st 
-      ON adm.student_id = st.id
+      ON sa.student_id = st.id
 
     JOIN class_sections cs 
       ON sas.class_section_id = cs.id
+
+    LEFT JOIN student_section_allocations ssa
+      ON adm.id = ssa.admission_id
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+      AND (ssa.effective_to IS NULL OR ssa.effective_to >= sas.attendance_date)
 
     JOIN classes c 
       ON cs.class_id = c.id
@@ -414,25 +444,51 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
     JOIN sections s 
       ON cs.section_id = s.id
 
-    JOIN employees emp 
-      ON sa.marked_by = emp.id
+    LEFT JOIN users u_creator 
+      ON sa.created_by = u_creator.id
+
+    LEFT JOIN users u_updater 
+      ON sa.updated_by = u_updater.id
+
+    LEFT JOIN employees emp 
+      ON emp.user_id = u_creator.id
 
     WHERE 1=1
   `;
 
   const values = [];
 
-  // 🔐 SCHOOL FILTER (CRITICAL)
-  if (!isAdmin) {
+  // Scoping: If admin passed school_id in query, filter by it; non-admin is scoped to token's school_id
+  if (filters.school_id) {
+    query += ` AND sas.school_id = ?`;
+    values.push(filters.school_id);
+  } else if (!isAdmin) {
     if (!user.school_id) {
       throw { status: 400, message: "No school assigned to user" };
     }
-
     query += ` AND sas.school_id = ?`;
     values.push(user.school_id);
   }
 
-  // 🔍 FILTERS
+  if (filters.class_id) {
+    query += ` AND cs.class_id = ?`;
+    values.push(filters.class_id);
+  }
+
+  if (filters.academic_year_id) {
+    query += ` AND sas.academic_year_id = ?`;
+    values.push(filters.academic_year_id);
+  }
+
+  if (filters.attendance_type) {
+    query += ` AND sas.attendance_type = ?`;
+    values.push(filters.attendance_type);
+  }
+
+  if (filters.period_no !== undefined && filters.period_no !== null && filters.period_no !== "") {
+    query += ` AND sas.period_no = ?`;
+    values.push(Number(filters.period_no));
+  }
 
   if (filters.date) {
     query += ` AND sas.attendance_date = ?`;
@@ -454,9 +510,15 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
     values.push(filters.class_section_id);
   }
 
-  if (filters.student_id) {
-    query += ` AND st.id = ?`;
-    values.push(filters.student_id);
+  if (filters.student_id && filters.admission_id) {
+    query += ` AND sa.student_id = ? AND sa.admission_id = ?`;
+    values.push(filters.student_id, filters.admission_id);
+  } else if (filters.student_id) {
+    query += ` AND (sa.student_id = ? OR sa.admission_id = ?)`;
+    values.push(filters.student_id, filters.student_id);
+  } else if (filters.admission_id) {
+    query += ` AND (sa.admission_id = ? OR sa.student_id = ?)`;
+    values.push(filters.admission_id, filters.admission_id);
   }
 
   if (filters.status) {
@@ -464,10 +526,8 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
     values.push(filters.status);
   }
 
-  // 🔥 SORTING
-  query += ` ORDER BY sas.attendance_date DESC, adm.roll_no ASC`;
+  query += ` ORDER BY sas.attendance_date DESC, ssa.roll_no ASC`;
 
-  // ⚡ PAGINATION (VERY IMPORTANT FOR REAL SYSTEM)
   if (filters.limit) {
     const limit = Number(filters.limit) || 50;
     const offset = Number(filters.offset) || 0;
@@ -477,10 +537,12 @@ export const getAllAttendanceByToken = async (user, filters = {}) => {
   }
 
   const [rows] = await db.query(query, values);
-
   return rows;
 };
 
+/* ===========================================================
+   GET BY SESSION ID
+=========================================================== */
 export const getAttendanceBySession = async (session_id, user) => {
   const db = getDB();
 
@@ -488,11 +550,10 @@ export const getAttendanceBySession = async (session_id, user) => {
     throw { status: 400, message: "session_id required" };
   }
 
-  // 🔍 Validate session + security
   const [[session]] = await db.query(
-    `SELECT id, school_id, attendance_date, class_section_id, is_locked
+    `SELECT id, school_id, attendance_date, attendance_type, period_no, class_section_id, is_locked, remarks
      FROM student_attendance_sessions
-     WHERE id=?`,
+     WHERE id = ?`,
     [session_id],
   );
 
@@ -500,21 +561,21 @@ export const getAttendanceBySession = async (session_id, user) => {
     throw { status: 404, message: "Session not found" };
   }
 
-  // 🔐 School restriction
   if (user?.school_id && session.school_id !== user.school_id) {
     throw { status: 403, message: "Unauthorized access" };
   }
 
-  // 📊 Full detailed data
   const [rows] = await db.query(
     `
     SELECT 
       sa.id,
       sa.attendance_status,
       sa.remarks,
+      sa.created_by,
+      sa.updated_by,
 
       adm.id AS admission_id,
-      adm.roll_no,
+      ssa.roll_no,
 
       st.id AS student_id,
       st.first_name,
@@ -524,7 +585,9 @@ export const getAttendanceBySession = async (session_id, user) => {
       c.name AS class_name,
       s.name AS section_name,
 
-      emp.first_name AS marked_by_name
+      u_creator.username AS created_by_name,
+      u_updater.username AS updated_by_name,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name
 
     FROM student_attendance sa
 
@@ -532,7 +595,7 @@ export const getAttendanceBySession = async (session_id, user) => {
       ON sa.admission_id = adm.id
 
     JOIN students st 
-      ON adm.student_id = st.id
+      ON sa.student_id = st.id
 
     JOIN student_attendance_sessions sas 
       ON sa.attendance_session_id = sas.id
@@ -540,18 +603,30 @@ export const getAttendanceBySession = async (session_id, user) => {
     JOIN class_sections cs 
       ON sas.class_section_id = cs.id
 
+    LEFT JOIN student_section_allocations ssa
+      ON adm.id = ssa.admission_id
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+      AND (ssa.effective_to IS NULL OR ssa.effective_to >= sas.attendance_date)
+
     JOIN classes c 
       ON cs.class_id = c.id
 
     JOIN sections s 
       ON cs.section_id = s.id
 
-    JOIN employees emp 
-      ON sa.marked_by = emp.id
+    LEFT JOIN users u_creator 
+      ON sa.created_by = u_creator.id
+
+    LEFT JOIN users u_updater 
+      ON sa.updated_by = u_updater.id
+
+    LEFT JOIN employees emp 
+      ON emp.user_id = u_creator.id
 
     WHERE sa.attendance_session_id = ?
 
-    ORDER BY adm.roll_no ASC
+    ORDER BY ssa.roll_no ASC
     `,
     [session_id],
   );
@@ -562,6 +637,9 @@ export const getAttendanceBySession = async (session_id, user) => {
   };
 };
 
+/* ===========================================================
+   GET BY ID
+=========================================================== */
 export const getAttendanceById = async (id) => {
   const db = getDB();
 
@@ -575,14 +653,19 @@ export const getAttendanceById = async (id) => {
       sa.id,
       sa.attendance_status,
       sa.remarks,
+      sa.created_by,
+      sa.updated_by,
+      sa.created_at,
+      sa.updated_at,
 
       sas.id AS session_id,
       sas.attendance_date,
+      sas.attendance_type,
       sas.period_no,
       sas.is_locked,
 
       adm.id AS admission_id,
-      adm.roll_no,
+      ssa.roll_no,
 
       st.id AS student_id,
       st.first_name,
@@ -592,8 +675,10 @@ export const getAttendanceById = async (id) => {
       c.name AS class_name,
       s.name AS section_name,
 
+      u_creator.username AS created_by_name,
+      u_updater.username AS updated_by_name,
       emp.id AS marked_by_id,
-      emp.first_name AS marked_by_name,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name,
 
       sc.id AS school_id,
       sc.name AS school_name
@@ -607,10 +692,16 @@ export const getAttendanceById = async (id) => {
       ON sa.admission_id = adm.id
 
     JOIN students st 
-      ON adm.student_id = st.id
+      ON sa.student_id = st.id
 
     JOIN class_sections cs 
       ON sas.class_section_id = cs.id
+
+    LEFT JOIN student_section_allocations ssa
+      ON adm.id = ssa.admission_id
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+      AND (ssa.effective_to IS NULL OR ssa.effective_to >= sas.attendance_date)
 
     JOIN classes c 
       ON cs.class_id = c.id
@@ -621,8 +712,14 @@ export const getAttendanceById = async (id) => {
     JOIN schools sc 
       ON sas.school_id = sc.id
 
-    JOIN employees emp 
-      ON sa.marked_by = emp.id
+    LEFT JOIN users u_creator 
+      ON sa.created_by = u_creator.id
+
+    LEFT JOIN users u_updater 
+      ON sa.updated_by = u_updater.id
+
+    LEFT JOIN employees emp 
+      ON emp.user_id = u_creator.id
 
     WHERE sa.id = ?
     `,
@@ -636,557 +733,14 @@ export const getAttendanceById = async (id) => {
   return row;
 };
 
-// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
-//   const db = getDB();
-
-//   if (!admission_id) {
-//     throw { status: 400, message: "admission_id required" };
-//   }
-
-//   let query = `
-//     SELECT
-//       sa.id,
-//       sa.attendance_status,
-//       sa.remarks,
-
-//       sas.attendance_date,
-//       sas.period_no,
-//       sas.attendance_type,
-
-//       cs.id AS class_section_id,
-//       c.name AS class_name,
-//       s.name AS section_name,
-
-//       emp.first_name AS marked_by_name
-
-//     FROM student_attendance sa
-
-//     JOIN student_attendance_sessions sas
-//       ON sa.attendance_session_id = sas.id
-
-//     JOIN class_sections cs
-//       ON sas.class_section_id = cs.id
-
-//     JOIN classes c
-//       ON cs.class_id = c.id
-
-//     JOIN sections s
-//       ON cs.section_id = s.id
-
-//     JOIN employees emp
-//       ON sa.marked_by = emp.id
-
-//     WHERE sa.admission_id = ?
-//   `;
-
-//   const values = [admission_id];
-
-//   // 🔍 filters
-//   if (filters.from_date) {
-//     query += ` AND sas.attendance_date >= ?`;
-//     values.push(filters.from_date);
-//   }
-
-//   if (filters.to_date) {
-//     query += ` AND sas.attendance_date <= ?`;
-//     values.push(filters.to_date);
-//   }
-
-//   query += ` ORDER BY sas.attendance_date DESC`;
-
-//   const [rows] = await db.query(query, values);
-
-//   return rows;
-// };
-
-// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
-//   const db = getDB();
-
-//   if (!admission_id) {
-//     throw { status: 400, message: "admission_id required" };
-//   }
-
-//   let query = `
-//     SELECT
-//       sa.attendance_status,
-//       sa.remarks,
-
-//       sas.attendance_date,
-//       sas.period_no,
-//       sas.attendance_type,
-
-//       cs.id AS class_section_id,
-//       c.name AS class_name,
-//       s.name AS section_name,
-
-//       emp.first_name AS marked_by_name
-
-//     FROM student_attendance sa
-
-//     JOIN student_attendance_sessions sas
-//       ON sa.attendance_session_id = sas.id
-
-//     JOIN class_sections cs
-//       ON sas.class_section_id = cs.id
-
-//     JOIN classes c
-//       ON cs.class_id = c.id
-
-//     JOIN sections s
-//       ON cs.section_id = s.id
-
-//     JOIN employees emp
-//       ON sa.marked_by = emp.id
-
-//     WHERE sa.admission_id = ?
-//   `;
-
-//   const values = [admission_id];
-
-//   if (filters.from_date) {
-//     query += ` AND sas.attendance_date >= ?`;
-//     values.push(filters.from_date);
-//   }
-
-//   if (filters.to_date) {
-//     query += ` AND sas.attendance_date <= ?`;
-//     values.push(filters.to_date);
-//   }
-
-//   query += ` ORDER BY sas.attendance_date DESC, sas.period_no ASC`;
-
-//   const [rows] = await db.query(query, values);
-
-//   if (!rows.length) return {};
-
-//   // 🔥 GROUPING LOGIC
-//   const result = {
-//     class_section_id: rows[0].class_section_id,
-//     class_name: rows[0].class_name,
-//     section_name: rows[0].section_name,
-//     daily: [],
-//     period: [],
-//   };
-
-//   const periodMap = {}; // date => periods[]
-
-//   for (const row of rows) {
-//     if (row.attendance_type === "daily") {
-//       result.daily.push({
-//         date: row.attendance_date,
-//         status: row.attendance_status,
-//         marked_by: row.marked_by_name,
-//         remarks: row.remarks,
-//       });
-//     } else {
-//       // PERIOD TYPE
-//       if (!periodMap[row.attendance_date]) {
-//         periodMap[row.attendance_date] = [];
-//       }
-
-//       periodMap[row.attendance_date].push({
-//         period_no: row.period_no,
-//         status: row.attendance_status,
-//         remarks: row.remarks,
-//       });
-//     }
-//   }
-
-//   // convert map → array
-//   result.period = Object.keys(periodMap).map((date) => ({
-//     date,
-//     periods: periodMap[date],
-//   }));
-
-//   return result;
-// };
-
-/* fix filter by academic year */
-
-// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
-//   const db = getDB();
-
-//   if (!admission_id) {
-//     throw { status: 400, message: "admission_id required" };
-//   }
-
-//   /* 🔥 STEP 1: Resolve academic year */
-
-//   let academicYear;
-
-//   if (filters.academic_year_id) {
-//     const [[year]] = await db.query(`SELECT * FROM academic_years WHERE id=?`, [
-//       filters.academic_year_id,
-//     ]);
-
-//     if (!year) {
-//       throw { status: 404, message: "Academic year not found" };
-//     }
-
-//     academicYear = year;
-//   } else {
-//     // ✅ AUTO current year by date
-//     const [[year]] = await db.query(
-//       `
-//       SELECT *
-//       FROM academic_years
-//       WHERE CURDATE() BETWEEN start_date AND end_date
-//       LIMIT 1
-//       `,
-//     );
-
-//     if (!year) {
-//       throw { status: 400, message: "No current academic year found" };
-//     }
-
-//     academicYear = year;
-//   }
-
-//   /* 🔥 STEP 2: Base query */
-
-//   let query = `
-//     SELECT
-//       sa.attendance_status,
-//       sa.remarks,
-
-//       sas.attendance_date,
-//       sas.period_no,
-//       sas.attendance_type,
-
-//       cs.id AS class_section_id,
-//       c.name AS class_name,
-//       s.name AS section_name,
-
-//       emp.first_name AS marked_by_name
-
-//     FROM student_attendance sa
-
-//     JOIN student_attendance_sessions sas
-//       ON sa.attendance_session_id = sas.id
-
-//     JOIN class_sections cs
-//       ON sas.class_section_id = cs.id
-
-//     JOIN classes c
-//       ON cs.class_id = c.id
-
-//     JOIN sections s
-//       ON cs.section_id = s.id
-
-//     JOIN employees emp
-//       ON sa.marked_by = emp.id
-
-//     WHERE sa.admission_id = ?
-//       AND sas.attendance_date BETWEEN ? AND ?
-//   `;
-
-//   const values = [admission_id, academicYear.start_date, academicYear.end_date];
-
-//   /* 🔍 EXTRA FILTERS */
-
-//   if (filters.from_date) {
-//     query += ` AND sas.attendance_date >= ?`;
-//     values.push(filters.from_date);
-//   }
-
-//   if (filters.to_date) {
-//     query += ` AND sas.attendance_date <= ?`;
-//     values.push(filters.to_date);
-//   }
-
-//   query += ` ORDER BY sas.attendance_date DESC, sas.period_no ASC`;
-
-//   const [rows] = await db.query(query, values);
-
-//   if (!rows.length) {
-//     return {
-//       academic_year: academicYear.name,
-//       daily: [],
-//       period: [],
-//     };
-//   }
-
-//   /* 🔥 STEP 3: GROUPING */
-
-//   const result = {
-//     academic_year: academicYear.name,
-//     class_section_id: rows[0].class_section_id,
-//     class_name: rows[0].class_name,
-//     section_name: rows[0].section_name,
-//     daily: [],
-//     period: [],
-//   };
-
-//   const periodMap = {};
-
-//   for (const row of rows) {
-//     if (row.attendance_type === "daily") {
-//       result.daily.push({
-//         date: row.attendance_date,
-//         status: row.attendance_status,
-//         marked_by: row.marked_by_name,
-//         remarks: row.remarks,
-//       });
-//     } else {
-//       if (!periodMap[row.attendance_date]) {
-//         periodMap[row.attendance_date] = [];
-//       }
-
-//       periodMap[row.attendance_date].push({
-//         period_no: row.period_no,
-//         status: row.attendance_status,
-//         remarks: row.remarks,
-//       });
-//     }
-//   }
-
-//   result.period = Object.keys(periodMap).map((date) => ({
-//     date,
-//     periods: periodMap[date],
-//   }));
-
-//   return result;
-// };
-
-/* ===========================*/
-
-// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
-//   const db = getDB();
-
-//   if (!admission_id) {
-//     throw { status: 400, message: "admission_id required" };
-//   }
-
-//   /* =========================
-//      1. GET ADMISSION
-//   ========================= */
-
-//   const [[admission]] = await db.query(
-//     `
-//     SELECT
-//       id,
-//       academic_year_id,
-//       class_id
-//     FROM student_admissions
-//     WHERE id = ?
-//     `,
-//     [admission_id],
-//   );
-
-//   if (!admission) {
-//     throw { status: 404, message: "Admission not found" };
-//   }
-
-//   /* =========================
-//      2. BASE QUERY (STRICT YEAR MATCH)
-//   ========================= */
-
-//   let query = `
-//     SELECT
-//       sa.attendance_status,
-//       sa.remarks,
-
-//       sas.attendance_date,
-//       sas.period_no,
-//       sas.attendance_type,
-
-//       cs.id AS class_section_id,
-//       c.name AS class_name,
-//       s.name AS section_name
-
-//     FROM student_attendance sa
-
-//     JOIN student_attendance_sessions sas
-//       ON sa.attendance_session_id = sas.id
-
-//     JOIN class_sections cs
-//       ON sas.class_section_id = cs.id
-
-//     JOIN classes c
-//       ON cs.class_id = c.id
-
-//     JOIN sections s
-//       ON cs.section_id = s.id
-
-//     WHERE
-//       sa.admission_id = ?
-//       AND sas.academic_year_id = ?
-//   `;
-
-//   const values = [admission_id, admission.academic_year_id];
-
-//   /* =========================
-//      3. OPTIONAL FILTERS
-//   ========================= */
-
-//   if (filters.from_date) {
-//     query += ` AND sas.attendance_date >= ?`;
-//     values.push(filters.from_date);
-//   }
-
-//   if (filters.to_date) {
-//     query += ` AND sas.attendance_date <= ?`;
-//     values.push(filters.to_date);
-//   }
-
-//   if (filters.attendance_type) {
-//     query += ` AND sas.attendance_type = ?`;
-//     values.push(filters.attendance_type); // 'daily' or 'period'
-//   }
-
-//   query += `
-//     ORDER BY
-//       sas.attendance_date DESC,
-//       sas.period_no ASC
-//   `;
-
-//   const [rows] = await db.query(query, values);
-
-//   /* =========================
-//      4. EMPTY RESPONSE
-//   ========================= */
-
-//   if (!rows.length) {
-//     return {
-//       academic_year_id: admission.academic_year_id,
-//       daily: [],
-//       period: [],
-//     };
-//   }
-
-//   /* =========================
-//      5. SPLIT DAILY / PERIOD
-//   ========================= */
-
-//   const result = {
-//     academic_year_id: admission.academic_year_id,
-//     class_section_id: rows[0].class_section_id,
-//     class_name: rows[0].class_name,
-//     section_name: rows[0].section_name,
-//     daily: [],
-//     period: [],
-//   };
-
-//   const periodMap = {};
-
-//   for (const row of rows) {
-//     if (row.attendance_type === "daily") {
-//       result.daily.push({
-//         date: row.attendance_date,
-//         status: row.attendance_status,
-//         remarks: row.remarks,
-//       });
-//     } else {
-//       if (!periodMap[row.attendance_date]) {
-//         periodMap[row.attendance_date] = [];
-//       }
-
-//       periodMap[row.attendance_date].push({
-//         period_no: row.period_no,
-//         status: row.attendance_status,
-//         remarks: row.remarks,
-//       });
-//     }
-//   }
-
-//   result.period = Object.keys(periodMap).map((date) => ({
-//     date,
-//     periods: periodMap[date],
-//   }));
-
-//   return result;
-// };
-
-/* ========= fix filter daily and period ===================*/
-
-// export const getAttendanceByStudent = async (admission_id, filters = {}) => {
-//   const db = getDB();
-
-//   if (!admission_id) {
-//     throw { status: 400, message: "admission_id required" };
-//   }
-
-//   let query = `
-//     SELECT
-//       sa.id,
-//       sa.attendance_status,
-//       sa.remarks,
-
-//       sas.attendance_date,
-//       sas.period_no,
-//       sas.attendance_type,
-
-//       cs.id AS class_section_id,
-//       c.name AS class_name,
-//       s.name AS section_name,
-
-//       emp.first_name AS marked_by_name
-
-//     FROM student_attendance sa
-
-//     JOIN student_attendance_sessions sas
-//       ON sa.attendance_session_id = sas.id
-
-//     JOIN class_sections cs
-//       ON sas.class_section_id = cs.id
-
-//     JOIN classes c
-//       ON cs.class_id = c.id
-
-//     JOIN sections s
-//       ON cs.section_id = s.id
-
-//     JOIN employees emp
-//       ON sa.marked_by = emp.id
-
-//     WHERE sa.admission_id = ?
-//   `;
-
-//   const values = [admission_id];
-
-//   /* 🔍 DATE FILTER */
-//   if (filters.from_date) {
-//     query += ` AND sas.attendance_date >= ?`;
-//     values.push(filters.from_date);
-//   }
-
-//   if (filters.to_date) {
-//     query += ` AND sas.attendance_date <= ?`;
-//     values.push(filters.to_date);
-//   }
-
-//   /* 🔥 TYPE FILTER (FIXED) */
-//   if (filters.attendance_type) {
-//     const types = filters.attendance_type.split(",");
-//     query += ` AND sas.attendance_type IN (?)`;
-//     values.push(types);
-//   }
-
-//   query += `
-//     ORDER BY
-//       sas.attendance_date DESC,
-//       sas.period_no ASC
-//   `;
-
-//   const [rows] = await db.query(query, values);
-
-//   /* 🔥 SPLIT RESPONSE (IMPORTANT) */
-//   const daily = rows.filter((r) => r.attendance_type === "daily");
-//   const period = rows.filter((r) => r.attendance_type === "period");
-
-//   return {
-//     admission_id,
-//     total_records: rows.length,
-//     daily,
-//     period,
-//   };
-// };
-
-export const getAttendanceByStudent = async (admission_id, filters = {}) => {
+/* ===========================================================
+   GET ATTENDANCE BY STUDENT (MATCHES STUDENT_ID OR ADMISSION_ID)
+=========================================================== */
+export const getAttendanceByStudent = async (studentIdentifier, filters = {}) => {
   const db = getDB();
 
-  if (!admission_id) {
-    throw { status: 400, message: "admission_id required" };
+  if (!studentIdentifier) {
+    throw { status: 400, message: "student_id or admission_id required" };
   }
 
   let query = `
@@ -1194,6 +748,10 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
       sa.id,
       sa.attendance_status,
       sa.remarks,
+      sa.student_id,
+      sa.admission_id,
+      sa.created_by,
+      sa.updated_by,
 
       sas.attendance_date,
       sas.period_no,
@@ -1203,7 +761,8 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
       c.name AS class_name,
       s.name AS section_name,
 
-      emp.first_name AS marked_by_name
+      u_creator.username AS created_by_name,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name
 
     FROM student_attendance sa
 
@@ -1219,15 +778,17 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
     JOIN sections s 
       ON cs.section_id = s.id
 
-    JOIN employees emp 
-      ON sa.marked_by = emp.id
+    LEFT JOIN users u_creator 
+      ON sa.created_by = u_creator.id
 
-    WHERE sa.admission_id = ?
+    LEFT JOIN employees emp 
+      ON emp.user_id = u_creator.id
+
+    WHERE (sa.admission_id = ? OR sa.student_id = ?)
   `;
 
-  const values = [admission_id];
+  const values = [studentIdentifier, studentIdentifier];
 
-  // 🔥 DATE FILTER
   if (filters.from_date) {
     query += ` AND sas.attendance_date >= ?`;
     values.push(filters.from_date);
@@ -1238,7 +799,6 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
     values.push(filters.to_date);
   }
 
-  // 🔥 TYPE FILTER (daily / period / both)
   if (filters.attendance_type) {
     const types = filters.attendance_type.split(",");
     query += ` AND sas.attendance_type IN (?)`;
@@ -1249,22 +809,22 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
 
   const [rows] = await db.query(query, values);
 
-  /* =============================
-     🔥 GROUPING LOGIC
-  ============================== */
-
   const dailyMap = {};
   const periodMap = {};
 
   rows.forEach((r) => {
     const record = {
       attendance_id: r.id,
+      student_id: r.student_id,
+      admission_id: r.admission_id,
       status: r.attendance_status,
       remarks: r.remarks,
       class_section_id: r.class_section_id,
       class_name: r.class_name,
       section_name: r.section_name,
       marked_by: r.marked_by_name,
+      created_by: r.created_by,
+      updated_by: r.updated_by,
     };
 
     const date = r.attendance_date;
@@ -1298,10 +858,6 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
     }
   });
 
-  /* =============================
-     🔥 FINAL FORMAT
-  ============================== */
-
   const daily = Object.values(dailyMap);
 
   const period = Object.values(periodMap).map((d) => ({
@@ -1310,7 +866,8 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
   }));
 
   return {
-    admission_id,
+    student_id: rows[0]?.student_id || studentIdentifier,
+    admission_id: rows[0]?.admission_id || studentIdentifier,
     summary: {
       total_records: rows.length,
       daily_count: daily.length,
@@ -1323,6 +880,9 @@ export const getAttendanceByStudent = async (admission_id, filters = {}) => {
   };
 };
 
+/* ===========================================================
+   GET ATTENDANCE BY DATE
+=========================================================== */
 export const getAttendanceByDate = async (filters = {}) => {
   const db = getDB();
 
@@ -1336,6 +896,8 @@ export const getAttendanceByDate = async (filters = {}) => {
       sa.id,
       sa.attendance_status,
       sa.remarks,
+      sa.created_by,
+      sa.updated_by,
 
       sas.attendance_date,
       sas.period_no,
@@ -1349,9 +911,11 @@ export const getAttendanceByDate = async (filters = {}) => {
       st.first_name,
       st.last_name,
 
-      adm.roll_no,
+      adm.id AS admission_id,
+      ssa.roll_no,
 
-      emp.first_name AS marked_by_name
+      u_creator.username AS created_by_name,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name
 
     FROM student_attendance sa
 
@@ -1362,10 +926,16 @@ export const getAttendanceByDate = async (filters = {}) => {
       ON sa.admission_id = adm.id
 
     JOIN students st 
-      ON adm.student_id = st.id
+      ON sa.student_id = st.id
 
     JOIN class_sections cs 
       ON sas.class_section_id = cs.id
+
+    LEFT JOIN student_section_allocations ssa
+      ON adm.id = ssa.admission_id
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+      AND (ssa.effective_to IS NULL OR ssa.effective_to >= sas.attendance_date)
 
     JOIN classes c 
       ON cs.class_id = c.id
@@ -1373,8 +943,11 @@ export const getAttendanceByDate = async (filters = {}) => {
     JOIN sections s 
       ON cs.section_id = s.id
 
-    JOIN employees emp 
-      ON sa.marked_by = emp.id
+    LEFT JOIN users u_creator 
+      ON sa.created_by = u_creator.id
+
+    LEFT JOIN employees emp 
+      ON emp.user_id = u_creator.id
 
     WHERE sas.attendance_date = ?
   `;
@@ -1386,13 +959,15 @@ export const getAttendanceByDate = async (filters = {}) => {
     values.push(filters.class_section_id);
   }
 
-  query += ` ORDER BY c.name, s.name, adm.roll_no`;
+  query += ` ORDER BY c.name, s.name, ssa.roll_no`;
 
   const [rows] = await db.query(query, values);
-
   return rows;
 };
 
+/* ===========================================================
+   UPDATE ATTENDANCE RECORD
+=========================================================== */
 export const updateAttendance = async (id, data, user) => {
   const db = getDB();
   const conn = await db.getConnection();
@@ -1400,26 +975,37 @@ export const updateAttendance = async (id, data, user) => {
   try {
     await conn.beginTransaction();
 
-    const existing = await Model.findById(conn, id);
-    if (!existing) throw { status: 404, message: "Attendance not found" };
+    const oldAttendance = await Model.findById(conn, id);
+    if (!oldAttendance) throw { status: 404, message: "Attendance not found" };
 
     const [[session]] = await conn.query(
-      `SELECT is_locked FROM student_attendance_sessions WHERE id=?`,
-      [existing.attendance_session_id],
+      `SELECT id, is_locked, school_id FROM student_attendance_sessions WHERE id = ?`,
+      [oldAttendance.attendance_session_id],
     );
 
-    if (session.is_locked) {
-      throw { status: 400, message: "Session locked" };
+    if (session?.is_locked) {
+      throw { status: 400, message: "Attendance session is locked" };
     }
 
-    await Model.update(conn, id, {
-      attendance_status: data.status,
-      remarks: data.remarks || null,
-    });
+    const updatePayload = {
+      attendance_status: data.status || oldAttendance.attendance_status,
+      remarks: data.remarks !== undefined ? data.remarks : oldAttendance.remarks,
+      updated_by: user?.id || null,
+    };
+
+    await Model.update(conn, id, updatePayload);
+
+    const updatedAttendance = await Model.findById(conn, id);
 
     await conn.commit();
 
-    return { message: "Updated" };
+    return {
+      success: true,
+      message: "Attendance updated successfully",
+      school_id: session?.school_id,
+      oldAttendance,
+      updatedAttendance,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -1428,21 +1014,38 @@ export const updateAttendance = async (id, data, user) => {
   }
 };
 
-export const deleteAttendance = async (id) => {
+/* ===========================================================
+   DELETE ATTENDANCE RECORD
+=========================================================== */
+export const deleteAttendance = async (id, user) => {
   const db = getDB();
   const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    const existing = await Model.findById(conn, id);
-    if (!existing) throw { status: 404, message: "Not found" };
+    const deletedAttendance = await Model.findById(conn, id);
+    if (!deletedAttendance) throw { status: 404, message: "Attendance not found" };
+
+    const [[session]] = await conn.query(
+      `SELECT id, is_locked, school_id FROM student_attendance_sessions WHERE id = ?`,
+      [deletedAttendance.attendance_session_id],
+    );
+
+    if (session?.is_locked) {
+      throw { status: 400, message: "Attendance session is locked" };
+    }
 
     await Model.delete(conn, id);
 
     await conn.commit();
 
-    return { message: "Deleted successfully " };
+    return {
+      success: true,
+      message: "Attendance deleted successfully",
+      school_id: session?.school_id,
+      deletedAttendance,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -1451,6 +1054,9 @@ export const deleteAttendance = async (id) => {
   }
 };
 
+/* ===========================================================
+   LOCK ATTENDANCE SESSION
+=========================================================== */
 export const lockAttendanceSession = async (session_id, user) => {
   const db = getDB();
 
@@ -1458,11 +1064,10 @@ export const lockAttendanceSession = async (session_id, user) => {
     throw { status: 400, message: "session_id required" };
   }
 
-  // 🔍 Check session exists
   const [[session]] = await db.query(
     `SELECT id, is_locked, school_id 
      FROM student_attendance_sessions 
-     WHERE id=?`,
+     WHERE id = ?`,
     [session_id],
   );
 
@@ -1470,25 +1075,30 @@ export const lockAttendanceSession = async (session_id, user) => {
     throw { status: 404, message: "Session not found" };
   }
 
-  // 🔐 School-level security
-  if (user.school_id && session.school_id !== user.school_id) {
+  if (user?.school_id && session.school_id !== user.school_id) {
     throw { status: 403, message: "Unauthorized access" };
   }
 
-  // ⚠️ Already locked
   if (session.is_locked) {
     throw { status: 400, message: "Session already locked" };
   }
 
-  // 🔒 Lock it
   await db.query(
-    `UPDATE student_attendance_sessions SET is_locked=1 WHERE id=?`,
-    [session_id],
+    `UPDATE student_attendance_sessions SET is_locked = 1, updated_by = ? WHERE id = ?`,
+    [user?.id || null, session_id],
   );
 
-  return { message: "Session locked successfully" };
+  return {
+    success: true,
+    message: "Session locked successfully",
+    school_id: session.school_id,
+    session_id,
+  };
 };
 
+/* ===========================================================
+   UNLOCK ATTENDANCE SESSION
+=========================================================== */
 export const unlockAttendanceSession = async (session_id, user) => {
   const db = getDB();
 
@@ -1499,7 +1109,7 @@ export const unlockAttendanceSession = async (session_id, user) => {
   const [[session]] = await db.query(
     `SELECT id, is_locked, school_id 
      FROM student_attendance_sessions 
-     WHERE id=?`,
+     WHERE id = ?`,
     [session_id],
   );
 
@@ -1507,23 +1117,30 @@ export const unlockAttendanceSession = async (session_id, user) => {
     throw { status: 404, message: "Session not found" };
   }
 
-  if (user.school_id && session.school_id !== user.school_id) {
+  if (user?.school_id && session.school_id !== user.school_id) {
     throw { status: 403, message: "Unauthorized access" };
   }
 
-  // ⚠️ Already unlocked
   if (!session.is_locked) {
     throw { status: 400, message: "Session already unlocked" };
   }
 
   await db.query(
-    `UPDATE student_attendance_sessions SET is_locked=0 WHERE id=?`,
-    [session_id],
+    `UPDATE student_attendance_sessions SET is_locked = 0, updated_by = ? WHERE id = ?`,
+    [user?.id || null, session_id],
   );
 
-  return { message: "Session unlocked successfully" };
+  return {
+    success: true,
+    message: "Session unlocked successfully",
+    school_id: session.school_id,
+    session_id,
+  };
 };
 
+/* ===========================================================
+   ATTENDANCE SUMMARY
+=========================================================== */
 export const getAttendanceSummary = async (filters = {}) => {
   const db = getDB();
 
@@ -1583,3 +1200,79 @@ export const getAttendanceSummary = async (filters = {}) => {
     total_leave: Number(row?.total_leave || 0),
   };
 };
+
+/* ===========================================================
+   CHECK IF ATTENDANCE IS ALREADY TAKEN
+=========================================================== */
+export const checkAttendanceTaken = async (params = {}) => {
+  const db = getDB();
+
+  if (!params.class_section_id) {
+    throw { status: 400, message: "class_section_id required" };
+  }
+  if (!params.attendance_date) {
+    throw { status: 400, message: "attendance_date required" };
+  }
+
+  const attendance_type = params.attendance_type || "daily";
+  const period_no = attendance_type === "period" ? Number(params.period_no || 1) : 0;
+
+  const [[classInfo]] = await db.query(
+    `
+    SELECT cs.id, cs.school_id, cs.academic_year_id, c.name AS class_name, s.name AS section_name
+    FROM class_sections cs
+    JOIN classes c ON cs.class_id = c.id
+    JOIN sections s ON cs.section_id = s.id
+    WHERE cs.id = ?
+    `,
+    [params.class_section_id],
+  );
+
+  if (!classInfo) {
+    throw { status: 404, message: "Class section not found" };
+  }
+
+  const [[session]] = await db.query(
+    `
+    SELECT id, school_id, academic_year_id, class_section_id, attendance_date, attendance_type, period_no, is_locked, remarks, created_at, updated_at
+    FROM student_attendance_sessions
+    WHERE class_section_id = ?
+      AND attendance_date = ?
+      AND attendance_type = ?
+      AND period_no = ?
+    `,
+    [params.class_section_id, params.attendance_date, attendance_type, period_no],
+  );
+
+  if (!session) {
+    return {
+      already_taken: false,
+      message: "Attendance has not been taken yet",
+      class_name: classInfo.class_name,
+      section_name: classInfo.section_name,
+      attendance_date: params.attendance_date,
+      attendance_type,
+      period_no,
+    };
+  }
+
+  const [[countRow]] = await db.query(
+    `SELECT COUNT(*) AS total_marked FROM student_attendance WHERE attendance_session_id = ?`,
+    [session.id],
+  );
+
+  const totalMarked = Number(countRow?.total_marked || 0);
+  const already_taken = totalMarked > 0;
+  const periodDesc = attendance_type === "period" ? `Period ${period_no}` : "Daily Attendance";
+
+  return {
+    already_taken,
+    message: already_taken
+      ? `Attendance has already been taken for Class '${classInfo.class_name}' Section '${classInfo.section_name}' on ${params.attendance_date} (${periodDesc}). Total students marked: ${totalMarked}.`
+      : "Attendance session exists but no attendance records have been marked yet",
+    total_marked: totalMarked,
+    is_locked: Boolean(session.is_locked),
+    session,
+  };
+};
+

@@ -1,5 +1,7 @@
 import express from "express";
 import {
+  getNonAdmissionStudents,
+  getNonAdmissionStudentsByToken,
   createStudent,
   deleteStudent,
   getAllStudents,
@@ -17,6 +19,13 @@ router.use(verifyToken);
 
 // CREATE
 router.post("/", studentDocsUpload, createStudent);
+
+
+// NON-ADMISSION / UNADMITTED STUDENTS (MUST be before /:id)
+router.get("/non-admissions", getNonAdmissionStudents);
+router.get("/non-admissions/token", getNonAdmissionStudentsByToken);
+router.get("/unadmitted", getNonAdmissionStudents);
+router.get("/unadmitted/token", getNonAdmissionStudentsByToken);
 
 // GET
 router.get("/", getAllStudents);

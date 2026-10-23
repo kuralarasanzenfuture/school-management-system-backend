@@ -452,6 +452,115 @@ export const StudentModel = {
     await conn.query(`DELETE FROM students WHERE id=?`, [id]);
   },
 
+    findUnadmitted: async (filters = {}) => {
+    const db = getDB();
+    const {
+      school_id,
+      academic_year_id,
+      status = "active",
+      search,
+      page = 1,
+      limit = 100,
+      paginate = false,
+    } = filters;
+
+    let targetYearId = academic_year_id ? Number(academic_year_id) : null;
+
+    if (!targetYearId && school_id) {
+      const [[activeYear]] = await db.query(
+        "SELECT id FROM academic_years WHERE school_id = ? AND status = 'active' LIMIT 1",
+        [school_id],
+      );
+      if (activeYear) {
+        targetYearId = activeYear.id;
+      }
+    }
+
+    const conditions = [];
+    const params = [];
+
+    if (school_id) {
+      conditions.push("st.school_id = ?");
+      params.push(school_id);
+    }
+
+    if (status) {
+      conditions.push("st.status = ?");
+      params.push(status);
+    }
+
+    if (targetYearId) {
+      conditions.push(`
+        st.id NOT IN (
+          SELECT sa.student_id
+          FROM student_admissions sa
+          WHERE sa.academic_year_id = ?
+            AND sa.status != 'cancelled'
+        )
+      `);
+      params.push(targetYearId);
+    } else {
+      conditions.push(`
+        st.id NOT IN (
+          SELECT sa.student_id
+          FROM student_admissions sa
+          WHERE sa.status IN ('active', 'pending')
+            ${school_id ? "AND sa.school_id = ?" : ""}
+        )
+      `);
+      if (school_id) params.push(school_id);
+    }
+
+    if (search) {
+      conditions.push(`(
+        st.first_name LIKE ? OR
+        st.last_name LIKE ? OR
+        CONCAT(st.first_name, ' ', st.last_name) LIKE ? OR
+        st.student_code LIKE ?
+      )`);
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM students st
+      JOIN schools s ON st.school_id = s.id
+      ${whereClause}
+    `;
+    const [[countResult]] = await db.query(countSql, params);
+    const total = Number(countResult?.total) || 0;
+
+    let sql = `
+      SELECT 
+        st.*,
+        s.name AS school_name
+      FROM students st
+      JOIN schools s ON st.school_id = s.id
+      ${whereClause}
+      ORDER BY st.first_name ASC, st.last_name ASC
+    `;
+
+    const queryParams = [...params];
+    if (paginate) {
+      const offset = (page - 1) * limit;
+      sql += ` LIMIT ? OFFSET ?`;
+      queryParams.push(Number(limit), Number(offset));
+    }
+
+    const [students] = await db.query(sql, queryParams);
+
+    return {
+      students,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: paginate ? Math.ceil(total / limit) : 1,
+      academic_year_id: targetYearId || null,
+    };
+  },
+
   checkReferences: async (id, connection = null) => {
     const db = connection || getDB();
     const [[admissionsCount]] = await db.query(

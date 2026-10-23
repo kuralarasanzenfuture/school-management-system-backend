@@ -9,6 +9,7 @@ import sectionRoutes from "../modules/sections/section.routes.js";
 import classSectionRoutes from "../modules/class_sections/class_section.routes.js";
 import studentRoutes from "../modules/students/student.routes.js";
 import studentAdmissionRoutes from "../modules/studentAdmissions/studentAdmission.routes.js";
+import studentSectionAllocationRoutes from "../modules/student_section_allocations/studentSectionAllocation.routes.js";
 import studentAttendanceRoutes from "../modules/studentAttendance/studentAttendance.routes.js";
 
 import employeeDesignationRoutes from "../modules/employees/designations/employee_designations.routes.js";
@@ -39,6 +40,7 @@ router.use("/subject-groups", subjectGroupRoutes);
 router.use("/class-subjects", classSubjectRoutes);
 router.use("/students", studentRoutes);
 router.use("/student-admissions", studentAdmissionRoutes);
+router.use("/student-section-allocations", studentSectionAllocationRoutes);
 router.use("/students-attendance", studentAttendanceRoutes);
 
 router.use("/employees-designations", employeeDesignationRoutes);

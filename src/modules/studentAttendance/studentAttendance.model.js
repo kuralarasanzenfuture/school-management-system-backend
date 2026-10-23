@@ -1,98 +1,5 @@
 import { getDB } from "../../config/db.js";
 
-// export const StudentAttendanceModel = {
-//   /* ================= SESSION ================= */
-
-//   async findSession(
-//     conn,
-//     school_id,
-//     academic_year_id,
-//     class_section_id,
-//     attendance_date,
-//     period_no,
-//   ) {
-//     const [[row]] = await conn.query(
-//       `SELECT * FROM student_attendance_sessions
-//        WHERE school_id=?
-//        AND academic_year_id=?
-//        AND class_section_id=?
-//        AND attendance_date=?
-//        AND (period_no <=> ?)`,
-//       [
-//         school_id,
-//         academic_year_id,
-//         class_section_id,
-//         attendance_date,
-//         period_no,
-//       ],
-//     );
-//     return row;
-//   },
-
-//   async createSession(conn, data) {
-//     const [res] = await conn.query(
-//       `INSERT INTO student_attendance_sessions SET ?`,
-//       [data],
-//     );
-//     return res.insertId;
-//   },
-
-//   async lockSession(conn, session_id) {
-//     await conn.query(
-//       `UPDATE student_attendance_sessions SET is_locked=1 WHERE id=?`,
-//       [session_id],
-//     );
-//   },
-
-//   async unlockSession(conn, session_id) {
-//     await conn.query(
-//       `UPDATE student_attendance_sessions SET is_locked=0 WHERE id=?`,
-//       [session_id],
-//     );
-//   },
-
-//   /* ================= ATTENDANCE ================= */
-
-//   async bulkUpsert(conn, values) {
-//     await conn.query(
-//       `
-//       INSERT INTO student_attendance
-//       (attendance_session_id, admission_id, attendance_status, remarks, marked_by)
-//       VALUES ?
-//       ON DUPLICATE KEY UPDATE
-//         attendance_status=VALUES(attendance_status),
-//         remarks=VALUES(remarks),
-//         marked_by=VALUES(marked_by)
-//       `,
-//       [values],
-//     );
-//   },
-
-//   async findBySession(conn, session_id) {
-//     const [rows] = await conn.query(
-//       `SELECT * FROM student_attendance WHERE attendance_session_id=?`,
-//       [session_id],
-//     );
-//     return rows;
-//   },
-
-//   async findById(conn, id) {
-//     const [[row]] = await conn.query(
-//       `SELECT * FROM student_attendance WHERE id=?`,
-//       [id],
-//     );
-//     return row;
-//   },
-
-//   async update(conn, id, data) {
-//     await conn.query(`UPDATE student_attendance SET ? WHERE id=?`, [data, id]);
-//   },
-
-//   async delete(conn, id) {
-//     await conn.query(`DELETE FROM student_attendance WHERE id=?`, [id]);
-//   },
-// };
-
 export const StudentAttendanceModel = {
   /* ================= SESSION ================= */
 
@@ -113,7 +20,7 @@ export const StudentAttendanceModel = {
       AND class_section_id = ?
       AND attendance_date = ?
       AND attendance_type = ?
-      AND (period_no <=> ?)
+      AND period_no = ?
       `,
       [
         school_id,
@@ -136,34 +43,35 @@ export const StudentAttendanceModel = {
     return res.insertId;
   },
 
-  async lockSession(conn, session_id) {
+  async lockSession(conn, session_id, user_id = null) {
     await conn.query(
-      `UPDATE student_attendance_sessions SET is_locked=1 WHERE id=?`,
-      [session_id],
+      `UPDATE student_attendance_sessions SET is_locked = 1, updated_by = ? WHERE id = ?`,
+      [user_id, session_id],
     );
   },
 
-  async unlockSession(conn, session_id) {
+  async unlockSession(conn, session_id, user_id = null) {
     await conn.query(
-      `UPDATE student_attendance_sessions SET is_locked=0 WHERE id=?`,
-      [session_id],
+      `UPDATE student_attendance_sessions SET is_locked = 0, updated_by = ? WHERE id = ?`,
+      [user_id, session_id],
     );
   },
 
   /* ================= ATTENDANCE ================= */
 
   async bulkUpsert(conn, values) {
-    if (!values.length) return;
+    if (!values || !values.length) return;
 
     await conn.query(
       `
       INSERT INTO student_attendance
-      (attendance_session_id, admission_id, attendance_status, remarks, marked_by)
+      (attendance_session_id, admission_id, student_id, attendance_status, remarks, created_by, updated_by)
       VALUES ?
       ON DUPLICATE KEY UPDATE
+        student_id = VALUES(student_id),
         attendance_status = VALUES(attendance_status),
         remarks = VALUES(remarks),
-        marked_by = VALUES(marked_by)
+        updated_by = VALUES(updated_by)
       `,
       [values],
     );
@@ -171,7 +79,7 @@ export const StudentAttendanceModel = {
 
   async findBySession(conn, session_id) {
     const [rows] = await conn.query(
-      `SELECT * FROM student_attendance WHERE attendance_session_id=?`,
+      `SELECT * FROM student_attendance WHERE attendance_session_id = ?`,
       [session_id],
     );
     return rows;
@@ -179,17 +87,17 @@ export const StudentAttendanceModel = {
 
   async findById(conn, id) {
     const [[row]] = await conn.query(
-      `SELECT * FROM student_attendance WHERE id=?`,
+      `SELECT * FROM student_attendance WHERE id = ?`,
       [id],
     );
     return row;
   },
 
   async update(conn, id, data) {
-    await conn.query(`UPDATE student_attendance SET ? WHERE id=?`, [data, id]);
+    await conn.query(`UPDATE student_attendance SET ? WHERE id = ?`, [data, id]);
   },
 
   async delete(conn, id) {
-    await conn.query(`DELETE FROM student_attendance WHERE id=?`, [id]);
+    await conn.query(`DELETE FROM student_attendance WHERE id = ?`, [id]);
   },
 };

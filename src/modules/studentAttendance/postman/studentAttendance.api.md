@@ -77,7 +77,7 @@ Creates or updates an attendance session and bulk upserts attendance for student
   "message": "Attendance saved successfully",
   "attendance_session_id": 15,
   "attendance_type": "daily",
-  "period_no": null,
+  "period_no": 0,
   "total_students": 3
 }
 ```

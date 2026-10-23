@@ -44,6 +44,7 @@ export const AUDIT_MODULES = Object.freeze({
   CLASS_SUBJECTS: "class_subjects",
   STUDENTS: "students",
   STUDENT_ADMISSIONS: "student_admissions",
+  STUDENT_SECTION_ALLOCATIONS: "student_section_allocations",
   STUDENT_ATTENDANCE: "student_attendance",
   EMPLOYEES: "employees",
   EMPLOYEE_DESIGNATIONS: "employee_designations",
@@ -71,6 +72,8 @@ export const AUDIT_ENTITIES = Object.freeze({
   CLASS_SECTION: "class_section",
   CLASS_SUBJECT: "class_subject",
   STUDENT: "student",
+  STUDENT_ADMISSION: "student_admission",
+  STUDENT_SECTION_ALLOCATION: "student_section_allocation",
   EMPLOYEE: "employee",
   EMPLOYEE_DESIGNATION: "employee_designation",
   EMPLOYEE_SHIFT: "employee_shift",
@@ -80,6 +83,8 @@ export const AUDIT_ENTITIES = Object.freeze({
   EMPLOYEE_SALARY_STRUCTURE_DETAIL: "employee_salary_structure_detail",
   SUBJECT: "subject",
   SUBJECT_GROUP: "subject_group",
+  STUDENT_ATTENDANCE: "student_attendance",
+  STUDENT_ATTENDANCE_SESSION: "student_attendance_session",
 });
 
 export const SENSITIVE_FIELDS = Object.freeze([

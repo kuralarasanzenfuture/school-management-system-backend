@@ -1,3 +1,4 @@
+import { getNonAdmissionStudents, getNonAdmissionStudentsByToken } from "../students/student.controller.js";
 import express from "express";
 import {
   createStudentAdmission,
@@ -17,6 +18,10 @@ router.use(verifyToken);
 
 router.post("/", createStudentAdmission);
 router.get("/", getAllStudentAdmissions);
+// NON-ADMISSIONS STUDENTS
+router.get("/non-admissions-students", getNonAdmissionStudents);
+router.get("/non-admissions-students/token", verifyToken, getNonAdmissionStudentsByToken);
+
 router.get("/token", verifyToken, getAllStudentAdmissionsByToken);
 router.get("/token/class-summary", verifyToken, getClassStudentSummaryByToken);
 router.get("/report", verifyToken, getAllStudentAdmissionsReport);

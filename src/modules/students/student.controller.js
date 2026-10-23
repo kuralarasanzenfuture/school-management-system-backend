@@ -279,3 +279,46 @@ export const deleteStudent = async (req, res) => {
     });
   }
 };
+
+
+/* =========================================
+   GET NON-ADMISSION (UNADMITTED) STUDENTS
+========================================= */
+export const getNonAdmissionStudents = async (req, res) => {
+  try {
+    const result = await StudentService.getNonAdmissionStudents(req.query);
+    res.setHeader("X-Total-Count", result.total);
+    res.status(200).json({
+      success: true,
+      data: result.students,
+      total: result.total,
+      academic_year_id: result.academic_year_id,
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Failed to fetch non-admission students",
+    });
+  }
+};
+
+export const getNonAdmissionStudentsByToken = async (req, res) => {
+  try {
+    const result = await StudentService.getNonAdmissionStudentsByToken(
+      req.user,
+      req.query,
+    );
+    res.setHeader("X-Total-Count", result.total);
+    res.status(200).json({
+      success: true,
+      data: result.students,
+      total: result.total,
+      academic_year_id: result.academic_year_id,
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Failed to fetch non-admission students",
+    });
+  }
+};
