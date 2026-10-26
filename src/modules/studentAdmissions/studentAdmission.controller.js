@@ -144,18 +144,24 @@ export const getAllStudentAdmissionsReport = async (req, res) => {
     const filters = {
       school_id: req.query.school_id,
       academic_year_id: req.query.academic_year_id,
+      academic_year_name: req.query.academic_year_name || req.query.academic_year,
+      academic_year: req.query.academic_year || req.query.academic_year_name,
       class_id: req.query.class_id,
+      class_name: req.query.class_name || req.query.class,
+      section: req.query.section,
+      admission_type: req.query.admission_type,
       status: req.query.status,
       from_date: req.query.from_date,
       to_date: req.query.to_date,
     };
 
-    const data = await AdmissionService.getAdmissionsReport(user, filters);
+    const result = await AdmissionService.getAdmissionsReport(user, filters);
 
     res.status(200).json({
       message: "Report fetched successfully",
-      count: data.length,
-      data,
+      stats: result.stats,
+      count: result.admissions ? result.admissions.length : (Array.isArray(result) ? result.length : 0),
+      data: result.admissions || result,
     });
   } catch (err) {
     console.error("GET ADMISSIONS REPORT ERROR:", err);

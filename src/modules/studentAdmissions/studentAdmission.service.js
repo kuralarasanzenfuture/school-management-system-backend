@@ -880,36 +880,52 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
   };
 };
 
-export const getAdmissionsReport = async (user, filters) => {
+export const getAdmissionsReport = async (user, filters = {}) => {
   const db = getDB();
 
-  let query = `
-    SELECT 
+  const selectFields = `
       sa.id,
+      sa.school_id,
+      sa.student_id,
       sa.admission_number,
       sa.admission_date,
+      sa.joining_date,
+      sa.academic_year_id,
       ay.name AS academic_year,
+      ay.name AS academic_year_name,
+      sa.class_id,
       c.name AS class_name,
       sec.name AS section,
+      sec.name AS section_name,
       ssa.roll_no,
       sa.status,
       sa.admission_type,
       sa.transport_required,
       sa.hostel_required,
-      sg.name AS subject_group,
+      COALESCE(sg.name, sa.subject_group) AS subject_group,
+      sch.name AS school_name,
 
-      s.id AS student_id,
       s.student_code,
       s.first_name,
+      s.middle_name,
       s.last_name,
       s.mobile_no,
+      s.parent_mobile,
+      s.alternate_mobile,
+      s.father_name,
+      s.mother_name,
+      s.email,
+      s.permanent_city,
+      s.permanent_state,
       s.gender,
+      s.date_of_birth,
+      s.photo_url
+  `;
 
-      c.name AS class_actual,
-      ay.name AS academic_year_actual
-
+  const fromClause = `
     FROM student_admissions sa
     JOIN students s ON sa.student_id = s.id
+    LEFT JOIN schools sch ON sa.school_id = sch.id
     JOIN classes c ON sa.class_id = c.id
     JOIN academic_years ay ON sa.academic_year_id = ay.id
     LEFT JOIN subject_groups sg ON sa.subject_group_id = sg.id
@@ -918,49 +934,116 @@ export const getAdmissionsReport = async (user, filters) => {
       AND (ssa.effective_to IS NULL OR ssa.effective_to >= CURRENT_DATE)
     LEFT JOIN class_sections cs ON ssa.class_section_id = cs.id
     LEFT JOIN sections sec ON cs.section_id = sec.id
-
-    WHERE 1=1
   `;
 
+  let whereClause = ` WHERE 1=1`;
   const values = [];
 
-  const isAdmin = user.role === "ADMIN" || user.roles?.includes("ADMIN");
+  const isAdmin =
+    user.role === 'ADMIN' ||
+    user.roles?.includes('ADMIN') ||
+    user.roles?.some((r) => r === 'ADMIN' || r.name === 'ADMIN');
 
   if (!isAdmin) {
     if (!user.school_id) {
-      throw { status: 403, message: "No school access" };
+      throw { status: 403, message: 'No school access' };
     }
-    query += ` AND sa.school_id = ?`;
+    whereClause += ` AND sa.school_id = ?`;
     values.push(user.school_id);
   } else if (filters.school_id) {
-    query += ` AND sa.school_id = ?`;
+    whereClause += ` AND sa.school_id = ?`;
     values.push(filters.school_id);
   }
 
-  if (filters.academic_year_id) {
-    query += ` AND sa.academic_year_id = ?`;
-    values.push(filters.academic_year_id);
+  // Academic Year filter: handles year name or year ID across all schools or single school
+  const targetYear = filters.academic_year_name || filters.academic_year || filters.academic_year_id;
+  if (targetYear) {
+    whereClause += ` AND (
+      ay.name = ?
+      OR sa.academic_year_id = ?
+      OR ay.name = (SELECT name FROM academic_years WHERE id = ? LIMIT 1)
+    )`;
+    values.push(targetYear, targetYear, targetYear);
   }
 
-  if (filters.class_id) {
-    query += ` AND sa.class_id = ?`;
-    values.push(filters.class_id);
+  // Class filter: handles class name or class ID across all schools or single school
+  const targetClass = filters.class_name || filters.class || filters.class_id;
+  if (targetClass) {
+    whereClause += ` AND (
+      sa.class_id = ?
+      OR c.name = ?
+      OR c.name = (SELECT name FROM classes WHERE id = ? LIMIT 1)
+    )`;
+    values.push(targetClass, targetClass, targetClass);
   }
 
-  if (filters.status) {
-    query += ` AND sa.status = ?`;
-    values.push(filters.status);
+  // Section filter
+  if (filters.section) {
+    whereClause += ` AND (sec.name = ? OR sec.id = ?)`;
+    values.push(filters.section, filters.section);
   }
 
+  // Admission type
+  if (filters.admission_type) {
+    whereClause += ` AND LOWER(sa.admission_type) = ?`;
+    values.push(filters.admission_type.toLowerCase());
+  }
+
+  // Status
+  if (filters.status && filters.status !== 'all') {
+    whereClause += ` AND LOWER(sa.status) = ?`;
+    values.push(filters.status.toLowerCase());
+  }
+
+  // Dates
   if (filters.from_date && filters.to_date) {
-    query += ` AND sa.admission_date BETWEEN ? AND ?`;
+    whereClause += ` AND sa.admission_date BETWEEN ? AND ?`;
     values.push(filters.from_date, filters.to_date);
+  } else if (filters.from_date) {
+    whereClause += ` AND sa.admission_date >= ?`;
+    values.push(filters.from_date);
+  } else if (filters.to_date) {
+    whereClause += ` AND sa.admission_date <= ?`;
+    values.push(filters.to_date);
   }
 
-  query += ` ORDER BY sa.id DESC`;
+  // High-performance SQL aggregates for stats cards directly from database
+  const statsQuery = `
+    SELECT 
+      COUNT(*) AS total,
+      SUM(CASE WHEN LOWER(sa.status) IN ('active', 'completed') THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN LOWER(sa.status) = 'pending' THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN LOWER(sa.status) IN ('inactive', 'dropped', 'cancelled') THEN 1 ELSE 0 END) AS inactive,
+      SUM(CASE WHEN sa.transport_required = 1 OR sa.transport_required = '1' OR LOWER(sa.transport_required) = 'true' THEN 1 ELSE 0 END) AS transport,
+      SUM(CASE WHEN sa.hostel_required = 1 OR sa.hostel_required = '1' OR LOWER(sa.hostel_required) = 'true' THEN 1 ELSE 0 END) AS hostel,
+      SUM(CASE WHEN LOWER(s.gender) IN ('male', 'm') THEN 1 ELSE 0 END) AS male,
+      SUM(CASE WHEN LOWER(s.gender) IN ('female', 'f') THEN 1 ELSE 0 END) AS female,
+      SUM(CASE WHEN LOWER(s.gender) NOT IN ('male', 'm', 'female', 'f') AND s.gender IS NOT NULL AND s.gender != '' THEN 1 ELSE 0 END) AS other_gender
+    ${fromClause}
+    ${whereClause}
+  `;
 
-  const [rows] = await db.query(query, values);
-  return rows;
+  const dataQuery = `SELECT ${selectFields} ${fromClause} ${whereClause} ORDER BY sa.id DESC`;
+
+  const [rows] = await db.query(dataQuery, values);
+  const [[statsRow]] = await db.query(statsQuery, values);
+
+  const stats = {
+    total: Number(statsRow?.total || 0),
+    active: Number(statsRow?.active || 0),
+    pending: Number(statsRow?.pending || 0),
+    inactive: Number(statsRow?.inactive || 0),
+    transport: Number(statsRow?.transport || 0),
+    hostel: Number(statsRow?.hostel || 0),
+    male: Number(statsRow?.male || 0),
+    female: Number(statsRow?.female || 0),
+    other: Number(statsRow?.other_gender || 0),
+  };
+
+  return {
+    stats,
+    admissions: rows,
+  };
 };
 
 export const getAdmissionById = async (id) => {
