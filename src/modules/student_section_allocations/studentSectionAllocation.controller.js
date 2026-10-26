@@ -319,3 +319,61 @@ export const deleteSectionAllocation = async (req, res) => {
     });
   }
 };
+
+
+/* =====================================
+   BULK CREATE SECTION ALLOCATIONS
+===================================== */
+export const bulkCreateSectionAllocations = async (req, res) => {
+  try {
+    if (!req.body || !req.body.allocations) {
+      return res.status(400).json({
+        message: "Request body with 'allocations' array is required",
+      });
+    }
+
+    const result = await Service.bulkCreateSectionAllocations(req.body, req.user);
+
+    await auditService.log({
+      req,
+      action: AUDIT_ACTIONS.CREATE,
+      module: AUDIT_MODULES.STUDENT_SECTION_ALLOCATIONS,
+      entity_type: AUDIT_ENTITIES.STUDENT_SECTION_ALLOCATION,
+      school_id: req.body?.school_id || req.user?.school_id,
+      user_id: req.user?.id,
+      description: `Bulk allocated ${result.total} students: ${result.allocated_count} assigned, ${result.transferred_count} transferred, ${result.updated_count} updated`,
+      status: "success",
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("BULK ALLOCATION ERROR:", err);
+    return res.status(err.status || 500).json({
+      message: err.message || "Internal server error during bulk allocation",
+    });
+  }
+};
+
+/* =====================================
+   GET CLASS STUDENTS FOR ALLOCATION
+===================================== */
+export const getClassStudentsForAllocation = async (req, res) => {
+  try {
+    const filters = {
+      school_id: req.query.school_id,
+      class_id: req.query.class_id,
+      academic_year_id: req.query.academic_year_id,
+      section_id: req.query.section_id,
+      status: req.query.status,
+      search: req.query.search,
+    };
+
+    const data = await Service.getClassStudentsForAllocation(filters, req.user);
+    return res.json(data);
+  } catch (err) {
+    console.error("GET CLASS STUDENTS ERROR:", err);
+    return res.status(err.status || 500).json({
+      message: err.message || "Failed to fetch class students for allocation",
+    });
+  }
+};

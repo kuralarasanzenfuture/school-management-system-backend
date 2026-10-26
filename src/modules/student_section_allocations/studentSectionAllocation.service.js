@@ -3,6 +3,7 @@ import { StudentSectionAllocationModel } from "./studentSectionAllocation.model.
 import {
   validateCreateSectionAllocation,
   validateUpdateSectionAllocation,
+  validateBulkSectionAllocations,
 } from "./studentSectionAllocation.validation.js";
 
 /* ======================================================
@@ -652,4 +653,231 @@ export const checkExistingSectionAllocationByToken = async (user, data = {}) => 
   }
 
   return await checkExistingSectionAllocation(payload);
+};
+
+
+/* ======================================================
+   BULK ALLOCATE STUDENTS TO SECTIONS
+====================================================== */
+export const bulkCreateSectionAllocations = async (data, user) => {
+  const db = getDB();
+  const conn = await db.getConnection();
+
+  try {
+    const validated = validateBulkSectionAllocations(data);
+
+    await conn.beginTransaction();
+
+    let userSchoolId = null;
+    let isAdmin = false;
+    if (user?.id) {
+      const dbUser = await getDbUserWithRoles(conn, user.id);
+      userSchoolId = dbUser.school_id;
+      isAdmin = dbUser.isAdmin;
+    }
+
+    const results = [];
+    let allocatedCount = 0;
+    let transferredCount = 0;
+    let updatedCount = 0;
+
+    const csCache = new Map();
+
+    for (const item of validated.allocations) {
+      const [[admission]] = await conn.query(
+        `
+        SELECT sa.*, s.first_name, s.last_name, s.student_code
+        FROM student_admissions sa
+        JOIN students s ON sa.student_id = s.id
+        WHERE sa.id = ?
+        `,
+        [item.admission_id],
+      );
+
+      if (!admission) {
+        throw {
+          status: 404,
+          message: `Student admission with ID ${item.admission_id} not found`,
+        };
+      }
+
+      if (!isAdmin && userSchoolId && Number(admission.school_id) !== Number(userSchoolId)) {
+        throw {
+          status: 403,
+          message: `Forbidden: Admission #${item.admission_id} belongs to a different school`,
+        };
+      }
+
+      let classSection = csCache.get(item.class_section_id);
+      if (!classSection) {
+        const [[cs]] = await conn.query(
+          `
+          SELECT cs.*, c.name AS class_name, sec.name AS section_name, ay.name AS academic_year_name
+          FROM class_sections cs
+          JOIN classes c ON cs.class_id = c.id
+          JOIN sections sec ON cs.section_id = sec.id
+          JOIN academic_years ay ON cs.academic_year_id = ay.id
+          WHERE cs.id = ?
+          `,
+          [item.class_section_id],
+        );
+
+        if (!cs) {
+          throw {
+            status: 404,
+            message: `Class section with ID ${item.class_section_id} not found`,
+          };
+        }
+        classSection = cs;
+        csCache.set(item.class_section_id, cs);
+      }
+
+      if (classSection.school_id !== admission.school_id) {
+        throw {
+          status: 400,
+          message: `Class section belongs to school ID ${classSection.school_id}, but student admission #${admission.id} belongs to school ID ${admission.school_id}`,
+        };
+      }
+
+      if (classSection.class_id !== admission.class_id) {
+        throw {
+          status: 400,
+          message: `Class section class '${classSection.class_name}' does not match student admission #${admission.id} class`,
+        };
+      }
+
+      if (classSection.academic_year_id !== admission.academic_year_id) {
+        throw {
+          status: 400,
+          message: `Class section academic year '${classSection.academic_year_name}' does not match student admission #${admission.id} academic year`,
+        };
+      }
+
+      const targetDate = item.allocation_date || new Date().toISOString().slice(0, 10);
+
+      const [activeAllocations] = await conn.query(
+        `
+        SELECT *
+        FROM student_section_allocations
+        WHERE admission_id = ?
+          AND status = 'active'
+          AND (effective_to IS NULL OR effective_to >= ?)
+        FOR UPDATE
+        `,
+        [item.admission_id, targetDate],
+      );
+
+      const alreadyInTarget = activeAllocations.find(
+        (a) => Number(a.class_section_id) === Number(item.class_section_id)
+      );
+
+      if (alreadyInTarget) {
+        const updateFields = {};
+        if (item.roll_no !== undefined && item.roll_no !== alreadyInTarget.roll_no) {
+          updateFields.roll_no = item.roll_no;
+        }
+        if (item.remarks !== undefined && item.remarks !== alreadyInTarget.remarks) {
+          updateFields.remarks = item.remarks;
+        }
+        if (Object.keys(updateFields).length > 0) {
+          updateFields.updated_by = user?.id || null;
+          await StudentSectionAllocationModel.update(conn, alreadyInTarget.id, updateFields);
+          updatedCount++;
+        }
+        results.push({
+          id: alreadyInTarget.id,
+          admission_id: item.admission_id,
+          class_section_id: item.class_section_id,
+          roll_no: item.roll_no !== undefined ? item.roll_no : alreadyInTarget.roll_no,
+          action: "updated_roll_or_kept",
+        });
+      } else {
+        let isTransfer = false;
+        for (const prev of activeAllocations) {
+          isTransfer = true;
+          const prevAllocDateStr =
+            prev.allocation_date instanceof Date
+              ? prev.allocation_date.toISOString().split("T")[0]
+              : String(prev.allocation_date).slice(0, 10);
+
+          const autoEffectiveTo = targetDate >= prevAllocDateStr ? targetDate : prevAllocDateStr;
+
+          await conn.query(
+            `
+            UPDATE student_section_allocations
+            SET effective_to = ?,
+                status = 'transferred',
+                remarks = COALESCE(CONCAT(COALESCE(remarks, ''), ' [Transferred to section ID ', ?, ' on ', ?, ']'), remarks),
+                updated_by = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            `,
+            [autoEffectiveTo, item.class_section_id, targetDate, user?.id || null, prev.id],
+          );
+        }
+
+        const newAllocId = await StudentSectionAllocationModel.create(conn, {
+          admission_id: item.admission_id,
+          class_section_id: item.class_section_id,
+          roll_no: item.roll_no || null,
+          allocation_date: targetDate,
+          effective_to: item.effective_to || null,
+          status: item.status || "active",
+          remarks: item.remarks || (isTransfer ? "Bulk transferred to section" : "Bulk section allocation"),
+          created_by: user?.id || null,
+          updated_by: user?.id || null,
+        });
+
+        if (isTransfer) {
+          transferredCount++;
+        } else {
+          allocatedCount++;
+        }
+
+        results.push({
+          id: newAllocId,
+          admission_id: item.admission_id,
+          class_section_id: item.class_section_id,
+          roll_no: item.roll_no || null,
+          action: isTransfer ? "transferred" : "allocated",
+        });
+      }
+    }
+
+    await conn.commit();
+
+    return {
+      message: `Bulk allocation completed: ${allocatedCount} newly allocated, ${transferredCount} transferred, ${updatedCount} updated.`,
+      total: validated.allocations.length,
+      allocated_count: allocatedCount,
+      transferred_count: transferredCount,
+      updated_count: updatedCount,
+      data: results,
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+/* ======================================================
+   GET CLASS STUDENTS FOR SECTION ALLOCATION
+====================================================== */
+export const getClassStudentsForAllocation = async (filters, user) => {
+  const db = getDB();
+  const scopedFilters = { ...filters };
+
+  if (user?.id) {
+    const dbUser = await getDbUserWithRoles(db, user.id);
+    if (!dbUser.isAdmin) {
+      if (!dbUser.school_id) {
+        throw { status: 400, message: "User has no school assigned" };
+      }
+      scopedFilters.school_id = dbUser.school_id;
+    }
+  }
+
+  return await StudentSectionAllocationModel.getClassStudentsForAllocation(scopedFilters);
 };

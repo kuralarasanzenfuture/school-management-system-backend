@@ -127,3 +127,89 @@ export const validateUpdateSectionAllocation = (data) => {
 
   return cleaned;
 };
+
+
+export const validateBulkSectionAllocations = (data) => {
+  if (!data || typeof data !== "object") {
+    throw { status: 400, message: "Request body must be an object" };
+  }
+
+  const {
+    allocations,
+    class_id,
+    academic_year_id,
+    school_id,
+    default_class_section_id,
+    allocation_date,
+    status,
+    remarks,
+  } = data;
+
+  if (!Array.isArray(allocations) || allocations.length === 0) {
+    throw { status: 400, message: "allocations must be a non-empty array" };
+  }
+
+  const cleanStatus = status ? String(status).trim().toLowerCase() : "active";
+  if (!VALID_ALLOCATION_STATUSES.includes(cleanStatus)) {
+    throw {
+      status: 400,
+      message: `Invalid status: '${status}'. Allowed: ${VALID_ALLOCATION_STATUSES.join(", ")}`,
+    };
+  }
+
+  const allocDate = allocation_date
+    ? String(allocation_date).slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  const cleanedAllocations = allocations.map((item, index) => {
+    if (!item || typeof item !== "object") {
+      throw { status: 400, message: `Item at index ${index} must be an object` };
+    }
+
+    const admission_id = Number(item.admission_id);
+    if (!admission_id || isNaN(admission_id) || admission_id <= 0) {
+      throw { status: 400, message: `Valid admission_id required at index ${index}` };
+    }
+
+    const csid = Number(item.class_section_id || default_class_section_id);
+    if (!csid || isNaN(csid) || csid <= 0) {
+      throw {
+        status: 400,
+        message: `Valid class_section_id required for admission ID ${admission_id}`,
+      };
+    }
+
+    return {
+      admission_id,
+      student_id: item.student_id ? Number(item.student_id) : null,
+      class_section_id: csid,
+      roll_no:
+        item.roll_no !== undefined && item.roll_no !== null
+          ? String(item.roll_no).trim()
+          : null,
+      allocation_date: item.allocation_date
+        ? String(item.allocation_date).slice(0, 10)
+        : allocDate,
+      effective_to: item.effective_to
+        ? String(item.effective_to).slice(0, 10)
+        : null,
+      status: item.status
+        ? String(item.status).trim().toLowerCase()
+        : cleanStatus,
+      remarks:
+        item.remarks !== undefined && item.remarks !== null
+          ? String(item.remarks).trim()
+          : remarks || null,
+    };
+  });
+
+  return {
+    class_id: class_id ? Number(class_id) : null,
+    academic_year_id: academic_year_id ? Number(academic_year_id) : null,
+    school_id: school_id ? Number(school_id) : null,
+    allocation_date: allocDate,
+    status: cleanStatus,
+    remarks: remarks || null,
+    allocations: cleanedAllocations,
+  };
+};
