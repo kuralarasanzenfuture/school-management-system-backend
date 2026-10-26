@@ -1,6 +1,6 @@
 # 🏫 Student Section Allocations API Documentation
 
-Complete API reference and testing guide for the **Student Section Allocations** module (`014_student_section_allocations.sql`).
+Complete API reference and testing guide for the **Student Section Allocations** module (`studentSectionAllocation.routes.js`).
 
 ---
 
@@ -18,16 +18,20 @@ Complete API reference and testing guide for the **Student Section Allocations**
 
 ## 📑 Endpoints Summary
 
-| Method | Endpoint | Description | Query / Params |
+| Method | Endpoint | Description | Request Query / Params / Body |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/student-section-allocations` | Create section allocation or transfer student (auto-handles `effective_to` on previous active section) | Body: `admission_id` (or `student_id`), `class_section_id`, `roll_no`, `allocation_date` |
-| `GET` | `/api/student-section-allocations` | Get section allocations with flexible filters (Admin: all schools or `?school_id=`; User: assigned school only) | Query: `?active_only=true&class_section_id=1&school_id=1` |
-| `GET` | `/api/student-section-allocations/token` | **Token-based:** Get section allocations (Admin: all schools or optional filter; User: assigned school only) | Query: `?class_section_id=1&status=active&search=Aarav` |
-| `GET` | `/api/student-section-allocations/check-allocation` | Check if student has an existing active allocation | Query: `?admission_id=1` or `?student_id=1` |
+| `POST` | `/api/student-section-allocations` | Create initial section allocation or transfer student | Body: `admission_id` or `student_id`, `class_section_id`, `roll_no`, `allocation_date`, `remarks` |
+| `POST` | `/api/student-section-allocations/bulk` | Bulk create / transfer multiple student section allocations | Body: `allocations` array, `class_id`, `academic_year_id`, `school_id`, `default_class_section_id` |
+| `GET` | `/api/student-section-allocations` | Get all section allocations (Admin: all schools or `?school_id=`; User: assigned school only) | Query: `?active_only=true&class_section_id=1&school_id=1&search=` |
+| `GET` | `/api/student-section-allocations/token` | **Token-based:** Get section allocations strictly scoped to logged-in user's school | Query: `?active_only=true&class_section_id=1&status=active` |
+| `GET` | `/api/student-section-allocations/class-students` | Get students admitted to a class for allocation assignment | Query: `?class_id=1&academic_year_id=1&status=unallocated` |
+| `GET` | `/api/student-section-allocations/history` | Get complete allocation transfer history for a student | Query: `?admission_id=1` or `?student_id=1` |
+| `GET` | `/api/student-section-allocations/history/:admissionId` | Get complete allocation transfer history by admission ID route param | Param: `admissionId` |
+| `GET` | `/api/student-section-allocations/check-allocation` | Check if student has an existing active allocation (Non-token) | Query: `?admission_id=1` or `?student_id=1` |
 | `GET` | `/api/student-section-allocations/check-allocation/token` | **Token-based:** Check if student has active allocation in caller's school | Query: `?admission_id=1` or `?student_id=1` |
-| `GET` | `/api/student-section-allocations/:id` | Get single section allocation by ID (enforces school access) | Param: `id` |
-| `PUT` | `/api/student-section-allocations/:id` | Update allocation details (`roll_no`, `effective_to`, `status`, `remarks`) | Param: `id`, Body: updates |
-| `DELETE` | `/api/student-section-allocations/:id` | Delete allocation record | Param: `id` |
+| `GET` | `/api/student-section-allocations/:id` | Get single section allocation details by ID | Param: `id` |
+| `PUT` | `/api/student-section-allocations/:id` | Update allocation details (`roll_no`, `effective_to`, `status`, `remarks`) | Param: `id`, Body: update fields |
+| `DELETE` | `/api/student-section-allocations/:id` | Delete allocation record with audit logging | Param: `id` |
 
 ---
 
@@ -75,7 +79,7 @@ Assigns a student to a section under their current admission.
 
 ## 2. 🔄 Section Transfer (Auto-Handling `effective_to`)
 
-When allocating the student to a new section, the backend **automatically closes out** the previous active section allocation by setting `effective_to` to the new `allocation_date` and marking status as `'transferred'`.
+When allocating a student to a new section, the backend **automatically closes out** the previous active section allocation by setting `effective_to` to the new `allocation_date` and setting status to `'transferred'`.
 
 - **Method:** `POST`
 - **URL:** `{{BASE_URL}}/api/student-section-allocations`
@@ -102,12 +106,7 @@ When allocating the student to a new section, the backend **automatically closes
     "allocation_date": "2026-10-22",
     "effective_to": null,
     "status": "active",
-    "remarks": "Transferred to Section B",
-    "first_name": "Aarav",
-    "last_name": "Kumar",
-    "class_name": "Grade 10",
-    "section_name": "B",
-    "academic_year_name": "2026-2027"
+    "remarks": "Transferred to Section B"
   },
   "closed_previous_allocations": [
     {
@@ -123,80 +122,176 @@ When allocating the student to a new section, the backend **automatically closes
 
 ---
 
-## 3. 🛡️ Validation & Error Responses
+## 3. 📦 Bulk Create / Transfer Section Allocations
 
-### Missing IDs
-- **Missing `admission_id` and `student_id`:**
-  ```json
-  { "message": "admission_id (or student_id) is required" } // 400 Bad Request
-  ```
-- **Missing `class_section_id`:**
-  ```json
-  { "message": "class_section_id is required and must be a valid positive number" } // 400 Bad Request
-  ```
+Assigns or updates sections for multiple students in a single transaction.
 
-### Non-Existent IDs
-- **Admission not found:**
-  ```json
-  { "message": "Student admission with ID 999 not found" } // 404 Not Found
-  ```
-- **Class section not found:**
-  ```json
-  { "message": "Class section with ID 999 not found" } // 404 Not Found
-  ```
+- **Method:** `POST`
+- **URL:** `{{BASE_URL}}/api/student-section-allocations/bulk`
+- **Body:**
+```json
+{
+  "class_id": 1,
+  "academic_year_id": 1,
+  "school_id": 1,
+  "default_class_section_id": 1,
+  "allocation_date": "2026-06-01",
+  "status": "active",
+  "remarks": "Bulk class allocation batch",
+  "allocations": [
+    {
+      "admission_id": 1,
+      "student_id": 1,
+      "class_section_id": 1,
+      "roll_no": "101",
+      "allocation_date": "2026-06-01",
+      "remarks": "Initial allocation"
+    },
+    {
+      "admission_id": 2,
+      "student_id": 2,
+      "class_section_id": 1,
+      "roll_no": "102",
+      "allocation_date": "2026-06-01",
+      "remarks": "Initial allocation"
+    }
+  ]
+}
+```
 
-### Mismatched Class or School
-- **Class mismatch:**
-  ```json
-  { "message": "Class section class 'Grade 9' (Class ID: 3) does not match student admission class (Class ID: 1)" } // 400 Bad Request
-  ```
-
-### Duplicate Active Allocation in Same Section
-- **Already allocated:**
-  ```json
-  { "message": "Student 'Aarav Kumar' is already actively allocated to section 'A' in class 'Grade 10'." } // 409 Conflict
-  ```
+### Response (`200 OK`)
+```json
+{
+  "message": "Bulk allocation completed: 2 newly allocated, 0 transferred, 0 updated.",
+  "total": 2,
+  "allocated_count": 2,
+  "transferred_count": 0,
+  "updated_count": 0,
+  "data": [
+    {
+      "admission_id": 1,
+      "allocation_id": 1,
+      "class_section_id": 1,
+      "roll_no": "101",
+      "action": "allocated"
+    },
+    {
+      "admission_id": 2,
+      "allocation_id": 2,
+      "class_section_id": 1,
+      "roll_no": "102",
+      "action": "allocated"
+    }
+  ]
+}
+```
 
 ---
 
 ## 4. 📋 Get All Section Allocations (With Filters)
 
 - **Method:** `GET`
-- **URL:** `{{BASE_URL}}/api/student-section-allocations?active_only=true&class_section_id=2`
+- **URL:** `{{BASE_URL}}/api/student-section-allocations?active_only=true&class_section_id=1`
+
+### Supported Query Filters:
+- `active_only`: `true` | `false` (filters where status = 'active' and effective_to is current/null)
+- `admission_id`: Number
+- `student_id`: Number
+- `class_section_id`: Number
+- `class_id`: Number
+- `section_id`: Number
+- `academic_year_id`: Number
+- `school_id`: Number (admin only)
+- `status`: `active` | `transferred` | `completed` | `cancelled`
+- `roll_no`: String
+- `gender`: `male` | `female` | `other`
+- `allocation_date`: `YYYY-MM-DD`
+- `search`: Search student names, code, admission number, roll number
+
+---
+
+## 5. 🎟️ Get All Section Allocations By Token
+
+Fetches allocations scoped to caller's school context. Non-admins cannot view other schools' data.
+
+- **Method:** `GET`
+- **URL:** `{{BASE_URL}}/api/student-section-allocations/token?active_only=true`
+
+---
+
+## 6. 🧑‍🎓 Get Class Students For Allocation
+
+Retrieves all admitted students in a class with their current allocation status. Useful for frontend drag-and-drop or bulk assignment tables.
+
+- **Method:** `GET`
+- **URL:** `{{BASE_URL}}/api/student-section-allocations/class-students?class_id=1&academic_year_id=1&status=unallocated`
 
 ### Query Filters:
-- `active_only`: `true` (filters records where `status = 'active'` and `effective_to IS NULL OR effective_to >= CURRENT_DATE`)
-- `admission_id`: Filter by admission ID
-- `student_id`: Filter by student ID
-- `class_section_id`: Filter by class section mapping ID
-- `class_id`: Filter by class ID
-- `section_id`: Filter by section ID
-- `academic_year_id`: Filter by academic year ID
-- `school_id`: Filter by school ID (admin only; non-admin is restricted to assigned school)
-- `status`: `active`, `transferred`, `completed`, `cancelled`
-- `search`: Search across student first/last name, student code, admission number, roll number
+- `class_id`: Class ID or name
+- `academic_year_id`: Academic year ID or name
+- `section_id`: Filter by current section
+- `status`:
+  - `unallocated`: Only students who do NOT have an active section allocation
+  - `allocated`: Students who currently have an active section
+  - Omitted: All admitted students in that class
+- `search`: Search by student name, code, admission number
 
 ---
 
-## 4b. 🎟️ Get Section Allocations By Token (Role & School Scoped)
+## 7. 📜 Get Section Allocation History
 
-Fetches allocations using caller's JWT token credentials.
+Returns the chronological timeline of sections assigned to a student (sorted date descending).
 
-- **Admin Role:** Has access to allocations across **all schools**. Can optionally supply `?school_id=X` to filter a specific school.
-- **Regular User/Staff:** Restricted **strictly to their assigned school**. Querying other school IDs is prohibited.
+- **Via Query Parameter:**
+  - **Method:** `GET`
+  - **URL:** `{{BASE_URL}}/api/student-section-allocations/history?admission_id=1`
+  - **Alternative Query:** `{{BASE_URL}}/api/student-section-allocations/history?student_id=1`
+- **Via Route Parameter:**
+  - **Method:** `GET`
+  - **URL:** `{{BASE_URL}}/api/student-section-allocations/history/:admissionId` (e.g. `/history/1`)
 
-- **Method:** `GET`
-- **URL:** `{{BASE_URL}}/api/student-section-allocations/token?active_only=true&class_section_id=2`
+### Response (`200 OK`)
+```json
+{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "id": 2,
+      "admission_id": 1,
+      "class_section_id": 2,
+      "section_name": "B",
+      "roll_no": "205",
+      "allocation_date": "2026-10-22",
+      "effective_to": null,
+      "status": "active"
+    },
+    {
+      "id": 1,
+      "admission_id": 1,
+      "class_section_id": 1,
+      "section_name": "A",
+      "roll_no": "101",
+      "allocation_date": "2026-06-01",
+      "effective_to": "2026-10-22",
+      "status": "transferred"
+    }
+  ]
+}
+```
 
 ---
 
-## 4c. 🔎 Check Existing Active Allocation
+## 8. 🔎 Check Existing Active Allocation
 
-Check if a student or admission already has an active allocation before attempting to allocate.
+Check whether a student already has an active section before saving.
 
-- **Method:** `GET`
-- **URL:** `{{BASE_URL}}/api/student-section-allocations/check-allocation?admission_id=1`
-- **Token-based URL:** `{{BASE_URL}}/api/student-section-allocations/check-allocation/token?admission_id=1`
+- **Non-Token:**
+  - **Method:** `GET`
+  - **URL:** `{{BASE_URL}}/api/student-section-allocations/check-allocation?admission_id=1&active_only=true`
+- **Token-Based:**
+  - **Method:** `GET`
+  - **URL:** `{{BASE_URL}}/api/student-section-allocations/check-allocation/token?admission_id=1`
 
 ### Response
 ```json
@@ -219,32 +314,45 @@ Check if a student or admission already has an active allocation before attempti
 }
 ```
 
-## 5. 🔍 Get Section Allocation By ID
+---
+
+## 9. 🔍 Get Section Allocation By ID
 
 - **Method:** `GET`
 - **URL:** `{{BASE_URL}}/api/student-section-allocations/:id`
 
 ---
 
-## 6. ✏️ Update Section Allocation
+## 10. ✏️ Update Section Allocation
 
 - **Method:** `PUT`
 - **URL:** `{{BASE_URL}}/api/student-section-allocations/:id`
 - **Body:**
 ```json
 {
-  "roll_no": "115",
+  "roll_no": "110",
   "effective_to": "2026-12-31",
-  "status": "completed",
-  "remarks": "End of semester allocation"
+  "status": "active",
+  "remarks": "Updated roll number and remarks"
 }
 ```
 
-> **Note:** `effective_to` must be `>= allocation_date` (enforced by DB check constraint `chk_section_allocation_dates`).
-
 ---
 
-## 7. 🗑️ Delete Section Allocation
+## 11. 🗑️ Delete Section Allocation
 
 - **Method:** `DELETE`
 - **URL:** `{{BASE_URL}}/api/student-section-allocations/:id`
+
+### Response (`200 OK`)
+```json
+{
+  "message": "Section allocation deleted successfully",
+  "old_data": {
+    "id": 1,
+    "admission_id": 1,
+    "class_section_id": 1,
+    "school_id": 1
+  }
+}
+```

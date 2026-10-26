@@ -206,7 +206,11 @@ export const StudentSectionAllocationModel = {
       );
     }
 
-    query += ` ORDER BY s.first_name ASC, s.last_name ASC, sa.id ASC`;
+    if (filters.sort_order === "date_desc" || filters.admission_id || filters.student_id) {
+      query += ` ORDER BY ssa.allocation_date DESC, ssa.id DESC`;
+    } else {
+      query += ` ORDER BY s.first_name ASC, s.last_name ASC, sa.id ASC`;
+    }
 
     const [rows] = await db.query(query, values);
     return rows;

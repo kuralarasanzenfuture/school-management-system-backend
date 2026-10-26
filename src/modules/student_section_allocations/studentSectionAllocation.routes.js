@@ -10,6 +10,7 @@ import {
   deleteSectionAllocation,
   bulkCreateSectionAllocations,
   getClassStudentsForAllocation,
+  getSectionAllocationHistory,
 } from "./studentSectionAllocation.controller.js";
 import { verifyToken } from "../../middlewares/auth.middleware.js";
 
@@ -25,6 +26,10 @@ router.post("/bulk", bulkCreateSectionAllocations);
 router.get("/", getAllSectionAllocations);
 router.get("/token", getAllSectionAllocationsByToken);
 router.get("/class-students", getClassStudentsForAllocation);
+
+// HISTORY ROUTES
+router.get("/history", getSectionAllocationHistory);
+router.get("/history/:admissionId", getSectionAllocationHistory);
 
 // CHECK ALLOCATION
 router.get("/check-allocation", checkExistingSectionAllocation);

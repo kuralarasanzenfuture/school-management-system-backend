@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "ssa-001-postman-collection",
+    "_postman_id": "ssa-002-postman-collection",
     "name": "Student Section Allocations Module - School Management System",
-    "description": "Collection for testing Student Section Allocations: initial allocation, section transfers with automated effective_to closeout, queries, updates, and delete with audit logs.",
+    "description": "Comprehensive Postman collection for Student Section Allocations: single allocation, section transfers with auto-effective_to closing, bulk allocations, class students discovery, student history, check existing allocation, query by token, update, and delete with audit trail.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -22,11 +22,34 @@
     { "key": "ADMISSION_ID", "value": "1", "type": "string" },
     { "key": "STUDENT_ID", "value": "1", "type": "string" },
     { "key": "CLASS_SECTION_ID", "value": "1", "type": "string" },
-    { "key": "NEW_CLASS_SECTION_ID", "value": "2", "type": "string" }
+    { "key": "NEW_CLASS_SECTION_ID", "value": "2", "type": "string" },
+    { "key": "CLASS_ID", "value": "1", "type": "string" },
+    { "key": "ACADEMIC_YEAR_ID", "value": "1", "type": "string" },
+    { "key": "SCHOOL_ID", "value": "1", "type": "string" }
   ],
   "item": [
     {
       "name": "1. Create Initial Section Allocation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Allocation created successfully\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data).to.be.an('object');",
+              "    if (jsonData.data && jsonData.data.id) {",
+              "        pm.collectionVariables.set(\"ALLOCATION_ID\", jsonData.data.id.toString());",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -44,7 +67,24 @@
       }
     },
     {
-      "name": "2. Transfer Section (Auto-Handles effective_to)",
+      "name": "2. Transfer Section (Auto-Closes Previous Allocation)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"Previous allocation was closed\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.closed_previous_allocations).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -62,7 +102,20 @@
       }
     },
     {
-      "name": "3. Create Section Allocation Using student_id",
+      "name": "3. Create Section Allocation By Student ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -70,7 +123,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"student_id\": {{STUDENT_ID}},\n  \"class_section_id\": {{CLASS_SECTION_ID}},\n  \"roll_no\": \"105\",\n  \"allocation_date\": \"2026-10-22\"\n}"
+          "raw": "{\n  \"student_id\": {{STUDENT_ID}},\n  \"class_section_id\": {{CLASS_SECTION_ID}},\n  \"roll_no\": \"105\",\n  \"allocation_date\": \"2026-10-22\",\n  \"remarks\": \"Allocated using student_id resolution\"\n}"
         },
         "url": {
           "raw": "{{BASE_URL}}/api/student-section-allocations",
@@ -80,7 +133,60 @@
       }
     },
     {
-      "name": "4. Get All Allocations (Active Only)",
+      "name": "4. Bulk Create / Transfer Section Allocations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Bulk counts returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.total).to.be.above(0);",
+              "    pm.expect(jsonData.data).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"class_id\": {{CLASS_ID}},\n  \"academic_year_id\": {{ACADEMIC_YEAR_ID}},\n  \"school_id\": {{SCHOOL_ID}},\n  \"default_class_section_id\": {{CLASS_SECTION_ID}},\n  \"allocation_date\": \"2026-06-01\",\n  \"status\": \"active\",\n  \"remarks\": \"Bulk allocation for class\",\n  \"allocations\": [\n    {\n      \"admission_id\": {{ADMISSION_ID}},\n      \"student_id\": {{STUDENT_ID}},\n      \"class_section_id\": {{CLASS_SECTION_ID}},\n      \"roll_no\": \"101\",\n      \"allocation_date\": \"2026-06-01\",\n      \"remarks\": \"Assigned via bulk\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-section-allocations/bulk",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-section-allocations", "bulk"]
+        }
+      }
+    },
+    {
+      "name": "5. Get All Allocations (Filtered: Active Only)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response is an array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "url": {
@@ -94,22 +200,58 @@
       }
     },
     {
-      "name": "5. Get All Allocations (Filtered by Section and Student)",
+      "name": "6. Get All Allocations (Multi-Filter & Search)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response is an array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "url": {
-          "raw": "{{BASE_URL}}/api/student-section-allocations?class_section_id={{CLASS_SECTION_ID}}&admission_id={{ADMISSION_ID}}",
+          "raw": "{{BASE_URL}}/api/student-section-allocations?class_section_id={{CLASS_SECTION_ID}}&admission_id={{ADMISSION_ID}}&status=active&search=",
           "host": ["{{BASE_URL}}"],
           "path": ["api", "student-section-allocations"],
           "query": [
             { "key": "class_section_id", "value": "{{CLASS_SECTION_ID}}" },
-            { "key": "admission_id", "value": "{{ADMISSION_ID}}" }
+            { "key": "admission_id", "value": "{{ADMISSION_ID}}" },
+            { "key": "status", "value": "active" },
+            { "key": "search", "value": "" }
           ]
         }
       }
     },
     {
-      "name": "6. Get All Allocations By Token",
+      "name": "7. Get All Allocations By Token (Role & School Scoped)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response is an array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "url": {
@@ -123,7 +265,152 @@
       }
     },
     {
-      "name": "7. Check Existing Active Allocation By Token",
+      "name": "8. Get Class Students For Allocation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response is an array of admitted students\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-section-allocations/class-students?class_id={{CLASS_ID}}&academic_year_id={{ACADEMIC_YEAR_ID}}&status=unallocated",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-section-allocations", "class-students"],
+          "query": [
+            { "key": "class_id", "value": "{{CLASS_ID}}" },
+            { "key": "academic_year_id", "value": "{{ACADEMIC_YEAR_ID}}" },
+            { "key": "status", "value": "unallocated", "description": "unallocated | allocated | all" },
+            { "key": "search", "value": "", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Get Section Allocation History (Query Param)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"History array returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.be.true;",
+              "    pm.expect(jsonData.data).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-section-allocations/history?admission_id={{ADMISSION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-section-allocations", "history"],
+          "query": [
+            { "key": "admission_id", "value": "{{ADMISSION_ID}}" },
+            { "key": "student_id", "value": "{{STUDENT_ID}}", "disabled": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Get Section Allocation History By Admission ID Param",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"History array returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.be.true;",
+              "    pm.expect(jsonData.data).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-section-allocations/history/{{ADMISSION_ID}}",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-section-allocations", "history", "{{ADMISSION_ID}}"]
+        }
+      }
+    },
+    {
+      "name": "11. Check Existing Allocation (Non-Token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Check result contains exists flag\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('exists');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{BASE_URL}}/api/student-section-allocations/check-allocation?admission_id={{ADMISSION_ID}}&active_only=true",
+          "host": ["{{BASE_URL}}"],
+          "path": ["api", "student-section-allocations", "check-allocation"],
+          "query": [
+            { "key": "admission_id", "value": "{{ADMISSION_ID}}" },
+            { "key": "active_only", "value": "true" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "12. Check Existing Allocation By Token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Check result contains exists flag\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('exists');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "url": {
@@ -131,13 +418,31 @@
           "host": ["{{BASE_URL}}"],
           "path": ["api", "student-section-allocations", "check-allocation", "token"],
           "query": [
-            { "key": "admission_id", "value": "{{ADMISSION_ID}}" }
+            { "key": "admission_id", "value": "{{ADMISSION_ID}}" },
+            { "key": "student_id", "value": "{{STUDENT_ID}}", "disabled": true }
           ]
         }
       }
     },
     {
-      "name": "8. Get Section Allocation By ID",
+      "name": "13. Get Section Allocation By ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Allocation record returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.id).to.eql(parseInt(pm.collectionVariables.get(\"ALLOCATION_ID\")));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "url": {
@@ -148,7 +453,24 @@
       }
     },
     {
-      "name": "9. Update Section Allocation",
+      "name": "14. Update Section Allocation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Update message returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"successfully\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "PUT",
         "header": [
@@ -156,7 +478,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"roll_no\": \"110\",\n  \"remarks\": \"Updated roll number\",\n  \"effective_to\": \"2026-12-31\",\n  \"status\": \"active\"\n}"
+          "raw": "{\n  \"roll_no\": \"110\",\n  \"remarks\": \"Updated roll number and remarks\",\n  \"effective_to\": \"2026-12-31\",\n  \"status\": \"active\"\n}"
         },
         "url": {
           "raw": "{{BASE_URL}}/api/student-section-allocations/{{ALLOCATION_ID}}",
@@ -166,7 +488,24 @@
       }
     },
     {
-      "name": "10. Delete Section Allocation",
+      "name": "15. Delete Section Allocation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Delete message returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.message).to.include(\"deleted\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "DELETE",
         "url": {

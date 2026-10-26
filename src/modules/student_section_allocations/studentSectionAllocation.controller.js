@@ -377,3 +377,41 @@ export const getClassStudentsForAllocation = async (req, res) => {
     });
   }
 };
+
+/* =====================================
+   GET SECTION ALLOCATION HISTORY
+===================================== */
+export const getSectionAllocationHistory = async (req, res) => {
+  try {
+    const admissionId = req.params.admissionId || req.query.admission_id;
+    const studentId = req.query.student_id;
+
+    if (!admissionId && !studentId) {
+      return res.status(400).json({
+        message: "Please provide admission_id or student_id to view section allocation history.",
+      });
+    }
+
+    const filters = {
+      admission_id: admissionId,
+      student_id: studentId,
+      sort_order: "date_desc",
+    };
+
+    const data = await Service.getAllSectionAllocationsByToken(
+      req.user,
+      filters,
+    );
+
+    return res.json({
+      success: true,
+      count: Array.isArray(data) ? data.length : 0,
+      data: data,
+    });
+  } catch (err) {
+    console.error("GET SECTION ALLOCATION HISTORY ERROR:", err);
+    return res.status(err.status || 500).json({
+      message: err.message || "Failed to fetch student section allocation history",
+    });
+  }
+};
