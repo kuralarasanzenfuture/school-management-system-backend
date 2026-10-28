@@ -40,7 +40,7 @@ export const UserModel = {
   async getUserRoles(user_id) {
     const db = getDB();
     const [roles] = await db.query(
-      ` SELECT r.id, r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ? `,
+      ` SELECT r.id, r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ? ORDER BY r.id ASC `,
       [user_id],
     );
 

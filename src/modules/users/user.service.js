@@ -988,6 +988,7 @@ export const checkPhone = async (phone) => {
 //       FROM roles r
 //       JOIN user_roles ur ON ur.role_id = r.id
 //       WHERE ur.user_id = ?
+//       ORDER BY r.id ASC
 //       `,
 //       [currentUserId],
 //     );
@@ -1167,6 +1168,7 @@ export const updateUser = async (id, data, currentUserId) => {
         FROM roles r
         JOIN user_roles ur ON ur.role_id = r.id
         WHERE ur.user_id = ?
+      ORDER BY r.id ASC
         `,
         [currentUserId],
       );
@@ -1483,6 +1485,7 @@ export const getMyProfileService = async (userId) => {
     FROM roles r
     JOIN user_roles ur ON ur.role_id = r.id
     WHERE ur.user_id = ?
+      ORDER BY r.id ASC
     `,
     [userId],
   );

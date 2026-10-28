@@ -69,10 +69,27 @@ export const validateAttendance = (data) => {
     ),
 
     students: data.students.map((s, i) => {
-      if (!s.admission_id && !s.student_id) {
+      const admId = s.admission_id !== undefined && s.admission_id !== null && s.admission_id !== "" ? Number(s.admission_id) : null;
+      const stuId = s.student_id !== undefined && s.student_id !== null && s.student_id !== "" ? Number(s.student_id) : null;
+
+      if (!admId && !stuId) {
         throw {
           status: 400,
-          message: `admission_id or student_id required for student at index ${i}`,
+          message: `Valid admission_id or student_id required for student at index ${i}`,
+        };
+      }
+
+      if (admId !== null && (isNaN(admId) || admId <= 0)) {
+        throw {
+          status: 400,
+          message: `admission_id must be a positive integer at index ${i}`,
+        };
+      }
+
+      if (stuId !== null && (isNaN(stuId) || stuId <= 0)) {
+        throw {
+          status: 400,
+          message: `student_id must be a positive integer at index ${i}`,
         };
       }
 
@@ -84,8 +101,8 @@ export const validateAttendance = (data) => {
       }
 
       return {
-        admission_id: s.admission_id ? Number(s.admission_id) : null,
-        student_id: s.student_id ? Number(s.student_id) : null,
+        admission_id: admId,
+        student_id: stuId,
         status: s.status,
         remarks: s.remarks || null,
       };

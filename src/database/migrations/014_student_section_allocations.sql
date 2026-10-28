@@ -19,6 +19,6 @@ CREATE TABLE
         CONSTRAINT chk_section_allocation_dates CHECK (
             effective_to IS NULL
             OR effective_to >= allocation_date
-        )
-        UNIQUE KEY unique_section_allocation (admission_id, class_section_id, allocation_date),
+        ),
+        UNIQUE KEY unique_section_allocation (admission_id, class_section_id, allocation_date)
     );

@@ -40,7 +40,7 @@ export const markAttendance = async (user, body) => {
       throw { status: 404, message: "Class section not found" };
     }
 
-    /* 3. RETRIEVE & CROSS-VALIDATE STUDENT_ID AND ADMISSION_ID FROM ADMISSIONS */
+    /* 3. STRICT RETRIEVE & CROSS-VALIDATE STUDENT_ID AND ADMISSION_ID WITH RELATED TABLES */
     const candidateIds = new Set();
     data.students.forEach((s) => {
       if (s.admission_id) candidateIds.add(Number(s.admission_id));
@@ -52,19 +52,48 @@ export const markAttendance = async (user, body) => {
 
     if (ids.length > 0) {
       const placeholders = ids.map(() => "?").join(",");
+      // Verify directly against student_admissions, students, and active section allocation
       const [rows] = await conn.query(
         `
-        SELECT sa.id AS admission_id, sa.student_id, ssa.roll_no, sa.class_id, sa.academic_year_id
+        SELECT 
+          sa.id AS admission_id,
+          sa.student_id,
+          sa.school_id,
+          sa.class_id,
+          sa.academic_year_id,
+          st.id AS verified_student_id,
+          st.first_name,
+          st.last_name,
+          ssa.roll_no,
+          ssa.class_section_id
         FROM student_admissions sa
-        LEFT JOIN student_section_allocations ssa ON sa.id = ssa.admission_id
+        INNER JOIN students st ON sa.student_id = st.id
+        INNER JOIN student_section_allocations ssa ON sa.id = ssa.admission_id
           AND ssa.class_section_id = ?
           AND ssa.status = 'active'
           AND (ssa.effective_to IS NULL OR ssa.effective_to >= ?)
-        WHERE (sa.id IN (${placeholders}) OR sa.student_id IN (${placeholders}))
+        WHERE sa.school_id = ?
           AND sa.class_id = ?
-          AND sa.academic_year_id = ?
+          AND (sa.academic_year_id = ? OR sa.academic_year_id = (
+            SELECT id FROM academic_years 
+            WHERE name = (SELECT name FROM academic_years WHERE id = ?) 
+              AND school_id = ? 
+            LIMIT 1
+          ))
+          AND sa.status = 'active'
+          AND (sa.id IN (${placeholders}) OR sa.student_id IN (${placeholders}))
         `,
-        [data.class_section_id, data.attendance_date, ...ids, ...ids, classInfo.class_id, classInfo.academic_year_id],
+        [
+          data.class_section_id,
+          data.attendance_date,
+          classInfo.school_id,
+          classInfo.class_id,
+          classInfo.academic_year_id,
+          classInfo.academic_year_id,
+          classInfo.school_id,
+          ...ids,
+          ...ids,
+        ],
       );
       validAdmissions = rows;
     }
@@ -82,34 +111,37 @@ export const markAttendance = async (user, body) => {
 
     for (let i = 0; i < data.students.length; i++) {
       const s = data.students[i];
-      let matchedRow = null;
-
       const inputAdmId = s.admission_id ? Number(s.admission_id) : null;
       const inputStId = s.student_id ? Number(s.student_id) : null;
 
-      // 1. Try matching by input admission_id directly
+      let matchedRow = null;
+
+      // 1. If admission_id is provided, match by admission_id
       if (inputAdmId && byAdmissionId.has(inputAdmId)) {
         matchedRow = byAdmissionId.get(inputAdmId);
-      }
-      // 2. Try matching by input student_id directly
+
+        // If student_id was also provided, strictly cross-validate they belong to each other
+        if (inputStId && Number(matchedRow.student_id) !== inputStId) {
+          invalidStudents.push(
+            `Mismatch: admission_id ${inputAdmId} belongs to student_id ${matchedRow.student_id}, not student_id ${inputStId}`
+          );
+          continue;
+        }
+      } 
+      // 2. If only student_id is provided, match by student_id
       else if (inputStId && byStudentId.has(inputStId)) {
         matchedRow = byStudentId.get(inputStId);
       }
-      // 3. Fallback: check if inputAdmId was actually student_id
-      else if (inputAdmId && byStudentId.has(inputAdmId)) {
-        matchedRow = byStudentId.get(inputAdmId);
-      }
-      // 4. Fallback: check if inputStId was actually admission_id
-      else if (inputStId && byAdmissionId.has(inputStId)) {
-        matchedRow = byAdmissionId.get(inputStId);
-      }
 
       if (!matchedRow) {
-        invalidStudents.push(`[admission_id: ${s.admission_id || "N/A"}, student_id: ${s.student_id || "N/A"}]`);
+        invalidStudents.push(
+          `[admission_id: ${s.admission_id || "N/A"}, student_id: ${s.student_id || "N/A"}] (not actively enrolled in ${classInfo.class_name} ${classInfo.section_name})`
+        );
       } else {
+        // Enforce the canonical verified admission_id and student_id from the database
         resolvedStudents.push({
-          admission_id: matchedRow.admission_id,
-          student_id: matchedRow.student_id,
+          admission_id: Number(matchedRow.admission_id),
+          student_id: Number(matchedRow.student_id),
           status: s.status,
           remarks: s.remarks || null,
         });
@@ -319,13 +351,18 @@ export const getAllAttendance = async (filters = {}) => {
   }
 
   if (filters.class_id) {
-    query += ` AND cs.class_id = ?`;
-    values.push(filters.class_id);
+    query += ` AND (cs.class_id = ? OR c.name = ?)`;
+    values.push(filters.class_id, filters.class_id);
   }
 
   if (filters.academic_year_id) {
-    query += ` AND sas.academic_year_id = ?`;
-    values.push(filters.academic_year_id);
+    query += ` AND (sas.academic_year_id = ? OR sas.academic_year_id = (SELECT id FROM academic_years WHERE name = (SELECT name FROM academic_years WHERE id = ?) AND school_id = sas.school_id LIMIT 1))`;
+    values.push(filters.academic_year_id, filters.academic_year_id);
+  }
+
+  if (filters.section) {
+    query += ` AND (s.name = ? OR cs.section_id = ?)`;
+    values.push(filters.section, filters.section);
   }
 
   if (filters.attendance_type) {
@@ -789,6 +826,11 @@ export const getAttendanceByStudent = async (studentIdentifier, filters = {}) =>
 
   const values = [studentIdentifier, studentIdentifier];
 
+  if (filters.date || filters.attendance_date) {
+    query += ` AND sas.attendance_date = ?`;
+    values.push(filters.date || filters.attendance_date);
+  }
+
   if (filters.from_date) {
     query += ` AND sas.attendance_date >= ?`;
     values.push(filters.from_date);
@@ -799,10 +841,28 @@ export const getAttendanceByStudent = async (studentIdentifier, filters = {}) =>
     values.push(filters.to_date);
   }
 
-  if (filters.attendance_type) {
-    const types = filters.attendance_type.split(",");
-    query += ` AND sas.attendance_type IN (?)`;
-    values.push(types);
+  if (filters.attendance_type && filters.attendance_type !== "all") {
+    const types = filters.attendance_type.split(",").map(t => t.trim()).filter(Boolean);
+    if (types.length > 0) {
+      query += ` AND sas.attendance_type IN (?)`;
+      values.push(types);
+    }
+  }
+
+  if (filters.status && filters.status !== "All") {
+    query += ` AND sa.attendance_status = ?`;
+    values.push(filters.status);
+  }
+
+  if (filters.period_no !== undefined && filters.period_no !== null && filters.period_no !== "" && filters.period_no !== "All") {
+    query += ` AND sas.period_no = ?`;
+    values.push(Number(filters.period_no));
+  }
+
+  if (filters.search && String(filters.search).trim()) {
+    const term = `%${String(filters.search).trim()}%`;
+    query += ` AND (sa.remarks LIKE ? OR u_creator.username LIKE ? OR emp.first_name LIKE ? OR emp.last_name LIKE ? OR c.name LIKE ? OR s.name LIKE ? OR sa.attendance_status LIKE ?)`;
+    values.push(term, term, term, term, term, term, term);
   }
 
   query += ` ORDER BY sas.attendance_date DESC, sas.period_no ASC`;

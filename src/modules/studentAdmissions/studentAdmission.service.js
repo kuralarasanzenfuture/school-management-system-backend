@@ -726,16 +726,17 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
           COUNT(DISTINCT sa.id) AS total_students
       FROM student_admissions sa
       INNER JOIN classes c ON c.id = sa.class_id
+      INNER JOIN academic_years ay ON ay.id = sa.academic_year_id
       LEFT JOIN student_section_allocations ssa ON sa.id = ssa.admission_id
         AND ssa.status = 'active'
         AND (ssa.effective_to IS NULL OR ssa.effective_to >= CURRENT_DATE)
       LEFT JOIN class_sections cs ON ssa.class_section_id = cs.id
       LEFT JOIN sections sec ON cs.section_id = sec.id
-      WHERE sa.academic_year_id = ?
+      WHERE (ay.name = ? OR sa.academic_year_id = ? OR ay.name = (SELECT name FROM academic_years WHERE id = ?))
         AND sa.status = 'active'
   `;
 
-  const summaryValues = [academicYearId];
+  const summaryValues = [academicYearId, academicYearId, academicYearId];
 
   if (schoolId) {
     summaryQuery += ` AND sa.school_id = ?`;
@@ -743,13 +744,13 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
   }
 
   if (filters.class_id) {
-    summaryQuery += ` AND sa.class_id = ?`;
-    summaryValues.push(filters.class_id);
+    summaryQuery += ` AND (sa.class_id = ? OR c.name = ?)`;
+    summaryValues.push(filters.class_id, filters.class_id);
   }
 
   if (filters.section) {
-    summaryQuery += ` AND sec.name = ?`;
-    summaryValues.push(filters.section);
+    summaryQuery += ` AND (sec.name = ? OR cs.section_id = ?)`;
+    summaryValues.push(filters.section, filters.section);
   }
 
   summaryQuery += `
@@ -784,7 +785,13 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
   ========================================== */
   let students = [];
 
-  if (filters.include_students === "true") {
+  const includeStudents =
+    filters.include_students === true ||
+    filters.include_students === "true" ||
+    filters.include_students === 1 ||
+    filters.include_students === "1";
+
+  if (includeStudents) {
     let studentQuery = `
         SELECT
             sa.id AS admission_id,
@@ -820,11 +827,11 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
           AND (ssa.effective_to IS NULL OR ssa.effective_to >= CURRENT_DATE)
         LEFT JOIN class_sections cs ON ssa.class_section_id = cs.id
         LEFT JOIN sections sec ON cs.section_id = sec.id
-        WHERE sa.academic_year_id = ?
+        WHERE (ay.name = ? OR sa.academic_year_id = ? OR ay.name = (SELECT name FROM academic_years WHERE id = ?))
           AND sa.status = 'active'
     `;
 
-    const studentValues = [academicYearId];
+    const studentValues = [academicYearId, academicYearId, academicYearId];
 
     if (schoolId) {
       studentQuery += ` AND sa.school_id = ?`;
@@ -832,12 +839,12 @@ export const getClassStudentSummaryByToken = async (user, filters = {}) => {
     }
 
     if (filters.class_id) {
-      studentQuery += ` AND sa.class_id = ?`;
-      studentValues.push(filters.class_id);
+      studentQuery += ` AND (sa.class_id = ? OR c.name = ?)`;
+      studentValues.push(filters.class_id, filters.class_id);
     }
 
     if (filters.section) {
-      studentQuery += ` AND (sec.name = ? OR (sec.name IS NULL AND sa.section = ?))`;
+      studentQuery += ` AND (sec.name = ? OR cs.section_id = ?)`;
       studentValues.push(filters.section, filters.section);
     }
 
