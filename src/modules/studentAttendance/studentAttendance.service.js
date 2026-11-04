@@ -1336,3 +1336,1039 @@ export const checkAttendanceTaken = async (params = {}) => {
   };
 };
 
+/* ===========================================================
+   ATTENDANCE DASHBOARD
+   - Today's high-level attendance KPIs
+   - Class-by-class submission status
+   - Today's absentees with parent contact info
+   - 7-day trend sparkline
+   - Recent activity feed
+=========================================================== */
+export const getAttendanceDashboard = async (user, filters = {}) => {
+  const db = getDB();
+
+  const targetDate =
+    filters.date || new Intl.DateTimeFormat("en-CA").format(new Date());
+
+  const schoolId =
+    filters.school_id ||
+    (user?.role !== "superadmin" ? user?.school_id : null);
+
+  const academicYearId = filters.academic_year_id || null;
+
+  // Resolve matching academic year IDs (by ID and name across schools)
+  let ayFilterIds = [];
+  if (academicYearId && academicYearId !== "all" && academicYearId !== "") {
+    const [[ayRow]] = await db.query(
+      `SELECT id, name, school_id FROM academic_years WHERE id = ?`,
+      [academicYearId],
+    );
+    if (ayRow) {
+      if (schoolId) {
+        const [matched] = await db.query(
+          `SELECT id FROM academic_years WHERE id = ? OR (name = ? AND school_id = ?)`,
+          [academicYearId, ayRow.name, schoolId],
+        );
+        ayFilterIds = matched.map((m) => m.id);
+      } else {
+        ayFilterIds = [Number(academicYearId)];
+      }
+    } else {
+      const [byName] = await db.query(
+        `SELECT id FROM academic_years WHERE name = ? ${schoolId ? "AND school_id = ?" : ""}`,
+        schoolId ? [academicYearId, schoolId] : [academicYearId],
+      );
+      if (byName.length > 0) {
+        ayFilterIds = byName.map((m) => m.id);
+      } else if (!isNaN(Number(academicYearId))) {
+        ayFilterIds = [Number(academicYearId)];
+      }
+    }
+  }
+
+  /* 1. TOTAL ENROLLED ACTIVE STUDENTS */
+  let enrolledQuery = `
+    SELECT COUNT(DISTINCT ssa.admission_id) AS total_enrolled
+    FROM student_section_allocations ssa
+    JOIN class_sections cs ON ssa.class_section_id = cs.id
+    LEFT JOIN student_admissions adm ON ssa.admission_id = adm.id
+    WHERE ssa.status = 'active'
+      AND (adm.status IS NULL OR adm.status = 'active')
+      AND (ssa.effective_to IS NULL OR ssa.effective_to >= ?)
+  `;
+  const enrolledVals = [targetDate];
+
+  if (schoolId) {
+    enrolledQuery += ` AND cs.school_id = ?`;
+    enrolledVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    enrolledQuery += ` AND (cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL OR adm.academic_year_id IN (${placeholders}))`;
+    enrolledVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+
+  let [[enrolledRow]] = await db.query(enrolledQuery, enrolledVals);
+  let totalEnrolled = Number(enrolledRow?.total_enrolled || 0);
+
+  // Fallback if 0 enrolled due to academic year filter mismatch
+  if (totalEnrolled === 0 && ayFilterIds.length > 0) {
+    let fbQuery = `
+      SELECT COUNT(DISTINCT ssa.admission_id) AS total_enrolled
+      FROM student_section_allocations ssa
+      JOIN class_sections cs ON ssa.class_section_id = cs.id
+      WHERE ssa.status = 'active'
+        AND (ssa.effective_to IS NULL OR ssa.effective_to >= ?)
+    `;
+    const fbVals = [targetDate];
+    if (schoolId) {
+      fbQuery += ` AND cs.school_id = ?`;
+      fbVals.push(schoolId);
+    }
+    const [[fbRow]] = await db.query(fbQuery, fbVals);
+    totalEnrolled = Number(fbRow?.total_enrolled || 0);
+  }
+
+  /* 2. ATTENDANCE METRICS FOR TARGET DATE */
+  let summaryQuery = `
+    SELECT 
+      COUNT(sa.id) AS total_marked,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS total_present,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS total_absent,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS total_late,
+      SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS total_half_day,
+      SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS total_leave
+    FROM student_attendance sa
+    JOIN student_attendance_sessions sas ON sa.attendance_session_id = sas.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    WHERE sas.attendance_date = ?
+  `;
+  const summaryVals = [targetDate];
+
+  if (schoolId) {
+    summaryQuery += ` AND sas.school_id = ?`;
+    summaryVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    summaryQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    summaryVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+
+  const [[sumRow]] = await db.query(summaryQuery, summaryVals);
+  const totalMarked = Number(sumRow?.total_marked || 0);
+  const totalPresent = Number(sumRow?.total_present || 0);
+  const totalAbsent = Number(sumRow?.total_absent || 0);
+  const totalLate = Number(sumRow?.total_late || 0);
+  const totalHalfDay = Number(sumRow?.total_half_day || 0);
+  const totalLeave = Number(sumRow?.total_leave || 0);
+
+  const effectivePresent = totalPresent + totalLate;
+  const attendanceRate =
+    totalMarked > 0
+      ? Number(((effectivePresent / totalMarked) * 100).toFixed(1))
+      : 0;
+
+  /* 3. CLASS-BY-CLASS SUBMISSION MATRIX */
+  let classQuery = `
+    SELECT 
+      cs.id AS class_section_id,
+      cs.school_id,
+      cs.academic_year_id,
+      cs.class_id,
+      cs.section_id,
+      c.name AS class_name,
+      s.name AS section_name,
+      (
+        SELECT COUNT(DISTINCT ssa.admission_id) 
+        FROM student_section_allocations ssa 
+        JOIN student_admissions adm ON ssa.admission_id = adm.id
+        WHERE ssa.class_section_id = cs.id 
+          AND ssa.status = 'active'
+          AND (adm.status IS NULL OR adm.status = 'active')
+          AND (ssa.effective_to IS NULL OR ssa.effective_to >= ?)
+      ) AS enrolled_students,
+      sas.id AS session_id,
+      sas.is_locked,
+      sas.attendance_type,
+      sas.created_at AS session_created_at,
+      sas.updated_at AS session_updated_at,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name,
+      COUNT(sa.id) AS marked_count,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS present_count,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS late_count,
+      SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS half_day_count,
+      SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS leave_count
+    FROM class_sections cs
+    JOIN classes c ON cs.class_id = c.id
+    JOIN sections s ON cs.section_id = s.id
+    LEFT JOIN student_attendance_sessions sas 
+      ON sas.class_section_id = cs.id 
+      AND sas.attendance_date = ?
+    LEFT JOIN users u_creator ON sas.created_by = u_creator.id
+    LEFT JOIN employees emp ON emp.user_id = u_creator.id
+    LEFT JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+    WHERE 1=1
+  `;
+  const classVals = [targetDate, targetDate];
+
+  if (schoolId) {
+    classQuery += ` AND cs.school_id = ?`;
+    classVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    classQuery += ` AND (cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    classVals.push(...ayFilterIds);
+  }
+
+  classQuery += `
+    GROUP BY cs.id, sas.id
+    ORDER BY c.name ASC, s.name ASC
+  `;
+
+  let [classRows] = await db.query(classQuery, classVals);
+
+  // Fallback: if 0 classes returned with academic year filter, fetch all classes for this school
+  if (classRows.length === 0 && ayFilterIds.length > 0) {
+    let fbClassQuery = `
+      SELECT 
+        cs.id AS class_section_id,
+        cs.school_id,
+        cs.academic_year_id,
+        cs.class_id,
+        cs.section_id,
+        c.name AS class_name,
+        s.name AS section_name,
+        (
+          SELECT COUNT(DISTINCT ssa.admission_id) 
+          FROM student_section_allocations ssa 
+          JOIN student_admissions adm ON ssa.admission_id = adm.id
+          WHERE ssa.class_section_id = cs.id 
+            AND ssa.status = 'active'
+            AND (adm.status IS NULL OR adm.status = 'active')
+            AND (ssa.effective_to IS NULL OR ssa.effective_to >= ?)
+        ) AS enrolled_students,
+        sas.id AS session_id,
+        sas.is_locked,
+        sas.attendance_type,
+        sas.created_at AS session_created_at,
+        sas.updated_at AS session_updated_at,
+        COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name,
+        COUNT(sa.id) AS marked_count,
+        SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS present_count,
+        SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+        SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS late_count,
+        SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS half_day_count,
+        SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS leave_count
+      FROM class_sections cs
+      JOIN classes c ON cs.class_id = c.id
+      JOIN sections s ON cs.section_id = s.id
+      LEFT JOIN student_attendance_sessions sas 
+        ON sas.class_section_id = cs.id 
+        AND sas.attendance_date = ?
+      LEFT JOIN users u_creator ON sas.created_by = u_creator.id
+      LEFT JOIN employees emp ON emp.user_id = u_creator.id
+      LEFT JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+      WHERE 1=1
+    `;
+    const fbClassVals = [targetDate, targetDate];
+    if (schoolId) {
+      fbClassQuery += ` AND cs.school_id = ?`;
+      fbClassVals.push(schoolId);
+    }
+    fbClassQuery += `
+      GROUP BY cs.id, sas.id
+      ORDER BY c.name ASC, s.name ASC
+    `;
+    const [fbRows] = await db.query(fbClassQuery, fbClassVals);
+    if (fbRows.length > 0) {
+      classRows = fbRows;
+    }
+  }
+
+  let totalClassesCount = classRows.length;
+  let completedClassesCount = 0;
+
+  const classStatuses = classRows.map((row) => {
+    const isMarked = Number(row.marked_count || 0) > 0;
+    if (isMarked) completedClassesCount++;
+
+    const marked = Number(row.marked_count || 0);
+    const present = Number(row.present_count || 0);
+    const late = Number(row.late_count || 0);
+    const absent = Number(row.absent_count || 0);
+    const halfDay = Number(row.half_day_count || 0);
+    const leave = Number(row.leave_count || 0);
+    const enrolled = Number(row.enrolled_students || 0);
+
+    const rate =
+      marked > 0 ? Number((((present + late) / marked) * 100).toFixed(1)) : 0;
+
+    return {
+      class_section_id: row.class_section_id,
+      class_id: row.class_id,
+      section_id: row.section_id,
+      class_name: row.class_name,
+      section_name: row.section_name,
+      enrolled_students: enrolled,
+      is_marked: isMarked,
+      is_locked: Boolean(row.is_locked),
+      session_id: row.session_id || null,
+      attendance_type: row.attendance_type || "daily",
+      marked_count: marked,
+      present_count: present,
+      absent_count: absent,
+      late_count: late,
+      half_day_count: halfDay,
+      leave_count: leave,
+      rate,
+      marked_by_name: row.marked_by_name || "Unassigned",
+      updated_at: row.session_updated_at || row.session_created_at || null,
+    };
+  });
+
+  const pendingClassesCount = Math.max(
+    0,
+    totalClassesCount - completedClassesCount,
+  );
+  const classSubmissionRate =
+    totalClassesCount > 0
+      ? Number(((completedClassesCount / totalClassesCount) * 100).toFixed(1))
+      : 0;
+
+  /* 4. TODAY'S ABSENTEES WITH CONTACT DETAILS */
+  let absenteeQuery = `
+    SELECT 
+      sa.id AS attendance_id,
+      sa.attendance_status,
+      sa.remarks,
+      st.id AS student_id,
+      COALESCE(adm.admission_number, st.student_code) AS admission_no,
+      st.student_code,
+      st.first_name,
+      st.last_name,
+      COALESCE(st.parent_mobile, st.mobile_no) AS mobile_no,
+      st.father_name,
+      st.photo_url,
+      c.name AS class_name,
+      s.name AS section_name,
+      ssa.roll_no,
+      sas.class_section_id,
+      sas.id AS session_id
+    FROM student_attendance sa
+    JOIN student_attendance_sessions sas ON sa.attendance_session_id = sas.id
+    JOIN students st ON sa.student_id = st.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    JOIN classes c ON cs.class_id = c.id
+    JOIN sections s ON cs.section_id = s.id
+    LEFT JOIN student_admissions adm ON sa.admission_id = adm.id
+    LEFT JOIN student_section_allocations ssa 
+      ON adm.id = ssa.admission_id 
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+    WHERE sas.attendance_date = ?
+      AND sa.attendance_status IN ('absent', 'leave', 'half_day')
+  `;
+  const absenteeVals = [targetDate];
+
+  if (schoolId) {
+    absenteeQuery += ` AND sas.school_id = ?`;
+    absenteeVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    absenteeQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    absenteeVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+
+  absenteeQuery += ` ORDER BY sa.attendance_status ASC, c.name ASC, s.name ASC, ssa.roll_no ASC`;
+
+  const [absenteeRows] = await db.query(absenteeQuery, absenteeVals);
+
+  /* 5. SEVEN DAY TREND */
+  let trendQuery = `
+    SELECT 
+      sas.attendance_date,
+      COUNT(sa.id) AS total_marked,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS present_count,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS late_count
+    FROM student_attendance_sessions sas
+    JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    WHERE sas.attendance_date BETWEEN DATE_SUB(?, INTERVAL 6 DAY) AND ?
+  `;
+  const trendVals = [targetDate, targetDate];
+
+  if (schoolId) {
+    trendQuery += ` AND sas.school_id = ?`;
+    trendVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    trendQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    trendVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+
+  trendQuery += `
+    GROUP BY sas.attendance_date
+    ORDER BY sas.attendance_date ASC
+  `;
+
+  const [trendRows] = await db.query(trendQuery, trendVals);
+
+  const sevenDayTrend = trendRows.map((r) => {
+    const total = Number(r.total_marked || 0);
+    const pres = Number(r.present_count || 0);
+    const late = Number(r.late_count || 0);
+    const abs = Number(r.absent_count || 0);
+    const rate =
+      total > 0 ? Number((((pres + late) / total) * 100).toFixed(1)) : 0;
+
+    const d = new Date(r.attendance_date);
+    const day = d.toLocaleDateString("en-US", { weekday: "short" });
+
+    return {
+      date: r.attendance_date,
+      day,
+      total_marked: total,
+      present_count: pres,
+      absent_count: abs,
+      late_count: late,
+      rate,
+    };
+  });
+
+  /* 6. RECENT SESSIONS ACTIVITY */
+  let recentQuery = `
+    SELECT 
+      sas.id AS session_id,
+      sas.class_section_id,
+      sas.attendance_date,
+      sas.attendance_type,
+      sas.period_no,
+      sas.is_locked,
+      sas.created_at,
+      sas.updated_at,
+      c.name AS class_name,
+      s.name AS section_name,
+      COALESCE(CONCAT(emp.first_name, ' ', COALESCE(emp.last_name, '')), u_creator.username) AS marked_by_name,
+      COUNT(sa.id) AS total_students,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS present_count,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count
+    FROM student_attendance_sessions sas
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    JOIN classes c ON cs.class_id = c.id
+    JOIN sections s ON cs.section_id = s.id
+    LEFT JOIN users u_creator ON sas.created_by = u_creator.id
+    LEFT JOIN employees emp ON emp.user_id = u_creator.id
+    LEFT JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+    WHERE sas.attendance_date = ?
+  `;
+  const recentVals = [targetDate];
+
+  if (schoolId) {
+    recentQuery += ` AND sas.school_id = ?`;
+    recentVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    recentQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    recentVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+
+  recentQuery += `
+    GROUP BY sas.id
+    ORDER BY sas.updated_at DESC, sas.created_at DESC
+    LIMIT 8
+  `;
+
+  const [recentRows] = await db.query(recentQuery, recentVals);
+
+  // 7. Get most recent session date in the database for this school (useful when targetDate has no attendance yet)
+  let latestDateQuery = `
+    SELECT MAX(sas.attendance_date) AS latest_date
+    FROM student_attendance_sessions sas
+    WHERE 1=1
+  `;
+  const latestDateVals = [];
+  if (schoolId) {
+    latestDateQuery += ` AND sas.school_id = ?`;
+    latestDateVals.push(schoolId);
+  }
+  const [[latestRow]] = await db.query(latestDateQuery, latestDateVals);
+  const latestMarkedDate = latestRow?.latest_date || null;
+
+  return {
+    success: true,
+    date: targetDate,
+    latest_marked_date: latestMarkedDate,
+    kpis: {
+      total_enrolled: totalEnrolled,
+      total_marked: totalMarked,
+      total_present: totalPresent,
+      total_absent: totalAbsent,
+      total_late: totalLate,
+      total_half_day: totalHalfDay,
+      total_leave: totalLeave,
+      attendance_rate: attendanceRate,
+      class_submission_rate: classSubmissionRate,
+      total_classes: totalClassesCount,
+      completed_classes: completedClassesCount,
+      pending_classes: pendingClassesCount,
+    },
+    class_statuses: classStatuses,
+    absentees_today: absenteeRows,
+    seven_day_trend: sevenDayTrend,
+    recent_activity: recentRows,
+  };
+};
+
+/* ===========================================================
+   ATTENDANCE ANALYTICS
+   - Longitudinal historical trends (7d, 30d, custom)
+   - Overall KPI metrics
+   - Status distribution breakdown
+   - Class performance ranking
+   - Day-of-week absentee pattern
+   - Chronic absenteeism detection (<75% attendance)
+=========================================================== */
+export const getAttendanceAnalytics = async (user, filters = {}) => {
+  const db = getDB();
+
+  const toDate =
+    filters.to_date || new Intl.DateTimeFormat("en-CA").format(new Date());
+
+  // Default to 30 days before toDate if not provided
+  let fromDate = filters.from_date;
+  if (!fromDate) {
+    const d = new Date(toDate);
+    d.setDate(d.getDate() - 29);
+    fromDate = new Intl.DateTimeFormat("en-CA").format(d);
+  }
+
+  const schoolId =
+    filters.school_id ||
+    (user?.role !== "superadmin" ? user?.school_id : null);
+
+  const academicYearId = filters.academic_year_id || null;
+  const classId = filters.class_id || null;
+  const rawSection = filters.section_id || filters.section || null;
+  let sectionName = null;
+  let sectionNumId = null;
+  if (rawSection) {
+    const cleaned = String(rawSection).replace(/^Section\s+/i, "").trim();
+    sectionName = cleaned;
+    if (/^\d+$/.test(cleaned)) {
+      sectionNumId = Number(cleaned);
+    }
+  }
+  const classSectionId = filters.class_section_id || null;
+
+  // Resolve matching academic year IDs (by ID and name across schools)
+  let ayFilterIds = [];
+  if (academicYearId && academicYearId !== "all" && academicYearId !== "") {
+    const [[ayRow]] = await db.query(
+      `SELECT id, name, school_id FROM academic_years WHERE id = ?`,
+      [academicYearId],
+    );
+    if (ayRow) {
+      if (schoolId) {
+        const [matched] = await db.query(
+          `SELECT id FROM academic_years WHERE id = ? OR (name = ? AND school_id = ?)`,
+          [academicYearId, ayRow.name, schoolId],
+        );
+        ayFilterIds = matched.map((m) => m.id);
+      } else {
+        ayFilterIds = [Number(academicYearId)];
+      }
+    } else {
+      const [byName] = await db.query(
+        `SELECT id FROM academic_years WHERE name = ? ${schoolId ? "AND school_id = ?" : ""}`,
+        schoolId ? [academicYearId, schoolId] : [academicYearId],
+      );
+      if (byName.length > 0) {
+        ayFilterIds = byName.map((m) => m.id);
+      } else if (!isNaN(Number(academicYearId))) {
+        ayFilterIds = [Number(academicYearId)];
+      }
+    }
+  }
+
+  /* 1. OVERALL PERIOD METRICS */
+  let kpiQuery = `
+    SELECT 
+      COUNT(DISTINCT sas.id) AS total_sessions,
+      COUNT(sa.id) AS total_records,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS total_present,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS total_absent,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS total_late,
+      SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS total_half_day,
+      SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS total_leave
+    FROM student_attendance sa
+    JOIN student_attendance_sessions sas ON sa.attendance_session_id = sas.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    JOIN sections s ON cs.section_id = s.id
+    WHERE sas.attendance_date BETWEEN ? AND ?
+  `;
+  const kpiVals = [fromDate, toDate];
+
+  if (schoolId) {
+    kpiQuery += ` AND sas.school_id = ?`;
+    kpiVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    kpiQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    kpiVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+  if (classId) {
+    kpiQuery += ` AND cs.class_id = ?`;
+    kpiVals.push(classId);
+  }
+  if (sectionName) {
+    kpiQuery += ` AND (s.name = ? OR cs.section_id = ?)`;
+    kpiVals.push(sectionName, sectionNumId || -1);
+  }
+  if (classSectionId) {
+    kpiQuery += ` AND cs.id = ?`;
+    kpiVals.push(classSectionId);
+  }
+
+  const [[kpiRow]] = await db.query(kpiQuery, kpiVals);
+  const totalSessions = Number(kpiRow?.total_sessions || 0);
+  const totalRecords = Number(kpiRow?.total_records || 0);
+  const totalPresent = Number(kpiRow?.total_present || 0);
+  const totalAbsent = Number(kpiRow?.total_absent || 0);
+  const totalLate = Number(kpiRow?.total_late || 0);
+  const totalHalfDay = Number(kpiRow?.total_half_day || 0);
+  const totalLeave = Number(kpiRow?.total_leave || 0);
+
+  const effectivePresent = totalPresent + totalLate;
+  const avgAttendanceRate =
+    totalRecords > 0
+      ? Number(((effectivePresent / totalRecords) * 100).toFixed(1))
+      : 0;
+
+  /* 2. TIMELINE (DAILY ATTENDANCE POINTS) */
+  let timelineQuery = `
+    SELECT 
+      sas.attendance_date,
+      COUNT(sa.id) AS total_marked,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS present_count,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS late_count,
+      SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS half_day_count,
+      SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS leave_count
+    FROM student_attendance_sessions sas
+    JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    JOIN sections s ON cs.section_id = s.id
+    WHERE sas.attendance_date BETWEEN ? AND ?
+  `;
+  const timelineVals = [fromDate, toDate];
+
+  if (schoolId) {
+    timelineQuery += ` AND sas.school_id = ?`;
+    timelineVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    timelineQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    timelineVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+  if (classId) {
+    timelineQuery += ` AND cs.class_id = ?`;
+    timelineVals.push(classId);
+  }
+  if (sectionName) {
+    timelineQuery += ` AND (s.name = ? OR cs.section_id = ?)`;
+    timelineVals.push(sectionName, sectionNumId || -1);
+  }
+  if (classSectionId) {
+    timelineQuery += ` AND cs.id = ?`;
+    timelineVals.push(classSectionId);
+  }
+
+  timelineQuery += `
+    GROUP BY sas.attendance_date
+    ORDER BY sas.attendance_date ASC
+  `;
+
+  const [timelineRows] = await db.query(timelineQuery, timelineVals);
+
+  const trendTimeline = timelineRows.map((r) => {
+    const total = Number(r.total_marked || 0);
+    const pres = Number(r.present_count || 0);
+    const late = Number(r.late_count || 0);
+    const abs = Number(r.absent_count || 0);
+    const half = Number(r.half_day_count || 0);
+    const leave = Number(r.leave_count || 0);
+    const rate =
+      total > 0 ? Number((((pres + late) / total) * 100).toFixed(1)) : 0;
+
+    const d = new Date(r.attendance_date);
+    const day = d.toLocaleDateString("en-US", { weekday: "short" });
+
+    return {
+      date: r.attendance_date,
+      day,
+      total_marked: total,
+      present_count: pres,
+      absent_count: abs,
+      late_count: late,
+      half_day_count: half,
+      leave_count: leave,
+      rate,
+    };
+  });
+
+  /* 3. STATUS DISTRIBUTION */
+  const statusDistribution = [
+    {
+      status: "Present",
+      count: totalPresent,
+      percentage:
+        totalRecords > 0
+          ? Number(((totalPresent / totalRecords) * 100).toFixed(1))
+          : 0,
+      color: "#10b981",
+    },
+    {
+      status: "Absent",
+      count: totalAbsent,
+      percentage:
+        totalRecords > 0
+          ? Number(((totalAbsent / totalRecords) * 100).toFixed(1))
+          : 0,
+      color: "#ef4444",
+    },
+    {
+      status: "Late",
+      count: totalLate,
+      percentage:
+        totalRecords > 0
+          ? Number(((totalLate / totalRecords) * 100).toFixed(1))
+          : 0,
+      color: "#f59e0b",
+    },
+    {
+      status: "Half Day",
+      count: totalHalfDay,
+      percentage:
+        totalRecords > 0
+          ? Number(((totalHalfDay / totalRecords) * 100).toFixed(1))
+          : 0,
+      color: "#8b5cf6",
+    },
+    {
+      status: "Leave",
+      count: totalLeave,
+      percentage:
+        totalRecords > 0
+          ? Number(((totalLeave / totalRecords) * 100).toFixed(1))
+          : 0,
+      color: "#3b82f6",
+    },
+  ];
+
+  /* 4. CLASS PERFORMANCE RANKING */
+  let classPerfQuery = `
+    SELECT 
+      cs.id AS class_section_id,
+      cs.class_id,
+      cs.section_id,
+      c.name AS class_name,
+      s.name AS section_name,
+      COUNT(DISTINCT sas.id) AS sessions_count,
+      COUNT(sa.id) AS total_records,
+      SUM(CASE WHEN sa.attendance_status = 'present' THEN 1 ELSE 0 END) AS present_count,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS late_count,
+      SUM(CASE WHEN sa.attendance_status = 'half_day' THEN 1 ELSE 0 END) AS half_day_count,
+      SUM(CASE WHEN sa.attendance_status = 'leave' THEN 1 ELSE 0 END) AS leave_count
+    FROM class_sections cs
+    JOIN classes c ON cs.class_id = c.id
+    JOIN sections s ON cs.section_id = s.id
+    JOIN student_attendance_sessions sas ON sas.class_section_id = cs.id
+    JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+    WHERE sas.attendance_date BETWEEN ? AND ?
+  `;
+  const classPerfVals = [fromDate, toDate];
+
+  if (schoolId) {
+    classPerfQuery += ` AND cs.school_id = ?`;
+    classPerfVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    classPerfQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    classPerfVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+  if (classId) {
+    classPerfQuery += ` AND cs.class_id = ?`;
+    classPerfVals.push(classId);
+  }
+  if (sectionName) {
+    classPerfQuery += ` AND (s.name = ? OR cs.section_id = ?)`;
+    classPerfVals.push(sectionName, sectionNumId || -1);
+  }
+  if (classSectionId) {
+    classPerfQuery += ` AND cs.id = ?`;
+    classPerfVals.push(classSectionId);
+  }
+
+  classPerfQuery += `
+    GROUP BY cs.id
+    ORDER BY (SUM(CASE WHEN sa.attendance_status IN ('present', 'late') THEN 1 ELSE 0 END) / COUNT(sa.id)) DESC
+  `;
+
+  const [classPerfRows] = await db.query(classPerfQuery, classPerfVals);
+
+  const classPerformance = classPerfRows.map((row, idx) => {
+    const total = Number(row.total_records || 0);
+    const pres = Number(row.present_count || 0);
+    const late = Number(row.late_count || 0);
+    const abs = Number(row.absent_count || 0);
+    const half = Number(row.half_day_count || 0);
+    const leave = Number(row.leave_count || 0);
+    const rate =
+      total > 0 ? Number((((pres + late) / total) * 100).toFixed(1)) : 0;
+
+    return {
+      rank: idx + 1,
+      class_section_id: row.class_section_id,
+      class_id: row.class_id,
+      section_id: row.section_id,
+      class_name: row.class_name,
+      section_name: row.section_name,
+      sessions_count: Number(row.sessions_count || 0),
+      total_records: total,
+      present_count: pres,
+      absent_count: abs,
+      late_count: late,
+      half_day_count: half,
+      leave_count: leave,
+      rate,
+    };
+  });
+
+  const bestClass = classPerformance.length > 0 ? classPerformance[0] : null;
+  const lowestClass =
+    classPerformance.length > 1
+      ? classPerformance[classPerformance.length - 1]
+      : null;
+
+  /* 5. DAY-OF-WEEK PATTERN ANALYSIS (Mon through Sat) */
+  let dowQuery = `
+    SELECT 
+      DAYOFWEEK(sas.attendance_date) AS dow_num,
+      COUNT(sa.id) AS total_records,
+      SUM(CASE WHEN sa.attendance_status IN ('present', 'late') THEN 1 ELSE 0 END) AS present_count,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_count
+    FROM student_attendance_sessions sas
+    JOIN student_attendance sa ON sa.attendance_session_id = sas.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    JOIN sections s ON cs.section_id = s.id
+    WHERE sas.attendance_date BETWEEN ? AND ?
+  `;
+  const dowVals = [fromDate, toDate];
+
+  if (schoolId) {
+    dowQuery += ` AND sas.school_id = ?`;
+    dowVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    dowQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    dowVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+  if (classId) {
+    dowQuery += ` AND cs.class_id = ?`;
+    dowVals.push(classId);
+  }
+  if (sectionName) {
+    dowQuery += ` AND (s.name = ? OR cs.section_id = ?)`;
+    dowVals.push(sectionName, sectionNumId || -1);
+  }
+  if (classSectionId) {
+    dowQuery += ` AND cs.id = ?`;
+    dowVals.push(classSectionId);
+  }
+
+  dowQuery += `
+    GROUP BY DAYOFWEEK(sas.attendance_date)
+    ORDER BY dow_num ASC
+  `;
+
+  const [dowRows] = await db.query(dowQuery, dowVals);
+
+  const dayNames = {
+    1: "Sunday",
+    2: "Monday",
+    3: "Tuesday",
+    4: "Wednesday",
+    5: "Thursday",
+    6: "Friday",
+    7: "Saturday",
+  };
+
+  const dayOfWeekAnalysis = dowRows.map((r) => {
+    const total = Number(r.total_records || 0);
+    const pres = Number(r.present_count || 0);
+    const abs = Number(r.absent_count || 0);
+    const rate =
+      total > 0 ? Number(((pres / total) * 100).toFixed(1)) : 0;
+
+    return {
+      dow_num: r.dow_num,
+      day_name: dayNames[r.dow_num] || "Day",
+      total_records: total,
+      present_count: pres,
+      absent_count: abs,
+      avg_rate: rate,
+    };
+  });
+
+  /* 6. CHRONIC ABSENTEEISM / AT-RISK STUDENTS (< 75% ATTENDANCE) */
+  let riskQuery = `
+    SELECT 
+      st.id AS student_id,
+      adm.id AS admission_id,
+      COALESCE(adm.admission_number, st.student_code) AS admission_no,
+      st.student_code,
+      st.first_name,
+      st.last_name,
+      COALESCE(st.parent_mobile, st.mobile_no) AS mobile_no,
+      st.father_name,
+      st.photo_url,
+      c.name AS class_name,
+      s.name AS section_name,
+      ssa.roll_no,
+      COUNT(sa.id) AS total_days,
+      SUM(CASE WHEN sa.attendance_status IN ('present', 'late') THEN 1 ELSE 0 END) AS present_days,
+      SUM(CASE WHEN sa.attendance_status = 'absent' THEN 1 ELSE 0 END) AS absent_days,
+      SUM(CASE WHEN sa.attendance_status = 'late' THEN 1 ELSE 0 END) AS late_days,
+      ROUND((SUM(CASE WHEN sa.attendance_status IN ('present', 'late') THEN 1 ELSE 0 END) / COUNT(sa.id)) * 100, 1) AS attendance_rate
+    FROM student_attendance sa
+    JOIN student_attendance_sessions sas ON sa.attendance_session_id = sas.id
+    JOIN students st ON sa.student_id = st.id
+    JOIN class_sections cs ON sas.class_section_id = cs.id
+    JOIN classes c ON cs.class_id = c.id
+    JOIN sections s ON cs.section_id = s.id
+    LEFT JOIN student_admissions adm ON sa.admission_id = adm.id
+    LEFT JOIN student_section_allocations ssa 
+      ON adm.id = ssa.admission_id 
+      AND ssa.class_section_id = cs.id
+      AND ssa.status = 'active'
+    WHERE sas.attendance_date BETWEEN ? AND ?
+  `;
+  const riskVals = [fromDate, toDate];
+
+  if (schoolId) {
+    riskQuery += ` AND sas.school_id = ?`;
+    riskVals.push(schoolId);
+  }
+  if (ayFilterIds.length > 0) {
+    const placeholders = ayFilterIds.map(() => "?").join(", ");
+    riskQuery += ` AND (sas.academic_year_id IN (${placeholders}) OR sas.academic_year_id IS NULL OR cs.academic_year_id IN (${placeholders}) OR cs.academic_year_id IS NULL)`;
+    riskVals.push(...ayFilterIds, ...ayFilterIds);
+  }
+  if (classId) {
+    riskQuery += ` AND cs.class_id = ?`;
+    riskVals.push(classId);
+  }
+  if (sectionName) {
+    riskQuery += ` AND (s.name = ? OR cs.section_id = ?)`;
+    riskVals.push(sectionName, sectionNumId || -1);
+  }
+  if (classSectionId) {
+    riskQuery += ` AND cs.id = ?`;
+    riskVals.push(classSectionId);
+  }
+
+  riskQuery += `
+    GROUP BY 
+      st.id, 
+      adm.id, 
+      adm.admission_number,
+      st.student_code,
+      st.first_name, 
+      st.last_name, 
+      st.parent_mobile,
+      st.mobile_no, 
+      st.father_name, 
+      st.photo_url, 
+      c.name, 
+      s.name, 
+      ssa.roll_no
+    HAVING COUNT(sa.id) >= 3 AND attendance_rate < 75.0
+    ORDER BY attendance_rate ASC, absent_days DESC
+    LIMIT 20
+  `;
+
+  const [riskRows] = await db.query(riskQuery, riskVals);
+
+  // 7. Date span metadata in database for this school
+  let spanQuery = `
+    SELECT MIN(sas.attendance_date) AS min_date, MAX(sas.attendance_date) AS max_date
+    FROM student_attendance_sessions sas
+    WHERE 1=1
+  `;
+  const spanVals = [];
+  if (schoolId) {
+    spanQuery += ` AND sas.school_id = ?`;
+    spanVals.push(schoolId);
+  }
+  const [[spanRow]] = await db.query(spanQuery, spanVals);
+
+  return {
+    success: true,
+    filters: {
+      from_date: fromDate,
+      to_date: toDate,
+      school_id: schoolId,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      section_id: rawSection,
+      class_section_id: classSectionId,
+    },
+    date_span: {
+      min_date: spanRow?.min_date || null,
+      max_date: spanRow?.max_date || null,
+    },
+    overview: {
+      total_sessions: totalSessions,
+      total_records: totalRecords,
+      total_present: totalPresent,
+      total_absent: totalAbsent,
+      total_late: totalLate,
+      total_half_day: totalHalfDay,
+      total_leave: totalLeave,
+      avg_attendance_rate: avgAttendanceRate,
+      best_class: bestClass
+        ? {
+            class_name: bestClass.class_name,
+            section_name: bestClass.section_name,
+            rate: bestClass.rate,
+          }
+        : null,
+      lowest_class: lowestClass
+        ? {
+            class_name: lowestClass.class_name,
+            section_name: lowestClass.section_name,
+            rate: lowestClass.rate,
+          }
+        : null,
+      chronic_absentee_count: riskRows.length,
+    },
+    trend_timeline: trendTimeline,
+    status_distribution: statusDistribution,
+    class_performance: classPerformance,
+    day_of_week_analysis: dayOfWeekAnalysis,
+    at_risk_students: riskRows,
+  };
+};
+

@@ -15,6 +15,8 @@ import {
   getAttendanceSummary,
   getAttendanceByStudentId,
   checkAttendanceTaken,
+  getAttendanceDashboard,
+  getAttendanceAnalytics,
 } from "./studentAttendance.controller.js";
 
 const router = express.Router();
@@ -42,6 +44,12 @@ router.get("/token", getAllAttendanceByToken);
 
 // Attendance Count Summary (daily/period metrics)
 router.get("/summary", getAttendanceSummary);
+
+// Student Attendance Dashboard (Real-time operational KPIs, class submission matrix, absentees)
+router.get("/dashboard", getAttendanceDashboard);
+
+// Student Attendance Analytics (Historical trends, class ranking, at-risk students)
+router.get("/analytics", getAttendanceAnalytics);
 
 // Attendance by Date
 // Example: /api/students-attendance/date?date=2026-07-22&class_section_id=1

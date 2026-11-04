@@ -393,3 +393,35 @@ export const checkAttendanceTaken = async (req, res) => {
   }
 };
 
+/* ===========================
+   ATTENDANCE DASHBOARD
+=========================== */
+export const getAttendanceDashboard = async (req, res) => {
+  try {
+    const result = await Service.getAttendanceDashboard(req.user, req.query);
+    res.json(result);
+  } catch (err) {
+    console.error("Get Attendance Dashboard Error:", err);
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/* ===========================
+   ATTENDANCE ANALYTICS
+=========================== */
+export const getAttendanceAnalytics = async (req, res) => {
+  try {
+    const result = await Service.getAttendanceAnalytics(req.user, req.query);
+    res.json(result);
+  } catch (err) {
+    console.error("Get Attendance Analytics Error:", err);
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
